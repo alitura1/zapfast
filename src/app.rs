@@ -55,6 +55,17 @@ const TYPING_TIMEOUT: Duration = Duration::from_secs(12);
 /// How long other apps' media stays paused while the next voice message of a
 /// run downloads. A stalled download must not keep music paused for good.
 const VOICE_FETCH_HOLD: Duration = Duration::from_secs(10);
+/// How long a finished call's outcome stays on screen before the surface goes away.
+const CALL_FAREWELL: Duration = Duration::from_secs(4);
+
+/// Orders a call log newest first, with the call id breaking a tie so the order is stable.
+fn sort_calls(calls: &mut [crate::model::CallRecord]) {
+    calls.sort_by(|a, b| {
+        b.started_at
+            .cmp(&a.started_at)
+            .then_with(|| b.id.cmp(&a.id))
+    });
+}
 
 /// Loaded chat history and paging state.
 #[derive(Default)]
@@ -78,6 +89,8 @@ pub struct Conversation {
     /// The height each row last took, keyed by message id, so the transcript
     /// can skip rows far from the viewport instead of laying them out.
     pub(crate) rows: HashMap<String, RowHeight>,
+    /// This chat's calls, newest first, drawn among the messages by time.
+    pub calls: Vec<crate::model::CallRecord>,
 }
 
 /// A transcript row's height as last laid out or estimated.
@@ -426,6 +439,30 @@ pub struct App {
     pub window_focused: bool,
     /// Presence last reported to the backend.
     reported_online: Option<bool>,
+    /// The live call, or the outcome of the one that just ended.
+    pub call: Option<crate::calls::CallUpdate>,
+    /// When a finished call's surface should disappear.
+    call_surface_until: Option<Instant>,
+    /// The microphones, speakers and cameras the call screen offers.
+    pub call_devices: crate::calls::DeviceList,
+    /// Whether the call screen shows its device pickers.
+    pub call_devices_open: bool,
+    /// Whether the full call screen is put aside so a chat can be read while the call runs. The call
+    /// itself is untouched; the surface is what moves, and a bar offers the way back.
+    pub call_surface_hidden: bool,
+    /// The generation of an incoming call the desktop was told about, so its notification can be
+    /// taken back when the call is answered or given up.
+    call_notified: Option<u64>,
+    /// The call log, newest first, as the Calls view shows it.
+    pub call_log: Vec<crate::model::CallRecord>,
+    /// Whether the log has been read at least once, so an empty view can say which empty it is.
+    pub call_log_loaded: bool,
+    /// The newest local camera preview and peer picture for the call screen.
+    pub call_local_frame: Option<std::sync::Arc<egui::ColorImage>>,
+    pub call_remote_frame: Option<std::sync::Arc<egui::ColorImage>>,
+    /// Set when a call event or a video frame arrived, so the frame is drawn now instead of when
+    /// something else happens to ask for a repaint.
+    call_repaint: bool,
     /// Whether ZapFast starts at login, when this installation supports it.
     pub start_with_system: Option<bool>,
     /// Cross-thread window repaint handle.
@@ -633,6 +670,14 @@ impl App {
         app.backend.send(Command::SetDownloadFolder(
             app.settings.download_folder.clone(),
         ));
+        // The call devices the last session used, so a call opened now starts on them.
+        app.backend.send(Command::SetCallDevices {
+            microphone: app.settings.call_microphone.clone(),
+            speaker: app.settings.call_speaker.clone(),
+            camera: app.settings.call_camera.clone(),
+        });
+        // The call log, so the Calls view has something to show the moment it is opened.
+        app.backend.send(Command::LoadCalls);
         if crate::autostart::supported() {
             app.start_with_system = Some(crate::autostart::enabled());
         }
@@ -837,6 +882,17 @@ impl App {
             quit_requested: false,
             window_focused: false,
             reported_online: None,
+            call: None,
+            call_surface_until: None,
+            call_devices: crate::calls::DeviceList::default(),
+            call_devices_open: true,
+            call_surface_hidden: false,
+            call_notified: None,
+            call_log: Vec::new(),
+            call_log_loaded: false,
+            call_local_frame: None,
+            call_remote_frame: None,
+            call_repaint: false,
             start_with_system: None,
             waker,
             tray: None,
@@ -915,10 +971,14 @@ impl App {
                 .unwrap_or_else(|p| p.into_inner()),
         );
         for target in opened {
-            self.actions.push(Action::OpenMessage {
-                chat: target.chat,
-                message: target.message,
-            });
+            // A call notification carries no message: bringing the window up is enough, since the
+            // call surface is drawn over whatever is open and is waiting for Accept or Decline.
+            if let Some(message) = target.message {
+                self.actions.push(Action::OpenMessage {
+                    chat: target.chat,
+                    message,
+                });
+            }
             self.actions.push(Action::ShowWindow);
         }
     }
@@ -965,7 +1025,7 @@ impl App {
             sound,
             crate::notify::NotificationTarget {
                 chat: chat_id.to_owned(),
-                message: message.id.clone(),
+                message: Some(message.id.clone()),
             },
             std::sync::Arc::clone(&self.notification_opens),
             move || waker.wake(),
@@ -1726,6 +1786,25 @@ impl App {
                     self.labels = labels;
                     self.prune_labels();
                 }
+                Event::Call(update) => self.handle_call_update(*update),
+                Event::CallDevices(devices) => self.call_devices = *devices,
+                Event::CallLog(calls) => {
+                    self.call_log = *calls;
+                    self.call_log_loaded = true;
+                }
+                Event::ChatCalls { chat, calls } => {
+                    self.conversations.entry(chat).or_default().calls = *calls;
+                }
+                Event::CallLogged(record) => self.call_logged(*record),
+                Event::CallVideo { local, remote } => {
+                    if let Some(image) = local {
+                        self.call_local_frame = Some(image);
+                    }
+                    if let Some(image) = remote {
+                        self.call_remote_frame = Some(image);
+                    }
+                    self.call_repaint = true;
+                }
                 Event::Drafts(drafts) => {
                     // Unsent text stored by an earlier session. Text typed in
                     // this session wins over the stored copy.
@@ -2315,6 +2394,20 @@ impl App {
         self.sidebar_visible = true;
     }
 
+    /// Files a call that just ended, so the Calls view and the chat it belongs to both show it
+    /// without asking the backend again.
+    fn call_logged(&mut self, record: crate::model::CallRecord) {
+        if !self.call_log.iter().any(|known| known.id == record.id) {
+            self.call_log.push(record.clone());
+            sort_calls(&mut self.call_log);
+        }
+        let conversation = self.conversations.entry(record.chat.clone()).or_default();
+        if !conversation.calls.iter().any(|known| known.id == record.id) {
+            conversation.calls.push(record);
+            sort_calls(&mut conversation.calls);
+        }
+    }
+
     /// Empties a chat that stays listed. Search hits and anything pointing at
     /// one of its messages would otherwise refer to rows that are gone, and a
     /// pending edit would send `EditText` for a message that no longer exists.
@@ -2631,6 +2724,11 @@ impl App {
             self.backend.send(Command::LoadChat {
                 chat: chat.to_owned(),
                 before: None,
+            });
+            // This chat's calls come with its messages, so a call row sits among them rather than
+            // arriving a moment later.
+            self.backend.send(Command::LoadChatCalls {
+                chat: chat.to_owned(),
             });
         }
     }
@@ -3009,8 +3107,126 @@ impl App {
         self.at_bottom = true;
     }
 
+    /// Applies one call state from the backend.
+    ///
+    /// A finished call keeps its surface for a moment so the outcome can be read, then goes away
+    /// on its own; the backend drops the media the instant the call ends, so nothing here holds a
+    /// process or a task open.
+    fn handle_call_update(&mut self, update: crate::calls::CallUpdate) {
+        if self
+            .call
+            .as_ref()
+            .is_some_and(|current| current.generation > update.generation)
+        {
+            return;
+        }
+        // A call we have already announced and that is no longer ringing has been picked up or
+        // given up, so its notification goes away instead of sitting there asking for an answer.
+        if update.phase != crate::calls::CallPhase::Incoming
+            && self.call_notified == Some(update.generation)
+        {
+            self.call_notified = None;
+            self.notifications.clear(&update.chat);
+        }
+        let finished = !update.phase.is_live();
+        if finished {
+            if self.call.is_none() {
+                // Nothing was drawn for this call, so there is nothing to take down.
+                return;
+            }
+            self.call_local_frame = None;
+            self.call_remote_frame = None;
+            self.call_surface_until = Some(Instant::now() + CALL_FAREWELL);
+            // How a call ended is the whole reason the surface lingers: the farewell is never left
+            // behind the bar.
+            self.call_surface_hidden = false;
+        } else {
+            self.call_surface_until = None;
+            // A call that has just begun takes the screen. Only a call the reader deliberately
+            // stepped away from stays behind the bar.
+            if self
+                .call
+                .as_ref()
+                .is_none_or(|current| !current.phase.is_live())
+            {
+                self.call_surface_hidden = false;
+            }
+        }
+        let ringing = update.phase == crate::calls::CallPhase::Incoming
+            && self
+                .call
+                .as_ref()
+                .is_none_or(|current| current.generation != update.generation);
+        self.call = Some(update);
+        self.call_repaint = true;
+        if ringing && let Some(call) = self.call.clone() {
+            self.notify_incoming_call(&call);
+        }
+    }
+
+    /// Tells the desktop a call is waiting.
+    ///
+    /// The window may be hidden in the tray, and the reader may be in another chat with the window
+    /// behind something else; a call that only exists inside ZapFast's own surface would go unseen
+    /// until they happened to look. The click only brings the window up, because the call surface is
+    /// drawn over whatever is open and is already waiting for Accept or Decline.
+    fn notify_incoming_call(&mut self, call: &crate::calls::CallUpdate) {
+        if !self.settings.notifications {
+            return;
+        }
+        let now = crate::util::now();
+        // The chat's own rules, read before anything is borrowed from it: a call in a chat that is
+        // muted, archived, or locked stays as quiet as a message in one.
+        let Some((title, chat_sound)) = self.chat(&call.chat).and_then(|chat| {
+            call_notification_eligible(chat, now)
+                .then(|| (self.chat_title(chat), chat.notification_sound.clone()))
+        }) else {
+            return;
+        };
+        let body = if call.video {
+            crate::i18n::gettext(self.locale, "Incoming video call")
+        } else {
+            crate::i18n::gettext(self.locale, "Incoming voice call")
+        };
+        let picture = self.avatar(&call.chat);
+        // A call is not a mention and not a group message, so it uses the chat's own sound when it
+        // has one and the ordinary message sound otherwise.
+        let sound = notification_sound(&self.settings, chat_sound, false, false);
+        let waker = self.waker.clone();
+        self.call_notified = Some(call.generation);
+        self.notifications.show(
+            title,
+            body.into_owned(),
+            picture,
+            sound,
+            crate::notify::NotificationTarget {
+                chat: call.chat.clone(),
+                message: None,
+            },
+            std::sync::Arc::clone(&self.notification_opens),
+            move || waker.wake(),
+        );
+    }
+
     fn tick(&mut self, ctx: &egui::Context) {
         let now = Instant::now();
+        if self.call_surface_until.is_some_and(|until| now >= until) {
+            self.call_surface_until = None;
+            self.call = None;
+            self.call_local_frame = None;
+            self.call_remote_frame = None;
+        }
+        if let Some(call) = &self.call {
+            // The duration changes every second, and a video call repaints from its frames; asking
+            // here keeps a muted, idle voice call's timer honest either way.
+            if call.phase.is_live() {
+                ctx.request_repaint_after(Duration::from_millis(500));
+            }
+        }
+        if self.call_repaint {
+            self.call_repaint = false;
+            ctx.request_repaint();
+        }
         if self.composing
             && let Some(last) = self.last_keystroke
             && now.duration_since(last) > COMPOSING_TIMEOUT
@@ -3209,6 +3425,18 @@ impl App {
                 }
             }
             Action::OpenChat(id) => self.open_chat(id),
+            Action::ShowCalls => {
+                self.page = Page::Calls;
+                // Read again on the way in: another window, or an earlier session, may have added
+                // to the log since this one last looked.
+                self.backend.send(Command::LoadCalls);
+            }
+            Action::CallBack { chat, video } => {
+                self.backend.send(Command::StartCall { chat, video });
+            }
+            Action::OpenCallChat(id) => self.open_chat(id),
+            Action::LeaveCallSurface => self.call_surface_hidden = true,
+            Action::ReturnToCall => self.call_surface_hidden = false,
             Action::StartChat { id, name } => {
                 if self.chat(&id).is_none() {
                     self.chats.push(Chat::new(id.clone(), name.clone()));
@@ -3268,6 +3496,34 @@ impl App {
                         before: (oldest.timestamp, oldest.id.clone()),
                     });
                 }
+            }
+            Action::StartCall(chat) => {
+                self.backend.send(Command::StartCall { chat, video: false });
+            }
+            Action::StartVideoCall(chat) => {
+                self.backend.send(Command::StartCall { chat, video: true });
+            }
+            Action::AnswerCall => self.backend.send(Command::AnswerCall),
+            Action::DeclineCall => self.backend.send(Command::DeclineCall),
+            Action::HangupCall => self.backend.send(Command::HangupCall),
+            Action::SetCallMuted(muted) => self.backend.send(Command::SetCallMuted(muted)),
+            Action::SetCallCamera(on) => self.backend.send(Command::SetCallCamera(on)),
+            Action::SetCallMicrophone(device) => {
+                // Picked here means preferred from now on, so it is written to the settings the
+                // same moment the live call is rebound.
+                self.settings.call_microphone = device.clone();
+                self.mark_settings_dirty();
+                self.backend.send(Command::SetCallMicrophone(device));
+            }
+            Action::SetCallSpeaker(device) => {
+                self.settings.call_speaker = device.clone();
+                self.mark_settings_dirty();
+                self.backend.send(Command::SetCallSpeaker(device));
+            }
+            Action::SetCallCameraDevice(device) => {
+                self.settings.call_camera = device.clone();
+                self.mark_settings_dirty();
+                self.backend.send(Command::SetCallCameraDevice(device));
             }
             Action::CloseChat => {
                 if let Some(chat) = self.open_chat.take() {
@@ -5362,6 +5618,12 @@ fn notification_eligible(chat: &Chat, now: i64, message_at: i64) -> bool {
     now - message_at <= 60
 }
 
+/// Whether a call in this chat may raise a notification: the same quiet rules as a message, without
+/// the unread one, since a call often arrives in a chat where nothing is unread.
+fn call_notification_eligible(chat: &Chat, now: i64) -> bool {
+    !chat.archived && !chat.muted(now) && !chat.locked
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -6991,7 +7253,7 @@ mod tests {
             .unwrap_or_else(|p| p.into_inner())
             .push(crate::notify::NotificationTarget {
                 chat: chat.into(),
-                message: "secret".into(),
+                message: Some("secret".into()),
             });
 
         app.handle_notification_opens();
@@ -7016,7 +7278,7 @@ mod tests {
             .unwrap_or_else(|p| p.into_inner())
             .push(crate::notify::NotificationTarget {
                 chat: chat.into(),
-                message: "second".into(),
+                message: Some("second".into()),
             });
 
         app.handle_notification_opens();
@@ -8971,6 +9233,85 @@ mod tests {
         assert_eq!(app.display_name("42@lid"), "~Bob");
         app.me = Some("42@lid".into());
         assert_eq!(app.display_name("42@lid"), "You");
+    }
+
+    #[test]
+    fn a_call_in_a_muted_chat_is_not_announced() {
+        // The same quiet rules a message follows: a muted, archived, or locked chat does not get to
+        // pull the reader away from whatever they are doing.
+        let now = crate::util::now();
+        let mut chat = Chat::new("1@s.whatsapp.net".into(), "Ada".into());
+        assert!(call_notification_eligible(&chat, now));
+        chat.muted_until = Some(now + 3600);
+        assert!(!call_notification_eligible(&chat, now));
+        chat.muted_until = None;
+        chat.archived = true;
+        assert!(!call_notification_eligible(&chat, now));
+        chat.archived = false;
+        chat.locked = true;
+        assert!(!call_notification_eligible(&chat, now));
+        // A call arrives in a chat with nothing unread in it, which is why this is not the message
+        // rule: the unread count is zero here and the call still counts.
+        chat.locked = false;
+        chat.unread = 0;
+        assert!(call_notification_eligible(&chat, now));
+        assert!(
+            !notification_eligible(&chat, now, now),
+            "the message rule would have suppressed it"
+        );
+    }
+
+    #[test]
+    fn a_call_that_is_answered_stops_being_announced() {
+        let mut app = app();
+        // A call the desktop was told about, answered a moment later.
+        app.call_notified = Some(4);
+        app.handle_call_update(incoming_call(4, crate::calls::CallPhase::Incoming));
+        assert_eq!(app.call_notified, Some(4), "still ringing, still announced");
+        app.handle_call_update(incoming_call(4, crate::calls::CallPhase::Active));
+        assert_eq!(app.call_notified, None, "the notification is taken back");
+        assert!(app.call.is_some(), "the call itself is untouched");
+    }
+
+    #[test]
+    fn a_call_that_ends_leaves_the_surface_saying_how_it_ended() {
+        let mut app = app();
+        assert!(!app.call_surface_hidden);
+        app.handle_call_update(incoming_call(9, crate::calls::CallPhase::Incoming));
+        // Stepping away from a ringing call, then the caller giving up.
+        app.call_surface_hidden = true;
+        let mut ended = incoming_call(9, crate::calls::CallPhase::Failed);
+        ended.outcome = Some(crate::calls::CallOutcome::NoAnswer);
+        app.handle_call_update(ended);
+        assert!(
+            !app.call_surface_hidden,
+            "a call that ended is never left behind the bar"
+        );
+        assert!(
+            app.call_surface_until.is_some(),
+            "the farewell is on screen"
+        );
+    }
+
+    /// The generation of an incoming call, as the backend would publish it.
+    fn incoming_call(generation: u64, phase: crate::calls::CallPhase) -> crate::calls::CallUpdate {
+        crate::calls::CallUpdate {
+            generation,
+            chat: "1@s.whatsapp.net".to_owned(),
+            direction: crate::model::CallDirection::Incoming,
+            video: false,
+            phase,
+            started: None,
+            muted: false,
+            camera_on: false,
+            remote_video: false,
+            outcome: None,
+            peer_audio: None,
+            lost_devices: Vec::new(),
+            microphone: None,
+            speaker: None,
+            camera: None,
+        }
     }
 }
 

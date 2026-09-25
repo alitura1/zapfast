@@ -1362,6 +1362,18 @@ impl App {
     }
 
     fn person_name(&self, id: &str, hint: Option<&str>) -> String {
+        self.known_name(id, hint)
+            .unwrap_or_else(|| match crate::model::phone_of(id) {
+                Some(digits) => crate::util::phone(digits),
+                None => "Unknown".to_owned(),
+            })
+    }
+
+    /// What a chat is known by, or nothing at all when only a number is left.
+    ///
+    /// Split out of [`Self::person_name`] for the call surfaces, which must not answer a stranger
+    /// with their own number the way a chat title may.
+    fn known_name(&self, id: &str, hint: Option<&str>) -> Option<String> {
         let contact = self.contacts.get(id);
         let present = |name: Option<&str>| name.filter(|name| !name.is_empty()).map(str::to_owned);
         let saved = present(contact.and_then(|contact| contact.full_name.as_deref()));
@@ -1369,18 +1381,43 @@ impl App {
             .or_else(|| present(hint));
         // Saved names first, as WhatsApp does; a profile name wears a tilde.
         if let Some(name) = saved.or_else(|| called.map(|name| format!("~{name}"))) {
-            return name;
+            return Some(name);
         }
         if let Some(chat) = self.chat(id)
             && !chat.name.is_empty()
             && !chat.name.chars().all(|c| c.is_ascii_digit())
         {
-            return chat.name.clone();
+            return Some(chat.name.clone());
         }
-        match crate::model::phone_of(id) {
-            Some(digits) => crate::util::phone(digits),
-            None => "Unknown".to_owned(),
+        None
+    }
+
+    /// Whether a chat has to stay unnamed right now: it is locked and its folder is closed, so a name,
+    /// a photo, or a number drawn from it is the disclosure the lock is there to prevent.
+    pub fn chat_is_private(&self, id: &str) -> bool {
+        self.chat(id).is_some_and(|chat| chat.locked) && !self.locked_folder_open()
+    }
+
+    /// The name a call shows for the other side.
+    ///
+    /// Not [`Self::display_name`]: that ends at the phone number, and a call screen or a desktop
+    /// notification that prints an unknown caller's number says more about them than WhatsApp does.
+    /// A locked chat says nothing until the folder is open.
+    pub fn call_name(&self, id: &str) -> String {
+        if self.chat_is_private(id) {
+            return crate::i18n::gettext(self.locale, "Locked chat").into_owned();
         }
+        self.known_name(id, None)
+            .unwrap_or_else(|| crate::i18n::gettext(self.locale, "Unknown caller").into_owned())
+    }
+
+    /// The picture a call may show for the other side: none while the chat is locked, because a
+    /// contact photo is the same disclosure the name is.
+    pub fn call_avatar(&mut self, id: &str) -> Option<std::path::PathBuf> {
+        if self.chat_is_private(id) {
+            return None;
+        }
+        self.avatar(id)
     }
 
     /// Resolves message mentions for markup.
@@ -3143,13 +3180,16 @@ impl App {
         } else {
             self.call_surface_until = None;
             // A call that has just begun takes the screen. Only a call the reader deliberately
-            // stepped away from stays behind the bar.
+            // stepped away from stays behind the bar, and a call in a locked chat stays behind it
+            // too: that folder hides its chats everywhere else, so its caller waits in the bar with
+            // the folder's own name until the code opens it, rather than covering the window with a
+            // locked contact.
             if self
                 .call
                 .as_ref()
                 .is_none_or(|current| !current.phase.is_live())
             {
-                self.call_surface_hidden = false;
+                self.call_surface_hidden = self.chat_is_private(&update.chat);
             }
         }
         let ringing = update.phase == crate::calls::CallPhase::Incoming
@@ -3177,18 +3217,20 @@ impl App {
         let now = crate::util::now();
         // The chat's own rules, read before anything is borrowed from it: a call in a chat that is
         // muted, archived, or locked stays as quiet as a message in one.
-        let Some((title, chat_sound)) = self.chat(&call.chat).and_then(|chat| {
-            call_notification_eligible(chat, now)
-                .then(|| (self.chat_title(chat), chat.notification_sound.clone()))
+        let Some(chat_sound) = self.chat(&call.chat).and_then(|chat| {
+            call_notification_eligible(chat, now).then(|| chat.notification_sound.clone())
         }) else {
             return;
         };
+        // The call's own name, not the chat's title: a stranger who calls is an unknown caller here,
+        // never a phone number on a lock screen.
+        let title = self.call_name(&call.chat);
         let body = if call.video {
             crate::i18n::gettext(self.locale, "Incoming video call")
         } else {
             crate::i18n::gettext(self.locale, "Incoming voice call")
         };
-        let picture = self.avatar(&call.chat);
+        let picture = self.call_avatar(&call.chat);
         // A call is not a mention and not a group message, so it uses the chat's own sound when it
         // has one and the ordinary message sound otherwise.
         let sound = notification_sound(&self.settings, chat_sound, false, false);
@@ -5627,7 +5669,7 @@ fn call_notification_eligible(chat: &Chat, now: i64) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::{ChatKind, Content, Media, MediaState, ToastKind};
+    use crate::model::{ChatKind, Contact, Content, Media, MediaState, ToastKind};
 
     fn app() -> App {
         let root = std::env::temp_dir().join(format!("zapfast-app-{}", std::process::id()));
@@ -5639,6 +5681,57 @@ mod tests {
     #[test]
     fn demo_and_test_runs_do_not_publish_a_taskbar_badge() {
         assert!(app().badge.is_none());
+    }
+
+    #[test]
+    fn a_call_does_not_answer_a_stranger_with_their_own_number() {
+        let mut app = app();
+        let id = "15551234567@s.whatsapp.net";
+        app.chats.push(Chat::new(id.into(), String::new()));
+        // The chat list may still show the number, because the reader opened that chat.
+        assert_eq!(
+            app.chat_title(&app.chats[0].clone()),
+            crate::util::phone("15551234567")
+        );
+        // The call surface says no more than it knows: a number is not a name there.
+        assert_eq!(app.call_name(id), "Unknown caller");
+        // A saved contact is named, and so is the call.
+        app.contacts.insert(
+            id.into(),
+            Contact {
+                id: id.into(),
+                full_name: Some("Ada".into()),
+                push_name: None,
+            },
+        );
+        assert_eq!(app.call_name(id), "Ada");
+    }
+
+    #[test]
+    fn a_locked_chat_says_nothing_on_a_call_until_its_folder_opens() {
+        let mut app = app();
+        let ctx = egui::Context::default();
+        let id = "15551234567@s.whatsapp.net";
+        let mut chat = Chat::new(id.into(), "Ada".into());
+        chat.locked = true;
+        app.chats.push(chat);
+        app.contacts.insert(
+            id.into(),
+            Contact {
+                id: id.into(),
+                full_name: Some("Ada".into()),
+                push_name: None,
+            },
+        );
+        assert!(app.chat_is_private(id));
+        assert_eq!(app.call_name(id), "Locked chat");
+        assert!(app.call_avatar(id).is_none(), "no photo either");
+        // The code opens the folder, and the call may name the chat again.
+        app.settings.set_chat_lock_code(Some("test-code"));
+        app.apply(Action::UnlockLockedFolder("test-code".into()), &ctx);
+        assert!(app.locked_folder_open());
+        assert!(!app.chat_is_private(id));
+        assert_eq!(app.call_name(id), "Ada");
     }
 
     #[test]

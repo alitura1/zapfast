@@ -139,9 +139,10 @@ impl Worker {
     /// A log that cannot be written is a warning, not an error the user needs: the call is over
     /// either way, and the next one is unaffected.
     fn log_call(&mut self, record: crate::model::CallRecord) {
+        // Deliberately without the chat: a record's chat id is the peer's phone number, and this log
+        // ships. What a call became is what a report needs.
         log::info!(
-            "[CALL] history chat={} direction={:?} media={:?} status={:?} duration={}s",
-            record.chat,
+            "[CALL] history direction={:?} media={:?} status={:?} duration={}s",
             record.direction,
             record.media,
             record.status,
@@ -165,6 +166,11 @@ impl Worker {
 
     pub(super) async fn start_call(&mut self, chat: ChatId, video: bool) {
         if self.call_busy() {
+            return;
+        }
+        if !callable_chat(&chat) {
+            log::warn!("[CALL] refusing a call to a chat that is not one to one");
+            self.emit(Event::Error("Calls are one to one only".to_owned()));
             return;
         }
         let Some(client) = self.client.clone() else {
@@ -487,7 +493,7 @@ impl Worker {
                 chat,
                 calls: Box::new(calls),
             }),
-            Err(error) => log::warn!("[CALL] the call log for {chat} could not be read: {error}"),
+            Err(error) => log::warn!("[CALL] a chat's call log could not be read: {error}"),
         }
     }
 
@@ -565,5 +571,32 @@ impl Worker {
         if let Some(update) = changed {
             self.emit_call(update);
         }
+    }
+}
+
+/// Whether a chat can be called at all.
+///
+/// The interface only draws the phone and camera buttons on a one-to-one chat, but the worker is the
+/// boundary rather than the interface: a group, a channel or a broadcast list reaching the 1:1
+/// builder would be refused by the protocol at best and misbehave at worst, so the JID is checked
+/// here as well.
+fn callable_chat(chat: &str) -> bool {
+    matches!(
+        crate::model::ChatKind::from_id(chat),
+        crate::model::ChatKind::Direct
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_a_one_to_one_chat_can_be_called() {
+        assert!(callable_chat("15551234567@s.whatsapp.net"));
+        assert!(callable_chat("123456789012345@lid"));
+        assert!(!callable_chat("12345-67890@g.us"));
+        assert!(!callable_chat("1234567890@broadcast"));
+        assert!(!callable_chat("1234567890@newsletter"));
     }
 }

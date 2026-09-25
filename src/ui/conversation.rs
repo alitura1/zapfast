@@ -283,49 +283,54 @@ fn header(app: &mut App, ui: &mut egui::Ui, chat: &Chat) {
                                 app.actions.push(Action::CloseChat);
                             }
                         });
-                    // While this chat is the one on a call, the phone button ends it; otherwise
-                    // the pair starts a voice or a video call. A call in another chat is refused by
-                    // the worker rather than hidden here.
-                    let (call_tooltip, call_icon, call_fill, call) = if call_here {
-                        (
-                            crate::i18n::gettext(app.locale, "Hang up").into_owned(),
-                            Icon::Phone,
-                            palette.danger,
-                            Action::HangupCall,
-                        )
-                    } else {
-                        (
-                            crate::i18n::gettext(app.locale, "Voice call").into_owned(),
-                            Icon::Phone,
-                            palette.secondary,
-                            Action::StartCall(chat.id.clone()),
-                        )
-                    };
-                    if theme::icon_button(
-                        ui,
-                        call_icon,
-                        18.0,
-                        call_fill,
-                        palette.text,
-                        &call_tooltip,
-                    )
-                    .clicked()
-                    {
-                        app.actions.push(call);
-                    }
-                    if !call_here {
-                        let tip = crate::i18n::gettext(app.locale, "Video call");
+                    // A call is one to one, so a group, a channel or a broadcast list has no
+                    // phone or camera button here; the worker refuses those JIDs whatever this
+                    // header offers, so nothing can be started behind the interface's back either.
+                    if chat.kind == crate::model::ChatKind::Direct {
+                        // While this chat is the one on a call, the phone button ends it;
+                        // otherwise the pair starts a voice or a video call. A call in another
+                        // chat is refused by the worker rather than hidden here.
+                        let (call_tooltip, call_icon, call_fill, call) = if call_here {
+                            (
+                                crate::i18n::gettext(app.locale, "Hang up").into_owned(),
+                                Icon::Phone,
+                                palette.danger,
+                                Action::HangupCall,
+                            )
+                        } else {
+                            (
+                                crate::i18n::gettext(app.locale, "Voice call").into_owned(),
+                                Icon::Phone,
+                                palette.secondary,
+                                Action::StartCall(chat.id.clone()),
+                            )
+                        };
                         if theme::icon_button(
                             ui,
-                            Icon::Video,
+                            call_icon,
                             18.0,
-                            palette.secondary,
+                            call_fill,
                             palette.text,
-                            &tip,
+                            &call_tooltip,
                         )
                         .clicked()
                         {
-                            app.actions.push(Action::StartVideoCall(chat.id.clone()));
+                            app.actions.push(call);
+                        }
+                        if !call_here {
+                            let tip = crate::i18n::gettext(app.locale, "Video call");
+                            if theme::icon_button(
+                                ui,
+                                Icon::Video,
+                                18.0,
+                                palette.secondary,
+                                palette.text,
+                                &tip,
+                            )
+                            .clicked()
+                            {
+                                app.actions.push(Action::StartVideoCall(chat.id.clone()));
+                            }
                         }
                     }
                     let searching = app.chat_search_open;

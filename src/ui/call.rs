@@ -40,8 +40,10 @@ pub fn show(app: &mut App, ctx: &egui::Context) {
         return;
     };
     let palette = app.palette;
-    let peer = app.display_name(&call.chat);
-    let picture = app.avatar(&call.chat);
+    // The call's own name and picture: no phone number for a caller with no name, and nothing at all
+    // for a chat the lock is hiding.
+    let peer = app.call_name(&call.chat);
+    let picture = app.call_avatar(&call.chat);
     if app.call_surface_hidden && call.phase.is_live() {
         bar(app, ctx, &call, &peer, &palette);
         return;
@@ -614,6 +616,9 @@ fn control(
     } else {
         response
     };
+    // A painted control is invisible to a screen reader unless it says what it is; the shared icon
+    // buttons register the same way, and a disabled one is reported as disabled rather than missing.
+    response.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, enabled, tooltip));
     response.on_hover_text(tooltip)
 }
 

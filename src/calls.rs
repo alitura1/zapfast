@@ -611,6 +611,22 @@ impl AudioInput {
     }
 }
 
+/// The first of the PipeWire helpers a call needs that `path` does not hold.
+///
+/// The pumps behind the microphone and the speaker retry a helper that will not start, which is the
+/// right answer to a device that vanished mid-call and the wrong one before a call exists: without
+/// this check a machine with no `pw-record` would ring the peer, connect, and carry silence both
+/// ways with nothing on screen to explain it. So the helpers are looked for first, and their absence
+/// fails the call with something the reader can act on instead of a call that looks healthy.
+fn missing_audio_tool(path: Option<&std::ffi::OsStr>) -> Option<&'static str> {
+    let Some(path) = path else {
+        return Some("pw-record");
+    };
+    ["pw-record", "pw-play"]
+        .into_iter()
+        .find(|tool| !std::env::split_paths(path).any(|dir| dir.join(tool).is_file()))
+}
+
 async fn mic_pump(
     out: async_channel::Sender<Vec<i16>>,
     swaps: async_channel::Receiver<Option<String>>,
@@ -1366,6 +1382,11 @@ impl Call {
         let peer: Jid = chat
             .parse()
             .map_err(|error| anyhow!("not a WhatsApp JID: {error}"))?;
+        if let Some(tool) = missing_audio_tool(std::env::var_os("PATH").as_deref()) {
+            return Err(anyhow!(
+                "{tool} was not found; a call records and plays through PipeWire"
+            ));
+        }
         let (mic, mic_rx) = AudioInput::spawn(microphone.clone())?;
         let (output, output_tx) = AudioOutput::spawn(speaker.clone())?;
         let mut pipe = None;
@@ -1391,8 +1412,10 @@ impl Call {
             Ok(handle) => Arc::new(handle),
             Err(error) => return Err(anyhow!("WhatsApp refused the call: {error}")),
         };
+        // The destination is deliberately not logged: a call's chat id is the peer's phone
+        // number, and this log ships.
         log::info!(
-            "[CALL] outgoing created call_id={} chat={chat} video={}",
+            "[CALL] outgoing created call_id={} video={}",
             handle.call_id(),
             pipe.is_some()
         );
@@ -1443,7 +1466,7 @@ impl Call {
         devices: CallDevices,
     ) -> Self {
         let call_id = incoming.action.call_id().to_owned();
-        log::info!("[CALL] incoming offer call_id={call_id} chat={chat} video={video}");
+        log::info!("[CALL] incoming offer call_id={call_id} video={video}");
         Self {
             generation: next_generation(),
             call_id,
@@ -1634,6 +1657,14 @@ impl Call {
         let Some(incoming) = self.incoming.clone() else {
             return Err(anyhow!("nothing is ringing"));
         };
+        // Answering opens the same streams a call places, so the same check applies: an answered call
+        // with no PipeWire helpers would be worse than a refused one, because the other side's call
+        // is already up.
+        if let Some(tool) = missing_audio_tool(std::env::var_os("PATH").as_deref()) {
+            return Err(anyhow!(
+                "{tool} was not found; a call records and plays through PipeWire"
+            ));
+        }
         let (mic, mic_rx) = AudioInput::spawn(microphone.clone())?;
         let (output, output_tx) = AudioOutput::spawn(speaker.clone())?;
         let mut pipe = None;
@@ -1719,7 +1750,11 @@ impl Call {
             log::info!("[CALL] declining ringing call_id={}", self.call_id);
             let _ = client.voip().reject(&incoming).await;
         }
-        let connected = self.phase.is_connected();
+        // Only a call that was really up counts as answered. `is_connected` also covers the window
+        // between the peer's answer and the media plane coming up, and a hangup in that window would
+        // be recorded as an answered call of zero seconds even though the length only starts once
+        // the call is Active.
+        let connected = self.started.is_some();
         let was_live = self.phase.is_live();
         self.cleanup();
         if was_live {
@@ -2251,6 +2286,30 @@ mod tests {
                 label: "Laptop Camera".to_owned(),
             }],
         }
+    }
+
+    #[test]
+    fn a_call_without_the_pipewire_helpers_is_refused_before_it_rings() {
+        let empty = tempfile::tempdir().expect("a temporary directory");
+        let path = std::env::join_paths([empty.path()]).expect("a path");
+        assert_eq!(
+            missing_audio_tool(Some(path.as_os_str())),
+            Some("pw-record"),
+            "an empty PATH has neither helper"
+        );
+        assert_eq!(
+            missing_audio_tool(None),
+            Some("pw-record"),
+            "no PATH at all is not a machine to record on"
+        );
+        for tool in ["pw-record", "pw-play"] {
+            std::fs::write(empty.path().join(tool), b"").expect("a helper");
+        }
+        assert_eq!(
+            missing_audio_tool(Some(path.as_os_str())),
+            None,
+            "both helpers present is a machine that can carry a call"
+        );
     }
 
     fn snapshot(phase: CallPhase, camera_on: bool) -> CallUpdate {

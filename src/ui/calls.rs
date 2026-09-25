@@ -21,7 +21,14 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
     header(app, ui);
     ui.add_space(2.0);
     // Cloned so the rows can push actions while the list they come from is borrowed from the app.
-    let calls = app.call_log.clone();
+    // A locked chat's calls are left out entirely while its folder is closed: this page is not a
+    // place to learn who a hidden chat has been talking to, or when.
+    let calls: Vec<CallRecord> = app
+        .call_log
+        .iter()
+        .filter(|record| !app.chat_is_private(&record.chat))
+        .cloned()
+        .collect();
     if calls.is_empty() {
         widgets::empty_state(
             ui,
@@ -87,8 +94,8 @@ fn header(app: &mut App, ui: &mut egui::Ui) {
 fn row(app: &mut App, ui: &mut egui::Ui, record: &CallRecord, actions: &mut Vec<Action>) {
     let palette = app.palette;
     let locale = app.locale;
-    let name = app.display_name(&record.chat);
-    let picture = app.avatar(&record.chat);
+    let name = app.call_name(&record.chat);
+    let picture = app.call_avatar(&record.chat);
     let missed = record.status.missed();
     let frame = Frame::new()
         .fill(palette.surface)

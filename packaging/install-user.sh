@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# Installs a source build for the current user: the binary, the icon, and a
+# launcher entry that opens ZapFast with no terminal.
+#
+# Usage: packaging/install-user.sh [binary] [prefix]
+#   binary  the built executable (default: target/release/zapfast)
+#   prefix  the install prefix   (default: $PREFIX, else ~/.local)
+#
+# The desktop file in packaging/ names its binary as `Exec=zapfast`, which is
+# right for a package: a package manager installs the binary to /usr/bin,
+# where every session finds it on PATH. A user install lands in ~/.local/bin,
+# which a graphical session often does not put on PATH, so `Exec=zapfast`
+# would find nothing and the launcher entry would do nothing when clicked.
+# This script therefore writes the installed entry with the full path to the
+# binary it just installed, computed here at install time. No machine's path
+# is written into the repository.
+set -euo pipefail
+
+here=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+repo=$(dirname -- "$here")
+
+binary=${1:-"$repo/target/release/zapfast"}
+prefix=${2:-"${PREFIX:-$HOME/.local}"}
+bin_dir="$prefix/bin"
+data_dir="${XDG_DATA_HOME:-$prefix/share}"
+apps_dir="$data_dir/applications"
+icons_dir="$data_dir/icons/hicolor/scalable/apps"
+
+if [[ ! -x "$binary" ]]; then
+  echo "No built binary at $binary; build it first: cargo build --release --locked" >&2
+  exit 1
+fi
+
+installed="$bin_dir/zapfast"
+install -Dm755 "$binary" "$installed"
+install -Dm644 "$here/icons/zapfast.svg" "$icons_dir/zapfast.svg"
+mkdir -p "$apps_dir"
+# The one line that changes: `Exec=zapfast` becomes the path just installed,
+# so the entry works whether or not ~/.local/bin is on the session's PATH.
+awk -v exec="$installed" '
+  /^Exec=/ { print "Exec=" exec; next }
+  { print }
+' "$here/applications/zapfast.desktop" > "$apps_dir/zapfast.desktop"
+
+if command -v desktop-file-validate >/dev/null 2>&1; then
+  desktop-file-validate "$apps_dir/zapfast.desktop"
+fi
+if command -v update-desktop-database >/dev/null 2>&1; then
+  update-desktop-database "$apps_dir" 2>/dev/null || true
+fi
+
+echo "Installed $installed"
+echo "Installed $apps_dir/zapfast.desktop (Exec=$installed)"
+echo "ZapFast now opens from the application launcher."

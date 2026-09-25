@@ -35,6 +35,7 @@ use whatsapp_rust::wacore_binary::jid::JidExt;
 use whatsapp_rust::waproto::buffa::Message as _;
 use whatsapp_rust::{MediaRetryResult, MediaReuploadRequest};
 
+mod calls;
 mod device_store;
 mod favorite_chats;
 mod interactive;
@@ -475,6 +476,9 @@ pub async fn run(
         archive,
         client: None,
         handle: None,
+        call: None,
+        call_devices: crate::calls::DeviceList::default(),
+        call_defaults: crate::calls::CallDevices::default(),
         wa_sender,
         me_pn: None,
         me_lid: None,
@@ -533,6 +537,13 @@ pub async fn run(
     let mut tick = tokio::time::interval(Duration::from_secs(5));
     loop {
         let deadline = worker.sync_deadline;
+        // Cloned before the select so its branches never borrow the worker: a live call is the only
+        // thing that gives either of these a receiver.
+        let mut call_events = worker.call.as_ref().map(|runtime| runtime.events.clone());
+        let mut call_frames = worker
+            .call
+            .as_ref()
+            .and_then(|runtime| runtime.frames.clone());
         tokio::select! {
             command = inbox.recv() => {
                 match command {
@@ -553,6 +564,18 @@ pub async fn run(
                     worker.favorite_chats_read(generation, complete);
                 }
             },
+            Some(event) = async {
+                match call_events.as_mut() {
+                    Some(events) => events.recv().await.ok(),
+                    None => std::future::pending().await,
+                }
+            } => worker.call_runtime(event),
+            Some(tick) = async {
+                match call_frames.as_mut() {
+                    Some(frames) => frames.recv().await.ok(),
+                    None => std::future::pending().await,
+                }
+            } => worker.call_frame(tick),
             _ = async {
                 match deadline {
                     Some(deadline) => tokio::time::sleep_until(tokio::time::Instant::from_std(deadline)).await,
@@ -576,9 +599,11 @@ pub async fn run(
                 worker.pump_poll_votes();
                 worker.pump_poll_history();
                 worker.prune_waiting_receipts();
+                worker.reconcile_call().await;
             }
         }
     }
+    worker.shutdown_call().await;
     worker.stop_bot().await;
 }
 
@@ -780,6 +805,12 @@ struct Worker {
     favorites_recovering: bool,
     /// Active attachment downloads by chat, message id, and carousel card.
     downloads: HashSet<(ChatId, String, Option<usize>)>,
+    call: Option<calls::CallRuntime>,
+    /// The devices the call screen was last handed, kept so a device that goes away can be named
+    /// by the description the user saw in the picker rather than by its node name.
+    call_devices: crate::calls::DeviceList,
+    /// The devices a call opens with: the selections the settings persist.
+    call_defaults: crate::calls::CallDevices,
 }
 
 /// Decoded history chunk waiting to be canonicalized and archived.
@@ -2012,6 +2043,12 @@ impl Worker {
     async fn handle_wa_event(&mut self, event: Arc<wa_events::Event>) {
         use wa_events::Event as E;
         match &*event {
+            // Call signaling. An `<offer>` that should ring, and the `accept`/`reject`/`terminate`
+            // that decide the call this worker already owns: the peer's answer is the only thing
+            // that moves a call out of dialing, never the fact that dialing started.
+            E::IncomingCall(call) => self.call_signaling(call).await,
+            E::MissedCall(call) => self.call_resolved(&call.call_id),
+            E::CallEndedElsewhere(call) => self.call_resolved(&call.call_id),
             E::PairingQrCode(qr) => {
                 self.qr = Some(qr.code.clone());
                 let status = self.unlinked();
@@ -3945,6 +3982,31 @@ impl Worker {
             }
         }
         match command {
+            Command::StartCall { chat, video } => self.start_call(chat, video).await,
+            Command::AnswerCall => self.answer_call().await,
+            Command::DeclineCall => self.decline_call().await,
+            Command::HangupCall => self.hangup_call().await,
+            Command::SetCallMuted(muted) => self.set_call_muted(muted).await,
+            Command::SetCallCamera(on) => self.set_call_camera(on).await,
+            Command::SetCallMicrophone(device) => self.set_call_microphone(device),
+            Command::SetCallSpeaker(device) => self.set_call_speaker(device),
+            Command::SetCallCameraDevice(device) => self.set_call_camera_device(device),
+            Command::RefreshCallDevices => {
+                self.emit_call_devices();
+            }
+            Command::LoadCalls => self.load_calls(),
+            Command::LoadChatCalls { chat } => self.load_chat_calls(chat),
+            Command::SetCallDevices {
+                microphone,
+                speaker,
+                camera,
+            } => {
+                self.call_defaults = crate::calls::CallDevices {
+                    microphone,
+                    speaker,
+                    camera,
+                };
+            }
             Command::RefreshPoll { chat, message } => self.refresh_poll(chat, message),
             Command::PollHistoryFailed {
                 chat,
@@ -9718,6 +9780,9 @@ mod receipt_tests {
             archive: Archive::in_memory().expect("archive"),
             client: None,
             handle: None,
+            call: None,
+            call_devices: crate::calls::DeviceList::default(),
+            call_defaults: crate::calls::CallDevices::default(),
             wa_sender,
             me_pn: Some(ME.to_owned()),
             me_lid: None,

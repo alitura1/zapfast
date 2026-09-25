@@ -130,6 +130,18 @@ fn header(app: &mut App, ui: &mut egui::Ui) {
                     }
                     if theme::icon_button(
                         ui,
+                        Icon::Phone,
+                        18.0,
+                        palette.secondary,
+                        palette.text,
+                        crate::i18n::gettext(app.locale, "Calls").as_ref(),
+                    )
+                    .clicked()
+                    {
+                        app.actions.push(Action::ShowCalls);
+                    }
+                    if theme::icon_button(
+                        ui,
                         Icon::SquarePen,
                         18.0,
                         palette.secondary,
@@ -242,6 +254,18 @@ fn macos_header(app: &mut App, ui: &mut egui::Ui) {
                     .clicked()
                     {
                         app.actions.push(Action::ShowDialog(Dialog::NewChat));
+                    }
+                    if theme::icon_button(
+                        ui,
+                        Icon::Phone,
+                        18.0,
+                        palette.secondary,
+                        palette.text,
+                        crate::i18n::gettext(app.locale, "Calls").as_ref(),
+                    )
+                    .clicked()
+                    {
+                        app.actions.push(Action::ShowCalls);
                     }
                     if theme::icon_button(
                         ui,

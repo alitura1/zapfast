@@ -59,8 +59,9 @@ image = { version = "0.25", default-features = false, features = ["jpeg", "png",
 # sync events (#1538), boolean AB props (#1539), and favorite chats sync
 # (#1544). Device-store
 # compatibility retains the legacy created_at column.
-whatsapp-rust = { git = "https://github.com/oxidezap/whatsapp-rust", rev = "215123065e63e0a7ddefadf0c53740c90467769d", default-features = false, features = ["sqlite-storage", "tokio-transport", "tokio-runtime", "ureq-client", "tokio-native"] }
-tokio = { version = "1", features = ["rt-multi-thread", "sync", "time", "macros", "fs", "net", "io-util"] }
+whatsapp-rust = { git = "https://github.com/oxidezap/whatsapp-rust", rev = "215123065e63e0a7ddefadf0c53740c90467769d", default-features = false, features = ["sqlite-storage", "tokio-transport", "tokio-runtime", "ureq-client", "tokio-native", "voip"] }
+tokio = { version = "1", features = ["rt-multi-thread", "sync", "time", "macros", "fs", "net", "io-util", "process"] }
+async-channel = "2.5"
 # Opens the WhatsApp WebSocket through a proxy. Both crates are already
 # included through the Tokio transport at these versions.
 tokio-websockets = { version = "0.13.3", default-features = false, features = ["client"] }

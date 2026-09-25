@@ -478,7 +478,21 @@ With Nix, `nix develop` provides the pinned Rust toolchain and all native build
 dependencies. From the checkout, use `nix build .#zapfast` to build the package
 or `nix run .#zapfast` to run it.
 
-The desktop file and icon are in `packaging/`.
+`cargo install` puts the binary on your `PATH`, but it does not add a launcher
+entry. The desktop file and icon the packages install are in the checkout, so a
+source build can have one too:
+
+```sh
+cargo build --release --locked
+install -Dm755 target/release/zapfast ~/.local/bin/zapfast
+install -Dm644 packaging/applications/zapfast.desktop ~/.local/share/applications/zapfast.desktop
+install -Dm644 packaging/icons/zapfast.svg ~/.local/share/icons/hicolor/scalable/apps/zapfast.svg
+```
+
+`Exec=zapfast` in the desktop file names the binary on `PATH` instead of a path
+of its own, so keep `~/.local/bin` on `PATH` too, for example with
+`export PATH="$HOME/.local/bin:$PATH"` in your shell startup file. ZapFast then
+opens from the application launcher under its own icon, with no terminal.
 
 `whatsapp-rust` is pinned to a Git commit because version 0.7.0 on crates.io
 enables a `simd` feature that needs nightly Rust. The pinned commit builds on

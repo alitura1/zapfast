@@ -919,7 +919,7 @@ struct CameraCapture {
     /// The capture child, shared with the thread that reads it. The read is a blocking
     /// `read_exact` on the child's stdout, so ending it without a frame means killing the process,
     /// which closes that pipe and returns the thread. Without this, a camera or `ffmpeg` that
-    /// stalled while holding the device would keep the read — and the process — alive past
+    /// stalled while holding the device would keep the read, and the process, alive past
     /// [`VideoPipeline::shutdown`], and the next call would race it for the node.
     child: Arc<std::sync::Mutex<Option<std::process::Child>>>,
 }

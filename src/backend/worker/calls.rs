@@ -487,11 +487,14 @@ impl Worker {
 
     /// The whole call log, newest first.
     ///
-    /// The result is published through [`Worker::emit`], which holds it back until the archive's
-    /// privacy recovery finishes: a call record names the chat, and a locked chat's rows must not
-    /// reach the Calls view while the lock state is still unknown. The read is re-issued once the
-    /// recovery completes, so a request made at startup is not simply dropped.
+    /// Held back until the archive's privacy recovery finishes: a call record names the chat, and
+    /// a locked chat's rows must not reach the Calls view while the lock state is still unknown.
+    /// `reveal_private_content` re-issues this read once recovery completes, so a request made at
+    /// startup is not simply dropped.
     pub(super) fn load_calls(&mut self) {
+        if !self.privacy_ready {
+            return;
+        }
         match self.archive.calls() {
             Ok(calls) => self.emit(Event::CallLog(Box::new(calls))),
             Err(error) => log::warn!("[CALL] the call log could not be read: {error}"),
@@ -500,6 +503,10 @@ impl Worker {
 
     /// One chat's calls, newest first, for the entries inside that conversation.
     pub(super) fn load_chat_calls(&mut self, chat: ChatId) {
+        // Same boundary as the whole log: a chat's call rows are archive-derived private content.
+        if !self.privacy_ready {
+            return;
+        }
         match self.archive.calls_for_chat(&chat) {
             Ok(calls) => self.emit(Event::ChatCalls {
                 chat,

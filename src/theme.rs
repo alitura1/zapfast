@@ -164,6 +164,21 @@ impl Palette {
         }
     }
 
+    /// The soft shadow that lifts message bubbles and date chips off the
+    /// wallpaper: one point down with a short blur, like the phone's. A
+    /// dark chat needs a denser shadow to show at all; either way it comes
+    /// from the palette's own shadow colour, so custom themes steer it.
+    pub fn bubble_shadow(&self) -> egui::epaint::Shadow {
+        egui::epaint::Shadow {
+            offset: [0, 1],
+            blur: 3,
+            spread: 0,
+            color: self
+                .shadow
+                .gamma_multiply(if self.dark { 0.5 } else { 0.7 }),
+        }
+    }
+
     /// Group-sender color derived from the avatar hue.
     pub fn sender(&self, hue: f32) -> Color32 {
         if self.dark {

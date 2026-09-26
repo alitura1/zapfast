@@ -698,8 +698,10 @@ pub fn chip(ui: &mut Ui, palette: &Palette, label: &str) -> egui::Response {
     let size = galley.size() + vec2(20.0, 10.0);
     let (rect, response) = ui.allocate_exact_size(size, Sense::hover());
     if ui.is_rect_visible(rect) {
+        let radius = CornerRadius::from(rect.height() / 2.0);
         ui.painter()
-            .rect_filled(rect, rect.height() / 2.0, palette.panel);
+            .add(palette.bubble_shadow().as_shape(rect, radius));
+        ui.painter().rect_filled(rect, radius, palette.panel);
         ui.painter().galley(
             rect.center() - galley.size() / 2.0,
             galley,

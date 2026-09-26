@@ -2326,6 +2326,7 @@ fn typing_bubble(ui: &mut egui::Ui, view: &View<'_>, typers: &[(String, String)]
         }
         Frame::new()
             .fill(palette.bubble_in)
+            .shadow(palette.bubble_shadow())
             .corner_radius(CornerRadius::same(10))
             .inner_margin(Margin::symmetric(12, 9))
             .show(ui, |ui| typing_dots(ui, &palette));
@@ -2970,6 +2971,11 @@ fn bubble_frame(
     let early = previous.map(|rect| ui.interact(rect, bubble_id, Sense::CLICK));
     let inner = Frame::new()
         .fill(fill)
+        .shadow(if fill == Color32::TRANSPARENT {
+            egui::epaint::Shadow::NONE
+        } else {
+            palette.bubble_shadow()
+        })
         .corner_radius(CornerRadius::same(10))
         .inner_margin(Margin {
             left: 10,

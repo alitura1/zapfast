@@ -3502,10 +3502,16 @@ impl App {
             }
             Action::OpenCallChat(id) => self.open_chat(id),
             Action::LeaveCallSurface => self.call_surface_hidden = true,
-            // Returning to a call whose chat is locked keeps it redacted: the bar already says
-            // "Locked chat", and lifting it outside the authenticated folder would reveal the
-            // contact the lock is there to hide.
-            Action::ReturnToCall => self.call_surface_hidden = self.call_is_private(),
+            // Returning to a locked chat's call cannot lift the redaction on its own: the bar
+            // already says "Locked chat", and showing it outside the authenticated folder would
+            // reveal the contact the lock hides. Ask for the code instead of doing nothing.
+            Action::ReturnToCall => {
+                if self.call_is_private() {
+                    self.apply(Action::OpenLockedFolder, ctx);
+                } else {
+                    self.call_surface_hidden = false;
+                }
+            }
             Action::StartChat { id, name } => {
                 if self.chat(&id).is_none() {
                     self.chats.push(Chat::new(id.clone(), name.clone()));
@@ -9466,12 +9472,21 @@ mod tests {
         chat.locked = true;
         app.chats.push(chat);
         app.call = Some(call_for(id, 1, crate::calls::CallPhase::Active));
+        // The call of a closed locked chat is already behind the bar; returning to it must not
+        // lift that without the code.
+        app.call_surface_hidden = true;
         app.apply(Action::ReturnToCall, &ctx);
         assert!(
             app.call_surface_hidden,
             "a locked call needs the folder to show"
         );
+        assert_eq!(
+            app.dialog,
+            Some(Dialog::UnlockLockedChats),
+            "returning to a locked call asks for the code"
+        );
         app.chats[0].locked = false;
+        app.dialog = None;
         app.apply(Action::ReturnToCall, &ctx);
         assert!(
             !app.call_surface_hidden,

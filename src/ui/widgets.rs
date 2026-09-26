@@ -454,6 +454,33 @@ pub fn menu_separator(ui: &mut Ui, palette: &Palette) {
     );
 }
 
+/// Shows `frame` raised like a message bubble: the same soft lift shadow
+/// below it and the faint raised edge along its top, for surfaces that sit
+/// on the chat (the composer, and the strips above it).
+pub fn raised<R>(
+    ui: &mut Ui,
+    palette: &Palette,
+    frame: egui::Frame,
+    add: impl FnOnce(&mut Ui) -> R,
+) -> egui::InnerResponse<R> {
+    // Reserved before the frame paints, so the edge lies under its fill.
+    let edge_at = ui.painter().add(egui::Shape::Noop);
+    let (fill, radius) = (frame.fill, frame.corner_radius);
+    let shown = frame.shadow(palette.bubble_shadow()).show(ui, add);
+    ui.painter().set(
+        edge_at,
+        egui::Shape::rect_filled(
+            shown
+                .response
+                .rect
+                .translate(vec2(0.0, -theme::RAISED_EDGE)),
+            radius,
+            palette.raised_edge(fill),
+        ),
+    );
+    shown
+}
+
 /// Shared popup-menu frame.
 pub fn menu_frame(palette: &Palette) -> egui::Frame {
     egui::Frame::new()
@@ -692,12 +719,20 @@ pub fn paint_vertical_gradient(ui: &Ui, rect: Rect, top: Color32, bottom: Color3
 
 /// The hover or selection behind a chat-list row: a rounded card inset from
 /// the list's edges rather than a full-width band.
-pub fn row_highlight(ui: &Ui, rect: Rect, color: Color32) {
+pub fn row_highlight(ui: &Ui, palette: &Palette, rect: Rect, color: Color32) {
+    let card = rect.shrink2(vec2(8.0, 2.0));
+    let radius = CornerRadius::same(theme::RADIUS + 2);
+    // Raised like a message bubble, only more gently: the list sits on a
+    // flat panel, and a hovered row should not jump out.
+    let mut shadow = palette.bubble_shadow();
+    shadow.color = shadow.color.gamma_multiply(0.6);
+    ui.painter().add(shadow.as_shape(card, radius));
     ui.painter().rect_filled(
-        rect.shrink2(vec2(8.0, 2.0)),
-        CornerRadius::same(theme::RADIUS + 2),
-        color,
+        card.translate(vec2(0.0, -theme::RAISED_EDGE)),
+        radius,
+        palette.raised_edge(color),
     );
+    ui.painter().rect_filled(card, radius, color);
 }
 
 /// A soft shadow cast downward from `edge`, for a bar that content scrolls
@@ -946,6 +981,54 @@ pub fn dotted_chip(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A raised frame lies on its edge: one point higher, under its fill, in
+    /// the palette's raised-edge colour, with the bubble's lift shadow.
+    #[test]
+    fn a_raised_frame_draws_its_edge_under_its_fill() {
+        let palette = Palette::dark();
+        let ctx = egui::Context::default();
+        let mut rect = Rect::NOTHING;
+        let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
+            rect = raised(
+                ui,
+                &palette,
+                egui::Frame::new().fill(palette.surface).inner_margin(8),
+                |ui| ui.label("x"),
+            )
+            .response
+            .rect;
+        });
+        output.textures_delta.clear();
+        // In paint order, looking inside grouped shapes (a frame groups its
+        // shadow with its fill).
+        let mut fills: Vec<(Rect, Color32)> = Vec::new();
+        let mut pending: Vec<&egui::Shape> = output
+            .shapes
+            .iter()
+            .rev()
+            .map(|clipped| &clipped.shape)
+            .collect();
+        while let Some(shape) = pending.pop() {
+            match shape {
+                egui::Shape::Vec(shapes) => pending.extend(shapes.iter().rev()),
+                egui::Shape::Rect(shape) => fills.push((shape.rect, shape.fill)),
+                _ => {}
+            }
+        }
+        let edge = fills
+            .iter()
+            .position(|(at, fill)| {
+                *at == rect.translate(vec2(0.0, -theme::RAISED_EDGE))
+                    && *fill == palette.raised_edge(palette.surface)
+            })
+            .expect("the edge is drawn");
+        let body = fills
+            .iter()
+            .position(|(at, fill)| *at == rect && *fill == palette.surface)
+            .expect("the frame is drawn");
+        assert!(edge < body, "the edge lies under the fill");
+    }
 
     #[test]
     fn a_tail_squares_its_corner_and_points_toward_the_sender() {

@@ -897,7 +897,9 @@ fn composer(app: &mut App, ui: &mut egui::Ui, chat: &Chat) {
                 pending_strip(app, ui);
             }
             if app.recording.is_some() {
-                composer_pill(&palette).show(ui, |ui| recording_strip(app, ui));
+                widgets::raised(ui, &palette, composer_pill(&palette), |ui| {
+                    recording_strip(app, ui)
+                });
                 return;
             }
             emoji_suggestions(app, ui, id);
@@ -962,7 +964,7 @@ fn composer(app: &mut App, ui: &mut egui::Ui, chat: &Chat) {
                 .unwrap_or(line_height)
                 .clamp(line_height, line_height * 6.0);
             let row_height = (text_height + 2.0 * field_margin).max(line);
-            let pill = composer_pill(&palette).show(ui, |ui| {
+            let pill = widgets::raised(ui, &palette, composer_pill(&palette), |ui| {
             ui.allocate_ui_with_layout(
                 vec2(ui.available_width(), row_height),
                 Layout::left_to_right(Align::Max),
@@ -1405,12 +1407,6 @@ fn composer_pill(palette: &Palette) -> Frame {
     Frame::new()
         .fill(palette.surface)
         .corner_radius(CornerRadius::same(COMPOSER_RADIUS))
-        .shadow(egui::epaint::Shadow {
-            offset: [0, 0],
-            blur: 6,
-            spread: 0,
-            color: Color32::from_black_alpha(31),
-        })
         // The end buttons are inset by as much at the sides as above and
         // below, so they sit evenly in the rounded ends.
         .inner_margin(Margin {
@@ -1475,11 +1471,14 @@ fn unsent_voice_strip(app: &mut App, ui: &mut egui::Ui, samples: usize) {
     let label = crate::i18n::gettext(app.locale, "Voice message ({duration}) not sent")
         .replace("{duration}", &crate::util::duration(seconds));
     let discard = crate::i18n::gettext(app.locale, "Discard voice message");
-    Frame::new()
-        .fill(palette.surface)
-        .corner_radius(CornerRadius::same(theme::RADIUS))
-        .inner_margin(Margin::symmetric(10, 6))
-        .show(ui, |ui| {
+    widgets::raised(
+        ui,
+        &palette,
+        Frame::new()
+            .fill(palette.surface)
+            .corner_radius(CornerRadius::same(theme::RADIUS))
+            .inner_margin(Margin::symmetric(10, 6)),
+        |ui| {
             ui.set_width(ui.available_width());
             ui.horizontal(|ui| {
                 theme::icon(ui, Icon::Mic, 16.0, palette.danger);
@@ -1502,17 +1501,21 @@ fn unsent_voice_strip(app: &mut App, ui: &mut egui::Ui, samples: usize) {
                     }
                 });
             });
-        });
+        },
+    );
     strip_gap(ui);
 }
 
 fn edit_strip(app: &mut App, ui: &mut egui::Ui) {
     let palette = app.palette;
-    Frame::new()
-        .fill(palette.surface)
-        .corner_radius(CornerRadius::same(theme::RADIUS))
-        .inner_margin(Margin::symmetric(10, 6))
-        .show(ui, |ui| {
+    widgets::raised(
+        ui,
+        &palette,
+        Frame::new()
+            .fill(palette.surface)
+            .corner_radius(CornerRadius::same(theme::RADIUS))
+            .inner_margin(Margin::symmetric(10, 6)),
+        |ui| {
             ui.set_width(ui.available_width());
             ui.horizontal(|ui| {
                 theme::icon(ui, Icon::Pencil, 16.0, palette.accent);
@@ -1532,7 +1535,8 @@ fn edit_strip(app: &mut App, ui: &mut egui::Ui) {
                     }
                 });
             });
-        });
+        },
+    );
     strip_gap(ui);
 }
 
@@ -1544,11 +1548,14 @@ fn reply_strip(app: &mut App, ui: &mut egui::Ui, quoted: &Message) {
         app.display_name_or(&quoted.sender, quoted.sender_name.as_deref())
     };
     let summary = markup::plain(&quoted.summary(), &app.mention_list(quoted));
-    let strip = Frame::new()
-        .fill(palette.surface)
-        .corner_radius(CornerRadius::same(theme::RADIUS))
-        .inner_margin(Margin::symmetric(10, 6))
-        .show(ui, |ui| {
+    let strip = widgets::raised(
+        ui,
+        &palette,
+        Frame::new()
+            .fill(palette.surface)
+            .corner_radius(CornerRadius::same(theme::RADIUS))
+            .inner_margin(Margin::symmetric(10, 6)),
+        |ui| {
             ui.set_width(ui.available_width().max(0.0));
             ui.horizontal(|ui| {
                 let (bar, _) = ui.allocate_exact_size(vec2(3.0, 34.0), Sense::hover());
@@ -1579,7 +1586,8 @@ fn reply_strip(app: &mut App, ui: &mut egui::Ui, quoted: &Message) {
                     }
                 });
             });
-        });
+        },
+    );
     ui.ctx()
         .data_mut(|data| data.insert_temp(reply_strip_id(), strip.response.rect));
     strip_gap(ui);

@@ -8245,9 +8245,10 @@ mod tests {
             }
             let (top, bottom) = ink.expect("the draft is painted");
             let middle = (top + bottom) / 2.0;
-            // One physical pixel at 133%.
+            // Within a physical pixel, plus rounding: snapping to the grid
+            // may cost up to one, and macOS positions glyphs unhinted.
             assert!(
-                (middle - control).abs() <= 0.75,
+                (middle - control).abs() <= 1.0 / scale + 0.05,
                 "at {scale}x the text centres on {middle}, the controls on {control}"
             );
         }

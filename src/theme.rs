@@ -222,12 +222,14 @@ impl fastframe_theme::Palette for Palette {
         if given.contains("window") && !given.contains("chat") {
             self.chat = self.window;
         }
+        // Bubbles stand a little further from the chat than the interface's
+        // surfaces do, keeping text on them at 4.5:1 in every shared palette.
         if given.contains("surface") && !given.contains("bubble_in") {
-            self.bubble_in = self.surface;
+            self.bubble_in = self.surface.lerp_to_gamma(self.text, 0.05);
         }
         if given.contains("accent") {
             if !given.contains("bubble_out") {
-                self.bubble_out = self.surface.lerp_to_gamma(self.accent, 0.18);
+                self.bubble_out = self.surface.lerp_to_gamma(self.accent, 0.24);
             }
             if !given.contains("link") {
                 self.link = self.accent;
@@ -1100,6 +1102,19 @@ mod tests {
         }
     }
 
+    /// WCAG contrast ratio between two opaque colours.
+    fn contrast(a: Color32, b: Color32) -> f32 {
+        let luminance = |color: Color32| {
+            let linear = egui::Rgba::from(color);
+            0.2126 * linear.r() + 0.7152 * linear.g() + 0.0722 * linear.b()
+        };
+        let (light, dark) = {
+            let (a, b) = (luminance(a), luminance(b));
+            (a.max(b), a.min(b))
+        };
+        (light + 0.05) / (dark + 0.05)
+    }
+
     #[test]
     fn spotifast_palettes_also_colour_the_conversation() {
         let themes: Vec<_> = presets().collect();
@@ -1107,9 +1122,29 @@ mod tests {
         for theme in themes {
             let palette = theme.palette;
             assert_eq!(palette.chat, palette.window);
-            assert_eq!(palette.bubble_in, palette.surface);
+            assert_eq!(
+                palette.bubble_in,
+                palette.surface.lerp_to_gamma(palette.text, 0.05)
+            );
             assert_ne!(palette.bubble_out, palette.bubble_in);
             assert_eq!(palette.link, palette.accent);
+            // Bubbles stand out from the chat more than surfaces do, and
+            // their text stays readable.
+            let name = &theme.filename;
+            assert!(
+                contrast(palette.bubble_in, palette.chat) > contrast(palette.surface, palette.chat),
+                "{name}: incoming bubbles stand out"
+            );
+            assert!(
+                contrast(palette.bubble_out, palette.chat) > 1.35,
+                "{name}: outgoing bubbles stand out"
+            );
+            for bubble in [palette.bubble_in, palette.bubble_out] {
+                assert!(
+                    contrast(palette.text, bubble) >= 4.5,
+                    "{name}: text on {bubble:?} is readable"
+                );
+            }
             assert_eq!(
                 palette.dark,
                 !matches!(

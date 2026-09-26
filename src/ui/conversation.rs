@@ -311,10 +311,17 @@ fn header(app: &mut App, ui: &mut egui::Ui, chat: &Chat) -> Rect {
                                 app.actions.push(Action::CloseChat);
                             }
                         });
-                    // A call is one to one, so a group, a channel or a broadcast list has no
-                    // phone or camera button here; the worker refuses those JIDs whatever this
-                    // header offers, so nothing can be started behind the interface's back either.
-                    if chat.kind == crate::model::ChatKind::Direct {
+                    // A call is one to one, and it needs the platform's media backend: a group, a
+                    // channel or a broadcast list has no phone or camera button here, and neither
+                    // has any chat on a platform whose backend cannot open a microphone, where a
+                    // call would fail on its first frame. The worker refuses those JIDs whatever
+                    // this header offers, so nothing can be started behind the interface's back
+                    // either. A live call still offers its hang-up button, which can only exist
+                    // where the backend does.
+                    let calls_here = crate::calls::capabilities();
+                    if chat.kind == crate::model::ChatKind::Direct
+                        && (calls_here.voice || call_here)
+                    {
                         // While this chat is the one on a call, the phone button ends it;
                         // otherwise the pair starts a voice or a video call. A call in another
                         // chat is refused by the worker rather than hidden here.
@@ -345,7 +352,7 @@ fn header(app: &mut App, ui: &mut egui::Ui, chat: &Chat) -> Rect {
                         {
                             app.actions.push(call);
                         }
-                        if !call_here {
+                        if !call_here && calls_here.video {
                             let tip = crate::i18n::gettext(app.locale, "Video call");
                             if theme::icon_button(
                                 ui,

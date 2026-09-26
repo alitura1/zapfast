@@ -452,6 +452,41 @@ pub fn is_offer(action: &CallAction) -> bool {
 }
 
 // ---------------------------------------------------------------------------
+// Platform capabilities
+// ---------------------------------------------------------------------------
+
+/// What calling can actually do on the platform this build runs on.
+///
+/// The media backend is PipeWire, V4L2 and `ffmpeg`, and none of the three exists on macOS or
+/// Windows. On those platforms a call cannot open a microphone, so offering the button would only
+/// lead to a call that fails on its first frame. The interface asks this instead, and a platform
+/// without the backend does not offer the feature: the chat header shows no call buttons and the
+/// call screen is never entered. `cfg!` rather than `#[cfg]` keeps every arm type-checked on every
+/// platform, so a platform that gains the backend cannot drift out of sync with the interface.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct CallCapabilities {
+    /// One-to-one voice calls: a microphone and a speaker.
+    pub voice: bool,
+    /// Camera video inside a call.
+    pub video: bool,
+    /// Choosing between cameras, which needs a camera list at all.
+    pub camera: bool,
+    /// Sharing a screen in a one-to-one call. The pinned protocol library carries screen sharing
+    /// for group calls only, so this is false everywhere for now.
+    pub screen_share: bool,
+}
+
+/// What the media backend behind [`CallPhase`] can do on this platform.
+pub fn capabilities() -> CallCapabilities {
+    CallCapabilities {
+        voice: cfg!(target_os = "linux"),
+        video: cfg!(target_os = "linux"),
+        camera: cfg!(target_os = "linux"),
+        screen_share: false,
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Device discovery
 // ---------------------------------------------------------------------------
 
@@ -461,10 +496,23 @@ pub fn is_offer(action: &CallAction) -> bool {
 /// `pw-play` accept as `--target`. Monitor nodes (a sink's own loopback) are dropped: they are
 /// outputs, not microphones, and offering one would let a call record itself.
 pub fn devices() -> DeviceList {
+    let capable = capabilities();
     DeviceList {
-        microphones: audio_nodes("Audio/Source"),
-        speakers: audio_nodes("Audio/Sink"),
-        cameras: cameras(),
+        microphones: if capable.voice {
+            audio_nodes("Audio/Source")
+        } else {
+            Vec::new()
+        },
+        speakers: if capable.voice {
+            audio_nodes("Audio/Sink")
+        } else {
+            Vec::new()
+        },
+        cameras: if capable.camera {
+            cameras()
+        } else {
+            Vec::new()
+        },
     }
 }
 
@@ -1476,6 +1524,9 @@ impl Call {
         let peer: Jid = chat
             .parse()
             .map_err(|error| anyhow!("not a WhatsApp JID: {error}"))?;
+        if !capabilities().voice {
+            return Err(anyhow!("calling is not available on this platform yet"));
+        }
         if let Some(tool) = missing_audio_tool(std::env::var_os("PATH").as_deref()) {
             return Err(anyhow!(
                 "{tool} was not found; a call records and plays through PipeWire"
@@ -1754,9 +1805,12 @@ impl Call {
         let Some(incoming) = self.incoming.clone() else {
             return Err(anyhow!("nothing is ringing"));
         };
-        // Answering opens the same streams a call places, so the same check applies: an answered call
-        // with no PipeWire helpers would be worse than a refused one, because the other side's call
-        // is already up.
+        // Answering opens the same streams a call places, so the same checks apply: an answered call
+        // with no media backend would be worse than a refused one, because the other side's call is
+        // already up.
+        if !capabilities().voice {
+            return Err(anyhow!("calling is not available on this platform yet"));
+        }
         if let Some(tool) = missing_audio_tool(std::env::var_os("PATH").as_deref()) {
             return Err(anyhow!(
                 "{tool} was not found; a call records and plays through PipeWire"
@@ -3012,6 +3066,39 @@ mod tests {
 /// depends on the hardware. Run it with `cargo test --lib -- --ignored --nocapture
 /// calls::hardware_tests` on a machine with PipeWire to see what a call would be offered, which is
 /// how a report about a device that is missing from the pickers gets answered.
+#[cfg(test)]
+mod platform_tests {
+    use super::*;
+
+    /// The compile-time platform is what the interface is told, so a build for macOS or Windows
+    /// cannot offer a call whose backend would fail to open a microphone.
+    #[test]
+    fn calling_is_offered_only_where_the_media_backend_runs() {
+        let capable = capabilities();
+        let linux = cfg!(target_os = "linux");
+        assert_eq!(capable.voice, linux, "voice needs the PipeWire backend");
+        assert_eq!(capable.video, linux, "video needs V4L2 and ffmpeg");
+        assert_eq!(capable.camera, linux, "a camera list is V4L2's");
+        assert!(
+            !capable.screen_share,
+            "one-to-one screen sharing is not in the pinned protocol library"
+        );
+    }
+
+    /// What the pickers are shown agrees with what the backend can open: a platform that cannot
+    /// record offers no microphone and no speaker, rather than a list nothing can use.
+    #[test]
+    fn a_platform_without_the_backend_offers_no_devices() {
+        if capabilities().voice {
+            return;
+        }
+        let list = devices();
+        assert!(list.microphones.is_empty());
+        assert!(list.speakers.is_empty());
+        assert!(list.cameras.is_empty());
+    }
+}
+
 #[cfg(test)]
 mod hardware_tests {
     #[test]

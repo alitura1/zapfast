@@ -2320,8 +2320,9 @@ fn typing_dots(ui: &mut egui::Ui, palette: &Palette) {
     if !ui.is_rect_visible(rect) {
         return;
     }
-    ui.ctx()
-        .request_repaint_after(std::time::Duration::from_millis(100));
+    // Every frame, paced by vsync like egui's own animations; drawn only
+    // while visible, and a hidden window gets no frames at all.
+    ui.ctx().request_repaint();
     let time = ui.input(|input| input.time);
     for index in 0..3 {
         let wave = ((time * std::f64::consts::TAU / 1.2) - f64::from(index) * 0.9).sin() as f32;
@@ -6750,6 +6751,17 @@ mod tests {
         assert!(!auto_download_allowed(&sticker, false, false));
         sticker.size = crate::model::ATTACHMENT_DOWNLOAD_LIMIT + 1;
         assert!(!auto_download_allowed(&sticker, true, false));
+    }
+
+    /// The typing dots animate at the display's rate, not a fixed timer.
+    #[test]
+    fn typing_dots_repaint_every_frame() {
+        let ctx = egui::Context::default();
+        let palette = crate::theme::Palette::dark();
+        let mut output = ctx.run_ui(egui::RawInput::default(), |ui| typing_dots(ui, &palette));
+        output.textures_delta.clear();
+        let delay = output.viewport_output[&egui::ViewportId::ROOT].repaint_delay;
+        assert_eq!(delay, std::time::Duration::ZERO);
     }
 
     #[test]

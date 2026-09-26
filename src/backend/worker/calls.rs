@@ -451,6 +451,13 @@ impl Worker {
             return;
         }
         let chat = self.canonical(&incoming.from);
+        // A group, broadcast or newsletter offer never reaches the 1:1 call surface. The interface
+        // hides the buttons for those chats, but the worker is the boundary: a non-direct offer is
+        // refused here rather than rung, so no call is created and no history entry is written.
+        if !callable_chat(&chat) {
+            log::warn!("[CALL] refusing an incoming offer from a chat that is not one to one");
+            return;
+        }
         let video = calls::offer_is_video(action);
         // The remembered devices are pre-selected on the prompt, so answering picks up right where
         // the last call left off.
@@ -479,6 +486,11 @@ impl Worker {
     }
 
     /// The whole call log, newest first.
+    ///
+    /// The result is published through [`Worker::emit`], which holds it back until the archive's
+    /// privacy recovery finishes: a call record names the chat, and a locked chat's rows must not
+    /// reach the Calls view while the lock state is still unknown. The read is re-issued once the
+    /// recovery completes, so a request made at startup is not simply dropped.
     pub(super) fn load_calls(&mut self) {
         match self.archive.calls() {
             Ok(calls) => self.emit(Event::CallLog(Box::new(calls))),

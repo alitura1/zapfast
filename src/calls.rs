@@ -627,6 +627,20 @@ fn missing_audio_tool(path: Option<&std::ffi::OsStr>) -> Option<&'static str> {
         .find(|tool| !std::env::split_paths(path).any(|dir| dir.join(tool).is_file()))
 }
 
+/// Whether a requested video path really came up.
+///
+/// The user pressed the video button, or the peer offered video; connecting with a media type
+/// nobody chose and not saying so is worse than refusing. The check runs before any signaling, so a
+/// camera or encoder that will not start fails the call instead of quietly downgrading it.
+fn require_video(requested: bool, pipeline: bool) -> Result<()> {
+    if requested && !pipeline {
+        return Err(anyhow!(
+            "video could not be started; the camera or its encoder is not available"
+        ));
+    }
+    Ok(())
+}
+
 async fn mic_pump(
     out: async_channel::Sender<Vec<i16>>,
     swaps: async_channel::Receiver<Option<String>>,
@@ -900,6 +914,12 @@ struct CameraCapture {
     /// Cleared when the capture thread ends, however it ends, so a camera that stopped delivering
     /// reads as off rather than as a camera the peer is still being sent frames from.
     running: Arc<AtomicBool>,
+    /// The capture child, shared with the thread that reads it. The read is a blocking
+    /// `read_exact` on the child's stdout, so ending it without a frame means killing the process,
+    /// which closes that pipe and returns the thread. Without this, a camera or `ffmpeg` that
+    /// stalled while holding the device would keep the read — and the process — alive past
+    /// [`VideoPipeline::shutdown`], and the next call would race it for the node.
+    child: Arc<std::sync::Mutex<Option<std::process::Child>>>,
 }
 
 impl CameraCapture {
@@ -907,28 +927,59 @@ impl CameraCapture {
         let (control, commands) = async_channel::bounded::<CameraCmd>(4);
         let (frames, timed) = async_channel::bounded::<TimedVideoFrame>(4);
         let running = Arc::new(AtomicBool::new(true));
+        let child = Arc::new(std::sync::Mutex::new(None));
         let alive = CaptureAlive(Arc::clone(&running));
+        let slot = Arc::clone(&child);
+        let stopping = Arc::clone(&running);
         std::thread::Builder::new()
             .name("zapfast-camera".to_owned())
             .spawn(move || {
                 let _alive = alive;
-                capture(device, commands, frames, ticks);
+                capture(device, commands, frames, ticks, slot, stopping);
             })
             .context("camera thread could not be started")?;
         Ok(Self {
             control,
             timed,
             running,
+            child,
         })
     }
 
+    /// Ends the camera. No frame has to arrive for the thread to stop: the child is killed, and its
+    /// closed stdout is what unblocks a read that is waiting for one.
     fn stop(&self) {
         self.running.store(false, Ordering::Relaxed);
         let _ = self.control.try_send(CameraCmd::Stop);
+        kill_camera_child(&self.child);
     }
 
     fn running(&self) -> bool {
         self.running.load(Ordering::Relaxed)
+    }
+}
+
+impl Drop for CameraCapture {
+    fn drop(&mut self) {
+        self.running.store(false, Ordering::Relaxed);
+        let _ = self.control.try_send(CameraCmd::Stop);
+        kill_camera_child(&self.child);
+    }
+}
+
+/// Kills and reaps the camera child, whichever side still holds it.
+///
+/// Taking it out of the slot first is what lets the capture thread and its caller both ask to end
+/// the camera: neither kills a pid twice, and the one that finds an empty slot can still reap
+/// nothing and move on.
+fn kill_camera_child(slot: &std::sync::Mutex<Option<std::process::Child>>) {
+    let child = slot
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .take();
+    if let Some(mut child) = child {
+        let _ = child.kill();
+        let _ = child.wait();
     }
 }
 
@@ -1062,6 +1113,8 @@ fn capture(
     commands: async_channel::Receiver<CameraCmd>,
     timed: async_channel::Sender<TimedVideoFrame>,
     ticks: async_channel::Sender<VideoTick>,
+    child: Arc<std::sync::Mutex<Option<std::process::Child>>>,
+    stopping: Arc<AtomicBool>,
 ) {
     use openh264::encoder::{
         BitRate, Encoder, EncoderConfig, FrameRate, IntraFramePeriod, Profile,
@@ -1092,12 +1145,29 @@ fn capture(
     capture_frames(
         &device,
         size,
-        &commands,
+        &CaptureControl {
+            commands: &commands,
+            child: &child,
+            stopping: &stopping,
+        },
         &timed,
         &ticks,
         &mut encoder,
         Instant::now(),
     );
+}
+
+/// What a frame loop needs to outlive a single frame: the stop channel, and the child and flag
+/// shared with whoever can end the camera.
+///
+/// Grouped so the loop takes one handle for its lifetime state instead of a widening argument list.
+struct CaptureControl<'a> {
+    /// Tells the reader to stop between frames.
+    commands: &'a async_channel::Receiver<CameraCmd>,
+    /// The child, killed by a stop so a read blocked on its stdout returns.
+    child: &'a std::sync::Mutex<Option<std::process::Child>>,
+    /// Cleared when the camera is no longer wanted, including before the child exists.
+    stopping: &'a AtomicBool,
 }
 
 /// Reads frames from one camera until the call stops it, encoding and previewing each one.
@@ -1109,7 +1179,7 @@ fn capture(
 fn capture_frames(
     device: &str,
     size: (usize, usize),
-    commands: &async_channel::Receiver<CameraCmd>,
+    control: &CaptureControl<'_>,
     timed: &async_channel::Sender<TimedVideoFrame>,
     ticks: &async_channel::Sender<VideoTick>,
     encoder: &mut openh264::encoder::Encoder,
@@ -1157,18 +1227,30 @@ fn capture_frames(
         };
         let Some(stdout) = child.stdout.take() else {
             let _ = child.kill();
+            let _ = child.wait();
             return;
         };
+        // Hand the child to the shared slot before the first read, so from here a stop can end a
+        // read that would otherwise wait for a frame forever. A stop that already ran is honoured
+        // now, which closes the gap between `spawn` and the slot being filled.
+        *control
+            .child
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner()) = Some(child);
+        if !control.stopping.load(Ordering::Relaxed) {
+            kill_camera_child(control.child);
+            log::info!("[CALL] camera disabled");
+            return;
+        }
         let mut reader = std::io::BufReader::new(stdout);
         loop {
             if let Err(error) = std::io::Read::read_exact(&mut reader, &mut bytes) {
                 log::warn!("[CALL] camera stopped delivering frames: {error}");
                 break;
             }
-            match commands.try_recv() {
+            match control.commands.try_recv() {
                 Ok(CameraCmd::Stop) | Err(async_channel::TryRecvError::Closed) => {
-                    let _ = child.kill();
-                    let _ = child.wait();
+                    kill_camera_child(control.child);
                     log::info!("[CALL] camera disabled");
                     return;
                 }
@@ -1217,8 +1299,7 @@ fn capture_frames(
             );
             let _ = ticks.try_send(VideoTick::Local(Arc::new(image)));
         }
-        let _ = child.kill();
-        let _ = child.wait();
+        kill_camera_child(control.child);
     }
 }
 
@@ -1387,15 +1468,18 @@ impl Call {
                 "{tool} was not found; a call records and plays through PipeWire"
             ));
         }
-        let (mic, mic_rx) = AudioInput::spawn(microphone.clone())?;
-        let (output, output_tx) = AudioOutput::spawn(speaker.clone())?;
+        // Video first: a camera or encoder that will not start refuses the call before any stream
+        // exists and before the peer is rung, because a video call must not silently become voice.
         let mut pipe = None;
         if video {
             match VideoPipeline::start(camera.clone()) {
                 Ok((pipeline, frames)) => pipe = Some((pipeline, frames)),
-                Err(error) => log::error!("[CALL] video pipeline could not start: {error}"),
+                Err(error) => log::warn!("[CALL] video pipeline could not start: {error}"),
             }
         }
+        require_video(video, pipe.is_some())?;
+        let (mic, mic_rx) = AudioInput::spawn(microphone.clone())?;
+        let (output, output_tx) = AudioOutput::spawn(speaker.clone())?;
 
         let voip = client.voip();
         let builder = voip.call(&peer).audio(mic_rx, output_tx);
@@ -1665,15 +1749,19 @@ impl Call {
                 "{tool} was not found; a call records and plays through PipeWire"
             ));
         }
-        let (mic, mic_rx) = AudioInput::spawn(microphone.clone())?;
-        let (output, output_tx) = AudioOutput::spawn(speaker.clone())?;
+        // The same rule as placing a call: a video offer that cannot start video is not accepted as
+        // something else behind the user's back. Nothing has been sent yet, so the call stays
+        // ringing and the user can still decline it.
         let mut pipe = None;
         if self.video {
             match VideoPipeline::start(camera.clone()) {
                 Ok((pipeline, frames)) => pipe = Some((pipeline, frames)),
-                Err(error) => log::error!("[CALL] video pipeline could not start: {error}"),
+                Err(error) => log::warn!("[CALL] video pipeline could not start: {error}"),
             }
         }
+        require_video(self.video, pipe.is_some())?;
+        let (mic, mic_rx) = AudioInput::spawn(microphone.clone())?;
+        let (output, output_tx) = AudioOutput::spawn(speaker.clone())?;
 
         let voip = client.voip();
         let builder = voip.accept(&incoming).audio(mic_rx, output_tx);
@@ -1839,7 +1927,10 @@ impl Call {
                     "[CALL] peer terminated call_id={} reason={reason:?}",
                     self.call_id
                 );
-                let connected = self.phase.is_connected();
+                // Only a call that really reached Active was answered. `is_connected` also covers
+                // the window between the peer's answer and the media plane coming up, and a
+                // terminate there would be recorded as an answered call of zero seconds.
+                let connected = self.started.is_some();
                 self.phase = if connected {
                     CallPhase::Ended
                 } else {
@@ -1971,7 +2062,9 @@ impl Call {
             return None;
         }
         log::info!("[CALL] ended call_id={}", self.call_id);
-        let outcome = if self.phase.is_connected() {
+        // A call is answered once it was Active and only then; the media going away while the call
+        // was still connecting is a call that never came up.
+        let outcome = if self.started.is_some() {
             CallOutcome::Answered
         } else {
             CallOutcome::NoAnswer
@@ -2033,7 +2126,7 @@ impl Call {
     /// Ends the call because its media went away, telling a call that was up from one that never
     /// came up: the phase says which, and the outcome names the cause either way.
     fn ended_by(&mut self, outcome: CallOutcome) -> Option<CallUpdate> {
-        self.phase = if self.phase.is_connected() {
+        self.phase = if self.started.is_some() {
             CallPhase::Ended
         } else {
             CallPhase::Failed
@@ -2798,6 +2891,82 @@ mod tests {
         // The media plane failing under a call that is already over says nothing new either.
         assert!(call.media(&CallEvent::RelayAllocateFailed(1)).is_none());
         assert!(call.media_ended().is_none());
+    }
+
+    #[test]
+    fn a_video_call_is_refused_rather_than_quietly_downgraded() {
+        // A voice call needs no camera, so no pipeline is not a failure.
+        assert!(require_video(false, false).is_ok());
+        assert!(require_video(false, true).is_ok());
+        assert!(require_video(true, true).is_ok());
+        // Video was asked for and did not start: the call is refused, not turned into voice.
+        assert!(require_video(true, false).is_err());
+    }
+
+    #[test]
+    fn a_peer_terminate_before_the_call_is_active_is_not_an_answered_call() {
+        // The peer answered, so we are past ringing, but the media plane never came up: the call
+        // was never Active, so a terminate here is not a call of zero seconds that was answered.
+        let mut call = dialing();
+        call.signaling(&accept()).expect("the peer answered");
+        assert_eq!(call.phase(), CallPhase::Connecting);
+        assert!(call.started.is_none(), "no media path, so no duration");
+        let update = call.signaling(&terminate(None)).expect("the peer hung up");
+        assert_eq!(update.phase, CallPhase::Failed);
+        assert_eq!(update.outcome, Some(CallOutcome::NoAnswer));
+        assert_eq!(
+            call.record().expect("a record").status,
+            CallStatus::NoAnswer
+        );
+    }
+
+    #[test]
+    fn media_that_disappears_before_the_call_is_active_is_not_an_answered_call() {
+        let mut call = dialing();
+        call.signaling(&accept()).expect("the peer answered");
+        assert_eq!(call.phase(), CallPhase::Connecting);
+        let update = call
+            .media(&CallEvent::Closed(
+                whatsapp_rust::voip_control::MediaCloseReason::RelayDisconnected,
+            ))
+            .expect("the media is gone");
+        // The cause is still a lost line, but the call never came up: it is Failed, not Ended, and
+        // it is not booked as an answered call of zero seconds.
+        assert_eq!(update.phase, CallPhase::Failed);
+        assert_eq!(update.outcome, Some(CallOutcome::ConnectionLost));
+        assert_eq!(
+            call.record().expect("a record").status,
+            CallStatus::ConnectionLost
+        );
+        assert!(!call.record().expect("a record").status.connected());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn killing_the_camera_child_ends_a_blocked_read() {
+        use std::io::Read as _;
+        // A long-lived child stands in for a camera or `ffmpeg` that stalled while holding the
+        // device: the capture thread would be parked in a blocking read on its stdout.
+        let mut child = std::process::Command::new("sleep")
+            .arg("30")
+            .stdout(Stdio::piped())
+            .spawn()
+            .expect("a child to stand in for a stalled camera");
+        let mut stdout = child.stdout.take().expect("the child has a stdout");
+        let slot = std::sync::Mutex::new(Some(child));
+        let reader = std::thread::spawn(move || {
+            let mut buffer = [0u8; 8];
+            // Blocks until the child dies, then reads its end of file.
+            let _ = stdout.read(&mut buffer);
+        });
+        kill_camera_child(&slot);
+        assert!(
+            slot.lock().expect("the slot").is_none(),
+            "the child is taken out of the slot when it is killed"
+        );
+        reader
+            .join()
+            .expect("the blocked read returned once the child died");
     }
 }
 

@@ -1420,6 +1420,26 @@ impl App {
         self.avatar(id)
     }
 
+    /// Whether the live call belongs to a chat the lock is hiding right now.
+    fn call_is_private(&self) -> bool {
+        self.call
+            .as_ref()
+            .is_some_and(|call| self.chat_is_private(&call.chat))
+    }
+
+    /// Puts a live call back behind the bar when its chat is locked and the folder closes.
+    ///
+    /// The locked state is otherwise only applied when a call update arrives, so a call opened
+    /// while the folder was open would keep painting full-window after it closed. The frames are
+    /// dropped as well, so no remote picture lingers for the redacted bar to lift.
+    fn hide_private_call(&mut self) {
+        if self.call_is_private() {
+            self.call_surface_hidden = true;
+            self.call_local_frame = None;
+            self.call_remote_frame = None;
+        }
+    }
+
     /// Resolves message mentions for markup.
     pub fn mention_list(&self, message: &Message) -> Vec<crate::markup::Mention> {
         message
@@ -2409,6 +2429,9 @@ impl App {
         {
             self.hide_locked_chat(&id);
         }
+        // The lock is applied again: a live call in a locked chat goes back behind the bar now,
+        // rather than waiting for the next update that may never come.
+        self.hide_private_call();
     }
 
     fn clear_chat_lock_entry(&mut self) {
@@ -3174,9 +3197,10 @@ impl App {
             self.call_local_frame = None;
             self.call_remote_frame = None;
             self.call_surface_until = Some(Instant::now() + CALL_FAREWELL);
-            // How a call ended is the whole reason the surface lingers: the farewell is never left
-            // behind the bar.
-            self.call_surface_hidden = false;
+            // How a call ended is the whole reason the surface lingers, but a locked chat still says
+            // nothing: with the folder closed the four-second farewell stays behind the bar instead
+            // of covering the window and announcing that a hidden chat had a call.
+            self.call_surface_hidden = self.chat_is_private(&update.chat);
         } else {
             self.call_surface_until = None;
             // A call that has just begun takes the screen. Only a call the reader deliberately
@@ -3478,7 +3502,10 @@ impl App {
             }
             Action::OpenCallChat(id) => self.open_chat(id),
             Action::LeaveCallSurface => self.call_surface_hidden = true,
-            Action::ReturnToCall => self.call_surface_hidden = false,
+            // Returning to a call whose chat is locked keeps it redacted: the bar already says
+            // "Locked chat", and lifting it outside the authenticated folder would reveal the
+            // contact the lock is there to hide.
+            Action::ReturnToCall => self.call_surface_hidden = self.call_is_private(),
             Action::StartChat { id, name } => {
                 if self.chat(&id).is_none() {
                     self.chats.push(Chat::new(id.clone(), name.clone()));
@@ -9384,6 +9411,83 @@ mod tests {
             app.call_surface_until.is_some(),
             "the farewell is on screen"
         );
+    }
+
+    #[test]
+    fn a_locked_chats_farewell_stays_behind_the_bar() {
+        let mut app = app();
+        let id = "1@s.whatsapp.net";
+        let mut chat = Chat::new(id.into(), "Fixture".into());
+        chat.locked = true;
+        app.chats.push(chat);
+        assert!(app.chat_is_private(id), "the folder is closed");
+        app.handle_call_update(call_for(id, 1, crate::calls::CallPhase::Incoming));
+        assert!(app.call_surface_hidden, "a locked caller waits in the bar");
+        let mut ended = call_for(id, 1, crate::calls::CallPhase::Failed);
+        ended.outcome = Some(crate::calls::CallOutcome::NoAnswer);
+        app.handle_call_update(ended);
+        assert!(
+            app.call_surface_hidden,
+            "the farewell must not cover the window with a hidden chat's call"
+        );
+        assert!(
+            app.call_surface_until.is_some(),
+            "the farewell is still shown"
+        );
+    }
+
+    #[test]
+    fn closing_the_locked_folder_hides_a_live_call_again() {
+        let mut app = app();
+        let id = "1@s.whatsapp.net";
+        let mut chat = Chat::new(id.into(), "Fixture".into());
+        chat.locked = true;
+        app.chats.push(chat);
+        app.settings.set_chat_lock_code(Some("fixture-code"));
+        app.enter_locked_folder();
+        assert!(app.locked_folder_open(), "the folder is authenticated");
+        app.handle_call_update(call_for(id, 1, crate::calls::CallPhase::Active));
+        assert!(!app.call_surface_hidden, "the folder lets the call show");
+        app.call_remote_frame = Some(std::sync::Arc::new(egui::ColorImage::example()));
+        app.close_locked_folder();
+        assert!(
+            app.call_surface_hidden,
+            "the lock sends the live call back to the bar"
+        );
+        assert!(app.call_remote_frame.is_none(), "no remote picture lingers");
+    }
+
+    #[test]
+    fn returning_to_a_locked_call_cannot_lift_the_redaction() {
+        let mut app = app();
+        let ctx = egui::Context::default();
+        let id = "1@s.whatsapp.net";
+        let mut chat = Chat::new(id.into(), "Fixture".into());
+        chat.locked = true;
+        app.chats.push(chat);
+        app.call = Some(call_for(id, 1, crate::calls::CallPhase::Active));
+        app.apply(Action::ReturnToCall, &ctx);
+        assert!(
+            app.call_surface_hidden,
+            "a locked call needs the folder to show"
+        );
+        app.chats[0].locked = false;
+        app.apply(Action::ReturnToCall, &ctx);
+        assert!(
+            !app.call_surface_hidden,
+            "an ordinary call returns as before"
+        );
+    }
+
+    /// An incoming call for a specific chat, as the backend would publish it.
+    fn call_for(
+        chat: &str,
+        generation: u64,
+        phase: crate::calls::CallPhase,
+    ) -> crate::calls::CallUpdate {
+        let mut update = incoming_call(generation, phase);
+        update.chat = chat.to_owned();
+        update
     }
 
     /// The generation of an incoming call, as the backend would publish it.

@@ -993,6 +993,12 @@ impl Worker {
                     | Event::SearchHits { .. }
                     | Event::Labels(_)
                     | Event::Typing { .. }
+                    // Call records name their chat, so they are archive-derived private content
+                    // too: a locked chat's calls must not reach the Calls view before the lock
+                    // state is known (see `reveal_private_content`, which re-issues the read).
+                    | Event::CallLog(_)
+                    | Event::ChatCalls { .. }
+                    | Event::CallLogged(_)
             )
         {
             return;
@@ -1690,6 +1696,9 @@ impl Worker {
         }
         self.privacy_ready = true;
         self.load_state();
+        // The startup read was held back while the lock state was unknown; answer it now, so the
+        // Calls view is populated without waiting for the user to open it.
+        self.load_calls();
         self.emit(Event::Syncing(self.syncing));
         // Answer the reads made while content was withheld, now that the
         // chat list they belong to has been sent.
@@ -9257,6 +9266,44 @@ mod tests {
             })
             .unwrap();
         assert!(chats[0].locked);
+    }
+
+    #[test]
+    fn call_logs_are_withheld_until_privacy_recovery_completes() {
+        let (mut worker, events, _, _) = receipt_tests::worker();
+        const PEER: &str = "fixture@s.whatsapp.net";
+        worker.archive.ensure_chat(PEER, "Fixture").unwrap();
+        worker
+            .archive
+            .save_call(&crate::model::CallRecord {
+                id: "call-1".into(),
+                chat: PEER.into(),
+                started_at: 100,
+                ended_at: 130,
+                direction: crate::model::CallDirection::Outgoing,
+                media: crate::model::CallMedia::Voice,
+                status: crate::model::CallStatus::Answered,
+                duration: 30,
+            })
+            .unwrap();
+        unconfirmed(&mut worker);
+        // The startup read happens while the lock state is still unknown: it must be held back,
+        // because a record names its chat and a locked chat's rows are not to be shown yet.
+        worker.load_calls();
+        assert!(
+            !events
+                .try_iter()
+                .any(|event| matches!(event, Event::CallLog(_))),
+            "no call records while lock state is unknown"
+        );
+        worker.preferences_recovered(0, true, true);
+        assert!(worker.privacy_ready);
+        assert!(
+            events
+                .try_iter()
+                .any(|event| matches!(event, Event::CallLog(_))),
+            "the withheld read is answered once recovery completes"
+        );
     }
 
     /// A chat opened while lock state was still being recovered asked for its

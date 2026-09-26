@@ -285,13 +285,13 @@ impl fastframe_theme::Palette for Palette {
 }
 
 /// How much denser than the palette's shadow colour a bubble's shadow is.
-const SHADOW_DENSITY: f32 = 1.3;
+const SHADOW_DENSITY: f32 = 1.04;
 /// How far a dark theme's raised edge moves from the surface toward the text.
-const DARK_EDGE_TINT: f32 = 0.16;
+const DARK_EDGE_TINT: f32 = 0.128;
 /// The light palette's shadow opacity, the most a raised surface casts.
 const LIGHT_SHADOW_ALPHA: u8 = 50;
 /// How far a light theme's raised edge moves from the surface toward white.
-const LIGHT_EDGE_TINT: f32 = 0.6;
+const LIGHT_EDGE_TINT: f32 = 0.48;
 /// How thick the raised edge is, in points.
 pub const RAISED_EDGE: f32 = 1.0;
 

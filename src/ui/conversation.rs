@@ -1000,19 +1000,32 @@ fn composer(app: &mut App, ui: &mut egui::Ui, chat: &Chat) {
                 // The send button closes the row, flush with the field's end.
                 let field_width =
                     (ui.available_width() - button_width - ui.spacing().item_spacing.x).max(0.0);
+                // The capitals' ink is centred on the controls, not the line
+                // box: the box holds room below the baseline that most text
+                // leaves empty, and at fractional scales the glyphs round to
+                // the pixel grid a point higher in it, so centring the box
+                // left typed text visibly high. Measured at this scale and
+                // snapped to a whole pixel.
+                let cap_middle = cap_middle(ui, line_height);
+                let top = fastframe_text::snap_to_pixels(
+                    row_height - line / 2.0 - (text_height - line_height) - cap_middle,
+                    ui.ctx().pixels_per_point(),
+                )
+                .max(0.0);
+                let bottom = (row_height - text_height - top).max(0.0);
                 Frame::new()
                     .fill(Color32::TRANSPARENT)
-                    // One point higher than the geometric centre: most lines
-                    // have letters that drop below the baseline, which makes a
-                    // centred line look low.
                     .inner_margin(Margin {
                         left: 8,
                         right: 8,
-                        top: (field_margin - 1.0).max(0.0) as i8,
-                        bottom: (field_margin + 1.0) as i8,
+                        top: 0,
+                        bottom: 0,
                     })
                     .show(ui, |ui| {
                         ui.set_width((field_width - 16.0).max(0.0));
+                        ui.vertical(|ui| {
+                        ui.spacing_mut().item_spacing.y = 0.0;
+                        ui.add_space(top);
                         // Grow from one to six lines, then scroll. The height
                         // is this frame's draft, measured above, rather than
                         // the scroll area's memory of the last frame.
@@ -1180,6 +1193,8 @@ fn composer(app: &mut App, ui: &mut egui::Ui, chat: &Chat) {
                                     response.request_focus();
                                 }
                             });
+                        ui.add_space(bottom);
+                        });
                     });
                 let ready = !app.composer.trim().is_empty()
                     || !app.pending.is_empty()
@@ -1340,6 +1355,23 @@ pub(crate) fn composer_pill_id() -> egui::Id {
 /// precisely. `App::at_bottom` covers ordinary UI checks.
 pub(crate) fn scroll_metrics_id(chat: &ChatId) -> egui::Id {
     egui::Id::new(("message-scroll-metrics", chat))
+}
+
+/// How far below the top of a composer text row the middle of a capital's
+/// ink sits, at this scale.
+fn cap_middle(ui: &egui::Ui, line_height: f32) -> f32 {
+    let format = egui::TextFormat::simple(theme::regular(BODY_SIZE), Color32::WHITE);
+    let (galley, _) = crate::bidi::layout_editor(ui, "H", &format, f32::INFINITY, true);
+    galley
+        .rows
+        .first()
+        .and_then(|row| {
+            let glyph = row.glyphs.first()?;
+            (!glyph.uv_rect.is_nothing()).then(|| {
+                row.pos.y + glyph.pos.y + glyph.uv_rect.offset.y + glyph.uv_rect.size.y / 2.0
+            })
+        })
+        .unwrap_or(line_height / 2.0)
 }
 
 /// Lays out a control centred in the composer's last-line band, however

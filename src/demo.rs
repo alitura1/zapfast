@@ -7999,6 +7999,83 @@ mod tests {
         );
     }
 
+    /// A draft's capitals centre on the plus and emoji buttons at every
+    /// scale. Centring the line box instead left typed text two points high
+    /// at 133%, where glyphs round to the pixel grid higher in their box.
+    #[test]
+    fn the_composers_capitals_centre_on_its_controls_at_every_scale() {
+        use crate::ui::focus::Stop;
+        const DRAFT: &str = "HEXT";
+        for scale in [1.0_f32, 1.25, 1.333_333, 1.5, 2.0] {
+            let mut app = app();
+            app.composer = DRAFT.into();
+            let ctx = egui::Context::default();
+            app.attach(&ctx);
+            let mut shapes = Vec::new();
+            for _ in 0..4 {
+                let mut input = egui::RawInput {
+                    screen_rect: Some(egui::Rect::from_min_size(
+                        egui::Pos2::ZERO,
+                        egui::vec2(1180.0, 780.0),
+                    )),
+                    ..Default::default()
+                };
+                input
+                    .viewports
+                    .entry(egui::ViewportId::ROOT)
+                    .or_default()
+                    .native_pixels_per_point = Some(scale);
+                let mut output = ctx.run_ui(input, |ui| {
+                    let ctx = ui.ctx().clone();
+                    app.background_frame(&ctx);
+                    app.frame_ui(ui);
+                });
+                output.textures_delta.clear();
+                shapes = output.shapes;
+            }
+            assert!((ctx.pixels_per_point() - scale).abs() < 1e-4);
+            let id = crate::ui::focus::stops(&ctx)
+                .into_iter()
+                .find(|(found, _)| *found == Stop::Attach)
+                .map(|(_, id)| id)
+                .expect("the plus is drawn");
+            let control = ctx.read_response(id).unwrap().rect.center().y;
+            let mut ink: Option<(f32, f32)> = None;
+            let mut stack: Vec<&egui::Shape> =
+                shapes.iter().map(|clipped| &clipped.shape).collect();
+            while let Some(shape) = stack.pop() {
+                match shape {
+                    egui::Shape::Vec(shapes) => stack.extend(shapes.iter()),
+                    egui::Shape::Text(text) if text.galley.text() == DRAFT => {
+                        for row in &text.galley.rows {
+                            for glyph in row
+                                .glyphs
+                                .iter()
+                                .filter(|glyph| !glyph.uv_rect.is_nothing())
+                            {
+                                let top =
+                                    text.pos.y + row.pos.y + glyph.pos.y + glyph.uv_rect.offset.y;
+                                let bottom = top + glyph.uv_rect.size.y;
+                                ink =
+                                    Some(ink.map_or((top, bottom), |(t, b)| {
+                                        (t.min(top), b.max(bottom))
+                                    }));
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            let (top, bottom) = ink.expect("the draft is painted");
+            let middle = (top + bottom) / 2.0;
+            // One physical pixel at 133%.
+            assert!(
+                (middle - control).abs() <= 0.75,
+                "at {scale}x the capitals centre on {middle}, the controls on {control}"
+            );
+        }
+    }
+
     /// Plus, emoji, the first line of text and send or record share the
     /// rounded field's vertical centre; a longer draft keeps them on its
     /// last line.

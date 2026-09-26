@@ -634,9 +634,10 @@ English. `Ctrl+F` on the Settings page focuses the field, and `Esc` clears it.
 
 **Settings > Appearance > Language** chooses the interface language. **Auto**
 follows the first of the operating system's preferred languages that ZapFast
-has a translation for, and falls back to English when it has none. Brazilian Portuguese, German, Spanish, Italian,
-French, and Russian cover the chat list, search, composer, shortcut hints,
-Settings, and dates. Translations are compiled from gettext PO
+has a translation for, and falls back to English when it has none. Brazilian
+Portuguese, German, Spanish, Italian, French, Russian, and Simplified Chinese
+cover the chat list, search, composer, shortcut hints, Settings, and dates.
+Translations are compiled from gettext PO
 files at build time, with no runtime parsing or network access. Message
 contents, contact names, logs, and protocol errors are never translated, and
 copied messages keep WhatsApp's `[time, date] Name:` format.

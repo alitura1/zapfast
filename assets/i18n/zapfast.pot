@@ -9,7 +9,7 @@ msgstr ""
 "Project-Id-Version: ZapFast\n"
 "Report-Msgid-Bugs-To: https://github.com/crmne/zapfast/issues/new?"
 "template=translation.yml\n"
-"POT-Creation-Date: 2026-09-26 14:53+0200\n"
+"POT-Creation-Date: 2026-09-26 15:08+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -170,7 +170,7 @@ msgstr ""
 msgid "Remove from favorites"
 msgstr ""
 
-#: src/ui/chats.rs:1015 src/ui/chats.rs:1373 src/ui/conversation.rs:3718
+#: src/ui/chats.rs:1015 src/ui/chats.rs:1373 src/ui/conversation.rs:3727
 #: src/ui/dialogs.rs:1013 src/ui/picker.rs:1582
 msgid "Add to favorites"
 msgstr ""
@@ -213,123 +213,123 @@ msgstr ""
 msgid "Attach"
 msgstr ""
 
-#: src/ui/conversation.rs:1067
+#: src/ui/conversation.rs:1070
 msgid "Type a message"
 msgstr ""
 
-#: src/ui/conversation.rs:1070
+#: src/ui/conversation.rs:1073
 msgid "Add a caption"
 msgstr ""
 
-#: src/ui/conversation.rs:1267
+#: src/ui/conversation.rs:1270
 msgid ""
 "Enter sends · Shift+Enter for a new line · *bold* _italic_ ~strike~ · Ctrl+V "
 "pastes a picture"
 msgstr ""
 
-#: src/ui/conversation.rs:1269
+#: src/ui/conversation.rs:1272
 msgid "Ctrl+Enter sends · *bold* _italic_ ~strike~ · Ctrl+V pastes a picture"
 msgstr ""
 
-#: src/ui/conversation.rs:1280
+#: src/ui/conversation.rs:1283
 msgid "Hide shortcut hints (bring them back from Keyboard shortcuts)"
 msgstr ""
 
-#: src/ui/conversation.rs:1295
+#: src/ui/conversation.rs:1298
 #, rust-format
 msgid "All shortcuts ({})"
 msgstr ""
 
-#: src/ui/conversation.rs:1425
+#: src/ui/conversation.rs:1434
 msgid "Send files"
 msgstr ""
 
-#: src/ui/conversation.rs:1429
+#: src/ui/conversation.rs:1438
 msgid "Create poll"
 msgstr ""
 
-#: src/ui/conversation.rs:1447
+#: src/ui/conversation.rs:1456
 #, rust-format
 msgid "Voice message ({duration}) not sent"
 msgstr ""
 
-#: src/ui/conversation.rs:1449
+#: src/ui/conversation.rs:1458
 msgid "Discard voice message"
 msgstr ""
 
-#: src/ui/conversation.rs:1902 src/notify/badge_windows.rs:255
+#: src/ui/conversation.rs:1911 src/notify/badge_windows.rs:255
 #, rust-format
 msgid "{} unread message"
 msgid_plural "{} unread messages"
 msgstr[0] ""
 msgstr[1] ""
 
-#: src/ui/conversation.rs:3087 src/ui/conversation.rs:3727
+#: src/ui/conversation.rs:3096 src/ui/conversation.rs:3736
 msgid "Open in system player"
 msgstr ""
 
-#: src/ui/conversation.rs:3088 src/ui/conversation.rs:3786
+#: src/ui/conversation.rs:3097 src/ui/conversation.rs:3795
 #: src/ui/message_info.rs:17
 msgid "Message info"
 msgstr ""
 
-#: src/ui/conversation.rs:4120
+#: src/ui/conversation.rs:4129
 msgid "Location"
 msgstr ""
 
-#: src/ui/conversation.rs:4146
+#: src/ui/conversation.rs:4155
 msgid "Live location ended"
 msgstr ""
 
-#: src/ui/conversation.rs:4148 src/ui/conversation.rs:4338
+#: src/ui/conversation.rs:4157 src/ui/conversation.rs:4347
 msgid "Live location"
 msgstr ""
 
-#: src/ui/conversation.rs:4158
+#: src/ui/conversation.rs:4167
 #, rust-format
 msgid "Updated {time}"
 msgstr ""
 
-#: src/ui/conversation.rs:4208
+#: src/ui/conversation.rs:4217
 msgid "Chat"
 msgstr ""
 
-#: src/ui/conversation.rs:4222
+#: src/ui/conversation.rs:4231
 msgid "Add"
 msgstr ""
 
-#: src/ui/conversation.rs:4267
+#: src/ui/conversation.rs:4276
 #, rust-format
 msgid "{} sticker"
 msgid_plural "{} stickers"
 msgstr[0] ""
 msgstr[1] ""
 
-#: src/ui/conversation.rs:4280
+#: src/ui/conversation.rs:4289
 msgid "View stickers"
 msgstr ""
 
-#: src/ui/conversation.rs:4346
+#: src/ui/conversation.rs:4355
 msgid "Open WhatsApp on your phone to follow it."
 msgstr ""
 
-#: src/ui/conversation.rs:5192
+#: src/ui/conversation.rs:5201
 msgid "Open in a map"
 msgstr ""
 
-#: src/ui/conversation.rs:5751
+#: src/ui/conversation.rs:5760
 msgid "Pause"
 msgstr ""
 
-#: src/ui/conversation.rs:5753 src/ui/settings.rs:1349
+#: src/ui/conversation.rs:5762 src/ui/settings.rs:1349
 msgid "Play"
 msgstr ""
 
-#: src/ui/conversation.rs:5776
+#: src/ui/conversation.rs:5785
 msgid "Unmute"
 msgstr ""
 
-#: src/ui/conversation.rs:5778
+#: src/ui/conversation.rs:5787
 msgid "Mute"
 msgstr ""
 

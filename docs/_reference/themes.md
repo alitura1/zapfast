@@ -18,11 +18,10 @@ The quickest way there is **Settings → Appearance → Open themes folder**,
 which creates the folder if needed. Each file shows up in the Theme picker
 under its name: `gruvbox.json` becomes **Gruvbox**.
 
-The `examples` folder inside it holds the built-in palettes (Catppuccin, Nord,
-Rose Pine, and the others in the picker) as JSON, to read or start from.
-ZapFast refreshes it each time it reads your themes and never loads it as
-themes, so edits there are overwritten. To change one, copy it up into the
-themes folder: a copy with a built-in palette's name replaces that palette.
+The built-in palettes (Catppuccin, Nord, Rose Pine, and the others in the
+picker) are there too, as ordinary files written the first time ZapFast
+starts: read them, change them, or start from one. They are yours after that:
+ZapFast never rewrites them, and one you delete stays deleted.
 
 ## A first theme
 

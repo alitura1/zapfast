@@ -695,9 +695,9 @@ Tokyo Night, Rose Pine, Rose Pine Moon, and Rose Pine Dawn palettes.
 Choose **Open themes folder** below the picker to add
 JSON palettes beside `settings.json`; **How to make a theme** opens
 [the guide](https://zapfast.rocks/themes/) with every colour name. The
-bundled palettes are written to `themes/examples/` as a starting point, kept
-current, and never loaded from there; copy one up to make it your own. A local file with a bundled palette's name
-overrides it. For example:
+bundled palettes are written into the themes folder once, as ordinary files
+to read or change; ZapFast never rewrites them, and a deleted one stays
+deleted. For example:
 
 ```json
 {"base":"dark","colors":{"accent":"#89b4fa","bubble_out":"#293954"}}

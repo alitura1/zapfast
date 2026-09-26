@@ -701,12 +701,21 @@ pub fn row_highlight(ui: &Ui, rect: Rect, color: Color32) {
 }
 
 /// A soft shadow cast downward from `edge`, for a bar that content scrolls
-/// under. One gradient quad.
+/// under. One gradient quad; in a dark theme a deeper one, beneath a
+/// hairline of the bar's raised edge.
 pub fn paint_shadow_below(ui: &Ui, palette: &Palette, left: f32, right: f32, edge: f32) {
-    let height = 6.0;
-    let dark = palette
-        .shadow
-        .gamma_multiply(if palette.dark { 0.45 } else { 0.4 });
+    let (height, dark) = if palette.dark {
+        (9.0, palette.shadow.gamma_multiply(0.8))
+    } else {
+        (6.0, palette.shadow.gamma_multiply(0.4))
+    };
+    if let Some(line) = palette.raised_edge(palette.panel) {
+        ui.painter().rect_filled(
+            Rect::from_min_max(pos2(left, edge - theme::RAISED_EDGE), pos2(right, edge)),
+            0.0,
+            line,
+        );
+    }
     let mut mesh = egui::Mesh::default();
     let rect = Rect::from_min_max(pos2(left, edge), pos2(right, edge + height));
     mesh.colored_vertex(rect.left_top(), dark);
@@ -783,6 +792,23 @@ pub fn bubble_shape(
             Stroke::NONE,
         ));
     }
+    // The raised edge: the same outline a hair higher, under the fill, so
+    // only its top shows, thinning out down the rounded corners.
+    if let Some(edge) = palette.raised_edge(fill) {
+        let lift = vec2(0.0, -theme::RAISED_EDGE);
+        shapes.push(egui::Shape::rect_filled(
+            rect.translate(lift),
+            corners,
+            edge,
+        ));
+        if let Some(points) = &tail_points {
+            shapes.push(egui::Shape::convex_polygon(
+                points.iter().map(|point| *point + lift).collect(),
+                edge,
+                Stroke::NONE,
+            ));
+        }
+    }
     shapes.push(egui::Shape::rect_filled(rect, corners, fill));
     if let Some(points) = tail_points {
         shapes.push(egui::Shape::convex_polygon(points, fill, Stroke::NONE));
@@ -801,6 +827,10 @@ pub fn chip(ui: &mut Ui, palette: &Palette, label: &str) -> egui::Response {
         let radius = CornerRadius::from(rect.height() / 2.0);
         ui.painter()
             .add(palette.bubble_shadow().as_shape(rect, radius));
+        if let Some(edge) = palette.raised_edge(palette.panel) {
+            ui.painter()
+                .rect_filled(rect.translate(vec2(0.0, -theme::RAISED_EDGE)), radius, edge);
+        }
         ui.painter().rect_filled(rect, radius, palette.panel);
         ui.painter().galley(
             rect.center() - galley.size() / 2.0,

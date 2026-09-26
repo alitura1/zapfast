@@ -165,18 +165,35 @@ impl Palette {
     }
 
     /// The soft shadow that lifts message bubbles and date chips off the
-    /// wallpaper: one point down with a short blur, like the phone's. A
-    /// dark chat needs a denser shadow to show at all; either way it comes
-    /// from the palette's own shadow colour, so custom themes steer it.
+    /// wallpaper: one point down with a short blur, like the phone's. Both
+    /// come from the palette's own shadow colour, so custom themes steer it.
+    /// A shadow barely darkens a dark chat, so there it is denser, larger,
+    /// and further down, and [`Palette::raised_edge`] lights the top.
     pub fn bubble_shadow(&self) -> egui::epaint::Shadow {
-        egui::epaint::Shadow {
-            offset: [0, 1],
-            blur: 3,
-            spread: 0,
-            color: self
-                .shadow
-                .gamma_multiply(if self.dark { 0.5 } else { 0.7 }),
+        if self.dark {
+            egui::epaint::Shadow {
+                offset: [0, 2],
+                blur: 6,
+                spread: 0,
+                color: denser(self.shadow, DARK_SHADOW_DENSITY),
+            }
+        } else {
+            egui::epaint::Shadow {
+                offset: [0, 1],
+                blur: 3,
+                spread: 0,
+                color: self.shadow.gamma_multiply(0.7),
+            }
         }
+    }
+
+    /// In a dark theme, the faint light along the top edge of a raised
+    /// surface of colour `fill`: the fill a little toward the text colour,
+    /// so it follows every dark palette, mid-dark ones included. Light
+    /// themes have a shadow that shows and no edge.
+    pub fn raised_edge(&self, fill: Color32) -> Option<Color32> {
+        self.dark
+            .then(|| fill.lerp_to_gamma(self.text, RAISED_EDGE_TINT))
     }
 
     /// Group-sender color derived from the avatar hue.
@@ -262,6 +279,21 @@ impl fastframe_theme::Palette for Palette {
             self.overlay = self.panel;
         }
     }
+}
+
+/// How much denser than the palette's shadow colour a dark theme's bubble
+/// shadow is.
+const DARK_SHADOW_DENSITY: f32 = 1.3;
+/// How far a dark theme's raised edge moves from the surface toward the text.
+const RAISED_EDGE_TINT: f32 = 0.16;
+/// How thick the raised edge is, in points.
+pub const RAISED_EDGE: f32 = 1.0;
+
+/// `color` with its opacity scaled by `factor`, up to opaque.
+fn denser(color: Color32, factor: f32) -> Color32 {
+    let [r, g, b, a] = color.to_srgba_unmultiplied();
+    let alpha = (f32::from(a) * factor).round().clamp(0.0, 255.0) as u8;
+    Color32::from_rgba_unmultiplied(r, g, b, alpha)
 }
 
 /// Converts HSL to color bytes for non-egui drawing.
@@ -1020,6 +1052,33 @@ pub fn titlebar_inset(ctx: &egui::Context) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn dark_themes_raise_bubbles_with_a_lit_edge_and_a_denser_shadow() {
+        let light = Palette::light();
+        assert_eq!(light.raised_edge(light.bubble_in), None);
+        assert_eq!(light.bubble_shadow().offset, [0, 1]);
+
+        // The built-in dark palette, a Catppuccin-like one, and a mid-dark
+        // custom one all get an edge lighter than the bubble but close to it.
+        let mut mid = Palette::dark();
+        mid.chat = Color32::from_rgb(0x3a, 0x3f, 0x4b);
+        mid.bubble_in = Color32::from_rgb(0x4c, 0x52, 0x60);
+        let catppuccin = crate::theme::presets()
+            .find(|theme| theme.filename == "Catppuccin.json")
+            .unwrap()
+            .palette;
+        for palette in [Palette::dark(), catppuccin, mid] {
+            for fill in [palette.bubble_in, palette.bubble_out] {
+                let edge = palette.raised_edge(fill).unwrap();
+                let lift = contrast(edge, palette.chat) / contrast(fill, palette.chat);
+                assert!(lift > 1.05 && lift < 1.6, "{fill:?} -> {edge:?}: {lift}");
+            }
+            let shadow = palette.bubble_shadow();
+            assert!(shadow.color.a() > palette.shadow.a() || palette.shadow.a() == 255);
+            assert!(shadow.blur > light.bubble_shadow().blur);
+        }
+    }
 
     /// The palette decides the theme, and the desktop's rendering its text
     /// options: linear coverage in both themes on Linux, as GTK draws it.

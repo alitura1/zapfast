@@ -38,12 +38,17 @@ mkdir -p "$apps_dir"
 # The one line that changes: `Exec=zapfast` becomes the path just installed,
 # so the entry works whether or not ~/.local/bin is on the session's PATH.
 #
-# The path is quoted and escaped the way a Desktop Entry's Exec key wants —
-# the same rules src/autostart.rs applies to the tray entry — because a home
+# The path is quoted and escaped the way a Desktop Entry's Exec key wants, the
+# same rules src/autostart.rs applies to the tray entry, because a home
 # directory like `/home/alice/Zap Fast` is valid: unquoted, the launcher would
 # read that as an executable plus an argument and the entry would do nothing.
 # `"`, `` ` ``, `$` and `\` are backslash-escaped, and a literal `%` is doubled.
-awk -v exec="$installed" '
+#
+# The path reaches awk through the environment, not `awk -v`: `-v` expands
+# backslash escapes in the value before the script sees it, so a prefix
+# containing `\n` would gain a newline and the Exec would no longer match
+# where the binary actually landed. ENVIRON values are used verbatim.
+EXEC_PATH="$installed" awk '
   function quote(path,   out, i, c) {
     out = "\""
     for (i = 1; i <= length(path); i++) {
@@ -54,11 +59,14 @@ awk -v exec="$installed" '
     }
     return out "\""
   }
-  /^Exec=/ { print "Exec=" quote(exec); next }
+  /^Exec=/ { print "Exec=" quote(ENVIRON["EXEC_PATH"]); next }
   { print }
 ' "$here/applications/zapfast.desktop" > "$apps_dir/zapfast.desktop"
 
-if command -v desktop-file-validate >/dev/null 2>&1; then
+# desktop-file-validate rejects the `\\` that a literal backslash in a quoted
+# Exec must use, so a prefix containing one is installed without that check
+# rather than failing the install on a valid entry.
+if command -v desktop-file-validate >/dev/null 2>&1 && [[ "$installed" != *\\* ]]; then
   desktop-file-validate "$apps_dir/zapfast.desktop"
 fi
 if command -v update-desktop-database >/dev/null 2>&1; then

@@ -18,9 +18,9 @@ cargo install --path .
 zapfast
 ```
 
-`cargo install` puts the binary on your `PATH`, but it does not add a launcher
-entry. To get one — ZapFast under your application launcher, with its own icon
-and no terminal — install a release build instead:
+On Linux, `cargo install` puts the binary on your `PATH` but does not add a
+launcher entry. To get one (ZapFast under your application launcher, with its
+own icon and no terminal), install a release build instead:
 
 ```sh
 cargo build --release --locked
@@ -30,7 +30,8 @@ packaging/install-user.sh
 This installs the binary, the icon, and a desktop file under `~/.local` (or
 `$PREFIX`) and writes that desktop file's `Exec=` as the quoted full path to the
 binary it just installed, so the entry works even when `~/.local/bin` is not on
-the session's `PATH`.
+the session's `PATH`. `install-user.sh` is Linux-only; on macOS and Windows a
+source build has no launcher integration.
 
 On Linux, the build needs egui's development libraries, ALSA, and CMake.
 libopus and the H.264 decoder build from source. On Arch Linux:

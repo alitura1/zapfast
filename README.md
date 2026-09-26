@@ -479,12 +479,16 @@ dependencies. From the checkout, use `nix build .#zapfast` to build the package
 or `nix run .#zapfast` to run it.
 
 `cargo install` puts the binary on your `PATH`, but it does not add a launcher
-entry. A source build can have the entry the packages install:
+entry. On Linux, a source build can have the entry the packages install:
 
 ```sh
 cargo build --release --locked
 packaging/install-user.sh
 ```
+
+`install-user.sh` is Linux-only: it writes an XDG `.desktop` entry. On macOS
+and Windows a source build has no launcher integration; use a packaged release
+or run the binary directly.
 
 The script installs the binary, the icon, and a desktop file under `~/.local`
 (or `$PREFIX`), and writes that desktop file's `Exec=` as the quoted full path

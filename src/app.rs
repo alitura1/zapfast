@@ -952,6 +952,15 @@ impl App {
         self.wants_show = false;
     }
 
+    /// What the conversation shows behind its bubbles, for the chat and the
+    /// wallpaper preview alike.
+    pub fn wallpaper(&self) -> crate::wallpaper::Look {
+        crate::wallpaper::Look {
+            color: self.settings.wallpaper_background(&self.palette),
+            doodles: self.settings.show_wallpaper,
+        }
+    }
+
     /// Whether window close keeps the app in the tray.
     pub fn hides_to_tray(&self) -> bool {
         self.tray.is_some() && self.settings.keep_running_in_background

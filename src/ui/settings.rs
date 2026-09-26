@@ -291,15 +291,8 @@ fn sections(app: &App) -> Vec<Section> {
         translated(locale, "Wallpaper"),
         Text::default(),
         move |ui, app| {
-            if theme::soft_button(
-                ui,
-                &palette,
-                Some(Icon::ChevronRight),
-                app.settings.wallpaper_color_for(palette.dark).label(),
-                false,
-            )
-            .clicked()
-            {
+            let label = wallpaper_label(app.locale, app.settings.wallpaper_color_for(palette.dark));
+            if theme::soft_button(ui, &palette, Some(Icon::ChevronRight), &label, false).clicked() {
                 app.actions.push(Action::Open(Page::Wallpaper));
             }
         },
@@ -930,7 +923,13 @@ pub fn wallpaper_show(app: &mut App, ui: &mut egui::Ui) {
                                             let selected =
                                                 app.settings.wallpaper_color_for(palette.dark);
                                             for color in WallpaperColor::choices(palette.dark) {
-                                                if wallpaper_color_button(ui, *color, selected) {
+                                                if wallpaper_color_button(
+                                                    ui,
+                                                    &palette,
+                                                    app.locale,
+                                                    *color,
+                                                    selected,
+                                                ) {
                                                     app.actions.push(Action::SetWallpaperColor(*color));
                                                 }
                                             }
@@ -964,12 +963,8 @@ pub fn wallpaper_show(app: &mut App, ui: &mut egui::Ui) {
                         header.left_bottom(),
                         vec2(preview_width, (body_height - HEADER_HEIGHT).max(0.0)),
                     );
-                    wallpaper::paint_rect(
-                        ui,
-                        preview,
-                        app.settings.wallpaper_color_for(palette.dark),
-                        app.settings.show_wallpaper,
-                    );
+                    // The same look the chat draws, theme colour included.
+                    wallpaper::paint_rect(ui, preview, &app.wallpaper());
                 },
             );
             ui.painter().line_segment(
@@ -983,27 +978,52 @@ pub fn wallpaper_show(app: &mut App, ui: &mut egui::Ui) {
     );
 }
 
+/// A wallpaper colour's name in the interface language.
+fn wallpaper_label(locale: Locale, color: WallpaperColor) -> String {
+    match color {
+        WallpaperColor::Theme => {
+            crate::i18n::pgettext(locale, "wallpaper colour", "Theme").into_owned()
+        }
+        color => color.label().to_owned(),
+    }
+}
+
 fn wallpaper_color_button(
     ui: &mut egui::Ui,
+    palette: &Palette,
+    locale: Locale,
     color: WallpaperColor,
     selected: WallpaperColor,
 ) -> bool {
-    let button = egui::Button::new(egui::RichText::new(" "))
+    let fill = color.color32(palette);
+    let label = wallpaper_label(locale, color);
+    // Theme follows the palette, so its swatch names itself.
+    let text = if color == WallpaperColor::Theme {
+        egui::RichText::new(label.as_str())
+            .font(theme::medium(13.0))
+            .color(palette.text)
+    } else {
+        egui::RichText::new(" ")
+    };
+    let button = egui::Button::new(text)
         .min_size(Vec2::splat(80.0))
-        .fill(color.color32())
+        .fill(fill)
         .stroke(if color == selected {
-            Stroke::new(4.0, color.color32().gamma_multiply(0.5))
+            Stroke::new(4.0, fill.gamma_multiply(0.5))
+        } else if color == WallpaperColor::Theme {
+            // Otherwise the swatch vanishes into a panel of the same colour.
+            Stroke::new(1.0, palette.outline)
         } else {
             Stroke::NONE
         })
         .corner_radius(CornerRadius::ZERO);
-    let response = ui.add(button).on_hover_text(color.label());
+    let response = ui.add(button).on_hover_text(label.as_str());
     response.widget_info(|| {
         egui::WidgetInfo::selected(
             egui::WidgetType::Button,
             ui.is_enabled(),
             color == selected,
-            color.label(),
+            label.as_str(),
         )
     });
     response.clicked()

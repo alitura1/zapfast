@@ -3845,6 +3845,7 @@ mod tests {
             "settings-search=System",
             "wallpaper",
             "wallpaper,light",
+            "wallpaper,theme=Nord.json",
             "update",
             "update-downloading",
             "update-ready",
@@ -9222,6 +9223,117 @@ mod tests {
 }
 
 /// A long transcript lays out only the rows near the screen.
+#[cfg(test)]
+mod wallpaper_tests {
+    use super::tests::{app, render};
+    use super::*;
+    use crate::settings::WallpaperColor;
+    use egui::epaint::{ClippedShape, Shape};
+
+    fn shapes(app: &mut App, ctx: &egui::Context) -> Vec<Shape> {
+        render(app, ctx);
+        let mut output = ctx.run_ui(
+            egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(
+                    egui::Pos2::ZERO,
+                    egui::vec2(1180.0, 780.0),
+                )),
+                ..Default::default()
+            },
+            |ui| {
+                let ctx = ui.ctx().clone();
+                app.background_frame(&ctx);
+                app.frame_ui(ui);
+            },
+        );
+        output.textures_delta.clear();
+        let mut flat = Vec::new();
+        fn flatten(shape: Shape, into: &mut Vec<Shape>) {
+            match shape {
+                Shape::Vec(shapes) => shapes.into_iter().for_each(|shape| flatten(shape, into)),
+                shape => into.push(shape),
+            }
+        }
+        for ClippedShape { shape, .. } in output.shapes {
+            flatten(shape, &mut flat);
+        }
+        flat
+    }
+
+    /// Where meshes with this texture were painted.
+    fn textured(shapes: &[Shape], texture: egui::TextureId) -> Vec<egui::Rect> {
+        shapes
+            .iter()
+            .filter_map(|shape| match shape {
+                Shape::Mesh(mesh) if mesh.texture_id == texture => Some(mesh.calc_bounds()),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Where rectangles of this colour were filled.
+    fn filled(shapes: &[Shape], color: egui::Color32) -> Vec<egui::Rect> {
+        shapes
+            .iter()
+            .filter_map(|shape| match shape {
+                Shape::Rect(rect) if rect.fill == color => Some(rect.rect),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// The default Theme wallpaper is the palette's chat colour, in the chat,
+    /// the preview, and its swatch, and follows a theme switch at once.
+    #[test]
+    fn the_theme_wallpaper_follows_the_palette() {
+        let mut app = app();
+        apply_flags(&mut app, Some("theme=Nord.json"));
+        let ctx = egui::Context::default();
+        app.attach(&ctx);
+        render(&mut app, &ctx);
+        assert_eq!(app.settings.dark_wallpaper_color, WallpaperColor::Theme);
+        assert!(app.current_chat().is_some(), "the sample opens a chat");
+        let nord = app.palette.chat;
+        assert_ne!(nord, crate::theme::Palette::dark().chat);
+        let chat = shapes(&mut app, &ctx);
+        assert!(
+            filled(&chat, nord)
+                .iter()
+                .any(|rect| rect.width() > 600.0 && rect.height() > 600.0),
+            "the conversation is filled with the theme's chat colour"
+        );
+        let doodles = crate::wallpaper::doodle_texture_id(&ctx);
+        assert!(!textured(&chat, doodles).is_empty(), "doodles draw over it");
+
+        app.page = Page::Wallpaper;
+        let page = shapes(&mut app, &ctx);
+        let fills = filled(&page, nord);
+        assert!(
+            fills
+                .iter()
+                .any(|rect| rect.width() > 300.0 && rect.height() > 600.0),
+            "the preview shows the theme's chat colour"
+        );
+        assert!(
+            fills.iter().any(|rect| (rect.width() - 80.0).abs() < 1.0),
+            "the Theme swatch shows it too"
+        );
+
+        // Switching to a light theme recolours the preview with no new choice.
+        apply_flags(&mut app, Some("theme=Rose Pine Dawn.json"));
+        render(&mut app, &ctx);
+        assert!(!app.palette.dark);
+        let dawn = app.palette.chat;
+        assert_eq!(app.settings.wallpaper_color, WallpaperColor::Theme);
+        let page = shapes(&mut app, &ctx);
+        assert!(
+            filled(&page, dawn)
+                .iter()
+                .any(|rect| rect.width() > 300.0 && rect.height() > 600.0)
+        );
+    }
+}
+
 #[cfg(test)]
 mod long_chat_tests {
     use super::tests::app;

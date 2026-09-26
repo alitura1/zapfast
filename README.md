@@ -670,8 +670,7 @@ from the environment and honors `NO_PROXY`.
 | Device keys | `~/.local/state/zapfast/session.db` | Owned by whatsapp-rust; deleting it unlinks |
 | Messages | `~/.local/state/zapfast/archive.db` | SQLCipher-encrypted SQLite, unlocked by the OS keyring; raw messages retain attachment keys |
 | Attachments, avatars | `~/.cache/zapfast/` | Safe to delete; **Settings > Files > Change…** sends new downloads to another folder, leaving earlier ones in place |
-| Favorite stickers and packs | `~/.local/state/zapfast/stickers/` | Plain WebP files; each pack is a folder |
-| Log of the last run | `~/.local/state/zapfast/zapfast.log` | `--verbose` for more |
+| Favorite stickers and packs | `~/.local/state/zapfast/stickers/` | Plain WebP files; each pack is a folder || Log of the last run | `~/.local/state/zapfast/zapfast.log` | `--verbose` for more |
 
 macOS and Windows use the standard platform directories selected by the
 `directories` crate. On first start, ZapFast moves settings, the linked session,
@@ -708,10 +707,15 @@ Linux watches the themes folder for changes without periodic repaints. On other
 platforms, use `zapfast reload-themes` after editing. The command also works while
 the window is closed and never launches a stopped app.
 
-**Settings → Appearance → Wallpaper** offers WhatsApp's light and dark wallpaper
-colours, with a live preview of the selected colour and doodles. **Add
+**Settings → Appearance → Wallpaper** offers **Theme** first, then WhatsApp's
+light and dark wallpaper colours, with a live preview that shows exactly what
+the chat will. Theme, the default, uses the active palette's chat colour, so a
+local or Omarchy theme colours the conversation too and a theme change shows at
+once. Settings from earlier versions that still had the old default (Beige, or
+Black in dark mode) move to Theme once; a colour you chose stays. **Add
 doodles** controls only the SVG layer, so disabling it leaves the selected
-background colour in place. Light and dark selections are stored independently,
+background colour in place; the doodles switch between dark and light lines to
+stay visible on any colour. Light and dark selections are stored independently,
 and the embedded SVG is rendered at its native size and repeated across the
 conversation without stretching.
 

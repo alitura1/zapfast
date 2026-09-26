@@ -8340,6 +8340,39 @@ mod tests {
         }
     }
 
+    /// A reply strip sits right on the composer it belongs to.
+    #[test]
+    fn the_reply_strip_sits_close_above_the_composer() {
+        let mut app = app();
+        let ctx = egui::Context::default();
+        app.attach(&ctx);
+        render(&mut app, &ctx);
+        let chat = app.open_chat.clone().expect("a chat is open");
+        app.reply_to = app
+            .conversations
+            .get(&chat)
+            .and_then(|conversation| conversation.messages.last())
+            .map(|message| message.id.clone());
+        for _ in 0..4 {
+            frame_sized(&mut app, &ctx, 780.0, Vec::new());
+        }
+        let (strip, pill) = ctx.data(|data| {
+            (
+                data.get_temp::<egui::Rect>(crate::ui::conversation::reply_strip_id()),
+                data.get_temp::<egui::Rect>(crate::ui::conversation::composer_pill_id()),
+            )
+        });
+        let (strip, pill) = (
+            strip.expect("the strip is drawn"),
+            pill.expect("the composer"),
+        );
+        let gap = pill.top() - strip.bottom();
+        assert!(
+            (gap - crate::ui::conversation::STRIP_GAP).abs() < 0.5,
+            "the strip ends {gap} above the composer"
+        );
+    }
+
     /// The text starts right after the plus and emoji pair, as close to the
     /// emoji as the emoji is to the plus, not a field's width away.
     #[test]

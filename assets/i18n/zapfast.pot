@@ -9,7 +9,7 @@ msgstr ""
 "Project-Id-Version: ZapFast\n"
 "Report-Msgid-Bugs-To: https://github.com/crmne/zapfast/issues/new?"
 "template=translation.yml\n"
-"POT-Creation-Date: 2026-09-26 16:01+0200\n"
+"POT-Creation-Date: 2026-09-26 17:56+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -170,7 +170,7 @@ msgstr ""
 msgid "Remove from favorites"
 msgstr ""
 
-#: src/ui/chats.rs:1015 src/ui/chats.rs:1373 src/ui/conversation.rs:3725
+#: src/ui/chats.rs:1015 src/ui/chats.rs:1373 src/ui/conversation.rs:3741
 #: src/ui/dialogs.rs:1013 src/ui/picker.rs:1582
 msgid "Add to favorites"
 msgstr ""
@@ -248,88 +248,88 @@ msgstr ""
 msgid "Create poll"
 msgstr ""
 
-#: src/ui/conversation.rs:1454
+#: src/ui/conversation.rs:1463
 #, rust-format
 msgid "Voice message ({duration}) not sent"
 msgstr ""
 
-#: src/ui/conversation.rs:1456
+#: src/ui/conversation.rs:1465
 msgid "Discard voice message"
 msgstr ""
 
-#: src/ui/conversation.rs:1909 src/notify/badge_windows.rs:255
+#: src/ui/conversation.rs:1925 src/notify/badge_windows.rs:255
 #, rust-format
 msgid "{} unread message"
 msgid_plural "{} unread messages"
 msgstr[0] ""
 msgstr[1] ""
 
-#: src/ui/conversation.rs:3094 src/ui/conversation.rs:3734
+#: src/ui/conversation.rs:3110 src/ui/conversation.rs:3750
 msgid "Open in system player"
 msgstr ""
 
-#: src/ui/conversation.rs:3095 src/ui/conversation.rs:3793
+#: src/ui/conversation.rs:3111 src/ui/conversation.rs:3809
 #: src/ui/message_info.rs:17
 msgid "Message info"
 msgstr ""
 
-#: src/ui/conversation.rs:4127
+#: src/ui/conversation.rs:4143
 msgid "Location"
 msgstr ""
 
-#: src/ui/conversation.rs:4153
+#: src/ui/conversation.rs:4169
 msgid "Live location ended"
 msgstr ""
 
-#: src/ui/conversation.rs:4155 src/ui/conversation.rs:4345
+#: src/ui/conversation.rs:4171 src/ui/conversation.rs:4361
 msgid "Live location"
 msgstr ""
 
-#: src/ui/conversation.rs:4165
+#: src/ui/conversation.rs:4181
 #, rust-format
 msgid "Updated {time}"
 msgstr ""
 
-#: src/ui/conversation.rs:4215
+#: src/ui/conversation.rs:4231
 msgid "Chat"
 msgstr ""
 
-#: src/ui/conversation.rs:4229
+#: src/ui/conversation.rs:4245
 msgid "Add"
 msgstr ""
 
-#: src/ui/conversation.rs:4274
+#: src/ui/conversation.rs:4290
 #, rust-format
 msgid "{} sticker"
 msgid_plural "{} stickers"
 msgstr[0] ""
 msgstr[1] ""
 
-#: src/ui/conversation.rs:4287
+#: src/ui/conversation.rs:4303
 msgid "View stickers"
 msgstr ""
 
-#: src/ui/conversation.rs:4353
+#: src/ui/conversation.rs:4369
 msgid "Open WhatsApp on your phone to follow it."
 msgstr ""
 
-#: src/ui/conversation.rs:5199
+#: src/ui/conversation.rs:5215
 msgid "Open in a map"
 msgstr ""
 
-#: src/ui/conversation.rs:5758
+#: src/ui/conversation.rs:5774
 msgid "Pause"
 msgstr ""
 
-#: src/ui/conversation.rs:5760 src/ui/settings.rs:1420
+#: src/ui/conversation.rs:5776 src/ui/settings.rs:1420
 msgid "Play"
 msgstr ""
 
-#: src/ui/conversation.rs:5783
+#: src/ui/conversation.rs:5799
 msgid "Unmute"
 msgstr ""
 
-#: src/ui/conversation.rs:5785
+#: src/ui/conversation.rs:5801
 msgid "Mute"
 msgstr ""
 

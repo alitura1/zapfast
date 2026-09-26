@@ -1446,6 +1446,15 @@ fn composer_tools_menu(app: &mut App, chat: &Chat, plus: &egui::Response) {
 }
 
 /// Offers a refused voice message for another try, or to discard it.
+/// From a strip above the composer (reply, edit, unsent voice) to the field
+/// it belongs to: close enough to read as one piece.
+pub(crate) const STRIP_GAP: f32 = 3.0;
+
+/// Leaves [`STRIP_GAP`] below a strip, the layout's own spacing included.
+fn strip_gap(ui: &mut egui::Ui) {
+    ui.add_space(STRIP_GAP - ui.spacing().item_spacing.y);
+}
+
 fn unsent_voice_strip(app: &mut App, ui: &mut egui::Ui, samples: usize) {
     let palette = app.palette;
     let seconds = (samples as f64 / f64::from(crate::voice::RATE))
@@ -1482,7 +1491,7 @@ fn unsent_voice_strip(app: &mut App, ui: &mut egui::Ui, samples: usize) {
                 });
             });
         });
-    ui.add_space(6.0);
+    strip_gap(ui);
 }
 
 fn edit_strip(app: &mut App, ui: &mut egui::Ui) {
@@ -1512,7 +1521,7 @@ fn edit_strip(app: &mut App, ui: &mut egui::Ui) {
                 });
             });
         });
-    ui.add_space(6.0);
+    strip_gap(ui);
 }
 
 fn reply_strip(app: &mut App, ui: &mut egui::Ui, quoted: &Message) {
@@ -1523,7 +1532,7 @@ fn reply_strip(app: &mut App, ui: &mut egui::Ui, quoted: &Message) {
         app.display_name_or(&quoted.sender, quoted.sender_name.as_deref())
     };
     let summary = markup::plain(&quoted.summary(), &app.mention_list(quoted));
-    Frame::new()
+    let strip = Frame::new()
         .fill(palette.surface)
         .corner_radius(CornerRadius::same(theme::RADIUS))
         .inner_margin(Margin::symmetric(10, 6))
@@ -1559,7 +1568,14 @@ fn reply_strip(app: &mut App, ui: &mut egui::Ui, quoted: &Message) {
                 });
             });
         });
-    ui.add_space(6.0);
+    ui.ctx()
+        .data_mut(|data| data.insert_temp(reply_strip_id(), strip.response.rect));
+    strip_gap(ui);
+}
+
+/// Where the reply strip was drawn, for layout tests.
+pub(crate) fn reply_strip_id() -> egui::Id {
+    egui::Id::new("reply-strip")
 }
 
 /// App data needed while drawing a checked-out conversation.

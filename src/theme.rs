@@ -17,6 +17,11 @@ pub type Catalog = fastframe_theme::Catalog<Palette>;
 pub const DESKTOP_THEMES: fastframe_theme::DesktopThemes = fastframe_theme::DesktopThemes {
     slug: "zapfast",
     omarchy_template: include_str!("../contrib/omarchy/zapfast.json.tpl"),
+    // Every template ZapFast shipped before, so an untouched copy installed
+    // by an older release is replaced with the current one.
+    omarchy_previous_templates: &[include_str!(
+        "../contrib/omarchy/previous/zapfast-1.json.tpl"
+    )],
     presets: true,
 };
 
@@ -1237,6 +1242,12 @@ mod tests {
             );
         }
         assert_eq!(DESKTOP_THEMES.omarchy_template, TEMPLATE);
+        // A copy of the current template is never taken for an outdated one.
+        assert!(
+            !DESKTOP_THEMES
+                .omarchy_previous_templates
+                .contains(&TEMPLATE)
+        );
     }
 
     /// The hook packages install must be the one fastframe-theme describes.

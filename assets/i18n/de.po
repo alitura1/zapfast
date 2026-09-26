@@ -6,7 +6,7 @@ msgstr ""
 "Project-Id-Version: ZapFast\n"
 "Report-Msgid-Bugs-To: https://github.com/crmne/zapfast/issues/new?"
 "template=translation.yml\n"
-"POT-Creation-Date: 2026-09-26 15:41+0200\n"
+"POT-Creation-Date: 2026-09-26 16:01+0200\n"
 "PO-Revision-Date: 2026-09-22 00:00-0300\n"
 "Last-Translator: ZapFast contributors\n"
 "Language-Team: German\n"
@@ -325,7 +325,7 @@ msgstr "In einer Karte öffnen"
 msgid "Pause"
 msgstr "Pause"
 
-#: src/ui/conversation.rs:5760 src/ui/settings.rs:1404
+#: src/ui/conversation.rs:5760 src/ui/settings.rs:1406
 msgid "Play"
 msgstr "Abspielen"
 
@@ -377,7 +377,7 @@ msgstr "Passende Emojis, etwa 😂 oder ❤️"
 msgid "Send"
 msgstr "Senden"
 
-#: src/ui/dialogs.rs:1020 src/ui/dialogs.rs:1168 src/ui/settings.rs:1207
+#: src/ui/dialogs.rs:1020 src/ui/dialogs.rs:1168 src/ui/settings.rs:1209
 msgid "Cancel"
 msgstr "Abbrechen"
 
@@ -556,7 +556,7 @@ msgstr "Geheimcode"
 msgid "Clear"
 msgstr "Löschen"
 
-#: src/ui/settings.rs:402 src/ui/settings.rs:1530
+#: src/ui/settings.rs:402 src/ui/settings.rs:1534
 msgid "Notifications"
 msgstr "Benachrichtigungen"
 
@@ -570,7 +570,7 @@ msgstr ""
 "Für Chats, die du gerade nicht ansiehst. Stummgeschaltete Chats bleiben "
 "still."
 
-#: src/ui/settings.rs:415 src/ui/settings.rs:1537
+#: src/ui/settings.rs:415 src/ui/settings.rs:1541
 msgid "Play sounds for group messages"
 msgstr "Töne für Gruppennachrichten abspielen"
 
@@ -688,24 +688,24 @@ msgstr ""
 "Für die GIF-Suche. Einen kostenlosen Schlüssel gibt es auf "
 "developers.giphy.com."
 
-#: src/ui/settings.rs:613 src/ui/settings.rs:1582 src/ui/settings.rs:1588
+#: src/ui/settings.rs:613 src/ui/settings.rs:1586 src/ui/settings.rs:1592
 msgid "Account"
 msgstr "Konto"
 
-#: src/ui/settings.rs:616 src/ui/settings.rs:1133
+#: src/ui/settings.rs:616 src/ui/settings.rs:1135
 msgid "Your name"
 msgstr "Dein Name"
 
-#: src/ui/settings.rs:617 src/ui/settings.rs:697 src/ui/settings.rs:1141
-#: src/ui/settings.rs:1303
+#: src/ui/settings.rs:617 src/ui/settings.rs:697 src/ui/settings.rs:1143
+#: src/ui/settings.rs:1305
 msgid "About"
 msgstr "Über"
 
-#: src/ui/settings.rs:618 src/ui/settings.rs:1110
+#: src/ui/settings.rs:618 src/ui/settings.rs:1112
 msgid "Change profile picture"
 msgstr "Profilbild ändern"
 
-#: src/ui/settings.rs:619 src/ui/settings.rs:1177 src/ui/settings.rs:1584
+#: src/ui/settings.rs:619 src/ui/settings.rs:1179 src/ui/settings.rs:1588
 msgid "Unlink this computer"
 msgstr "Diesen Computer abmelden"
 
@@ -741,87 +741,87 @@ msgstr "Protokoll"
 msgid "Open"
 msgstr "Öffnen"
 
-#: src/ui/settings.rs:701 src/ui/settings.rs:1292
+#: src/ui/settings.rs:701 src/ui/settings.rs:1294
 msgid "Keyboard shortcuts"
 msgstr "Tastenkürzel"
 
-#: src/ui/settings.rs:702 src/ui/settings.rs:1314
+#: src/ui/settings.rs:702 src/ui/settings.rs:1316
 msgid "Source code"
 msgstr "Quellcode"
 
-#: src/ui/settings.rs:808 src/ui/settings.rs:817
+#: src/ui/settings.rs:809 src/ui/settings.rs:818
 msgid "Auto"
 msgstr "Automatisch"
 
-#: src/ui/settings.rs:903
+#: src/ui/settings.rs:905
 msgid "Add doodles"
 msgstr "Doodles hinzufügen"
 
-#: src/ui/settings.rs:907
+#: src/ui/settings.rs:909
 msgid "Show the default doodles over the selected colour."
 msgstr "Die Standard-Doodles über der gewählten Farbe anzeigen."
 
-#: src/ui/settings.rs:991
+#: src/ui/settings.rs:993
 msgid "Choose image…"
 msgstr "Bild auswählen…"
 
-#: src/ui/settings.rs:992
+#: src/ui/settings.rs:994
 msgid "Remove image"
 msgstr "Bild entfernen"
 
-#: src/ui/settings.rs:1020
+#: src/ui/settings.rs:1022
 msgctxt "wallpaper colour"
 msgid "Theme"
 msgstr "Design"
 
-#: src/ui/settings.rs:1149
+#: src/ui/settings.rs:1151
 msgid "Linked device"
 msgstr "Verknüpftes Gerät"
 
-#: src/ui/settings.rs:1160
+#: src/ui/settings.rs:1162
 msgid "Edit your name and About"
 msgstr "Name und Info bearbeiten"
 
-#: src/ui/settings.rs:1197
+#: src/ui/settings.rs:1199
 msgid "Save"
 msgstr "Speichern"
 
-#: src/ui/settings.rs:1271
+#: src/ui/settings.rs:1273
 msgid "A native WhatsApp client built with Rust, egui, and whatsapp-rust."
 msgstr "Ein nativer WhatsApp-Client, gebaut mit Rust, egui und whatsapp-rust."
 
-#: src/ui/settings.rs:1282
+#: src/ui/settings.rs:1284
 #, rust-format
 msgid "Update to {version}"
 msgstr "Auf {version} aktualisieren"
 
-#: src/ui/settings.rs:1360
+#: src/ui/settings.rs:1362
 msgid "Mention sound"
 msgstr "Erwähnungston"
 
-#: src/ui/settings.rs:1361
+#: src/ui/settings.rs:1363
 msgid "When a group mentions you or replies to you."
 msgstr "Wenn dich jemand in einer Gruppe erwähnt oder dir antwortet."
 
-#: src/ui/settings.rs:1364
+#: src/ui/settings.rs:1366
 msgid "Message sound"
 msgstr "Nachrichtenton"
 
-#: src/ui/settings.rs:1381
+#: src/ui/settings.rs:1383
 msgid "Pidgin alert"
 msgstr "Pidgin-Hinweis"
 
-#: src/ui/settings.rs:1382
+#: src/ui/settings.rs:1384
 msgid "System default"
 msgstr "Systemstandard"
 
 #. Translators: no notification sound.
-#: src/ui/settings.rs:1384
+#: src/ui/settings.rs:1386
 msgctxt "sound"
 msgid "None"
 msgstr "Kein Ton"
 
-#: src/ui/settings.rs:1421
+#: src/ui/settings.rs:1423
 msgid "Choose a file…"
 msgstr "Datei auswählen…"
 

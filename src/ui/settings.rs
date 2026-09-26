@@ -765,6 +765,7 @@ fn theme_picker(ui: &mut egui::Ui, app: &mut App) {
                     }
                 }
             });
+        theme::reveal_focus(&response.response);
         let rect = response.response.rect;
         let text = widgets::line(
             ui,
@@ -807,7 +808,7 @@ fn language_picker(ui: &mut egui::Ui, app: &mut App) {
         Some(locale) => locale.label().to_owned(),
         None => crate::i18n::gettext(app.locale, "Auto").into_owned(),
     };
-    egui::ComboBox::from_id_salt("interface_language")
+    let response = egui::ComboBox::from_id_salt("interface_language")
         .selected_text(label)
         .width(200.0_f32.min(ui.available_width()))
         .show_ui(ui, |ui| {
@@ -825,6 +826,7 @@ fn language_picker(ui: &mut egui::Ui, app: &mut App) {
                 }
             }
         });
+    theme::reveal_focus(&response.response);
 }
 
 /// Wallpaper colour picker and live preview.
@@ -1407,7 +1409,7 @@ fn sound_control(ui: &mut egui::Ui, app: &mut App, mention: bool) {
     {
         app.actions.push(Action::PreviewSound(current.clone()));
     }
-    egui::ComboBox::from_id_salt(("notification-sound", mention))
+    let response = egui::ComboBox::from_id_salt(("notification-sound", mention))
         .selected_text(selected)
         .width(170.0_f32.min(ui.available_width()))
         .show_ui(ui, |ui| {
@@ -1424,6 +1426,7 @@ fn sound_control(ui: &mut egui::Ui, app: &mut App, mention: bool) {
                 app.actions.push(Action::PickNotificationSound { mention });
             }
         });
+    theme::reveal_focus(&response.response);
 }
 
 /// One account privacy category's picker: what the phone holds, and the
@@ -1456,6 +1459,7 @@ fn privacy_control(ui: &mut egui::Ui, app: &mut App, kind: PrivacyKind) {
                         }
                     }
                 });
+            theme::reveal_focus(&response.response);
             let rect = response.response.rect;
             let text = widgets::line(
                 ui,

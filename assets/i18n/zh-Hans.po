@@ -6,7 +6,7 @@ msgstr ""
 "Project-Id-Version: ZapFast\n"
 "Report-Msgid-Bugs-To: https://github.com/crmne/zapfast/issues/new?"
 "template=translation.yml\n"
-"POT-Creation-Date: 2026-09-26 15:41+0200\n"
+"POT-Creation-Date: 2026-09-26 16:01+0200\n"
 "PO-Revision-Date: 2026-09-25 23:00-0300\n"
 "Last-Translator: ZapFast contributors\n"
 "Language-Team: Chinese (Simplified)\n"
@@ -316,7 +316,7 @@ msgstr "在地图中打开"
 msgid "Pause"
 msgstr "暂停"
 
-#: src/ui/conversation.rs:5760 src/ui/settings.rs:1404
+#: src/ui/conversation.rs:5760 src/ui/settings.rs:1406
 msgid "Play"
 msgstr "播放"
 
@@ -368,7 +368,7 @@ msgstr "描述它的表情，例如 😂 或 ❤️"
 msgid "Send"
 msgstr "发送"
 
-#: src/ui/dialogs.rs:1020 src/ui/dialogs.rs:1168 src/ui/settings.rs:1207
+#: src/ui/dialogs.rs:1020 src/ui/dialogs.rs:1168 src/ui/settings.rs:1209
 msgid "Cancel"
 msgstr "取消"
 
@@ -542,7 +542,7 @@ msgstr "密码"
 msgid "Clear"
 msgstr "清除"
 
-#: src/ui/settings.rs:402 src/ui/settings.rs:1530
+#: src/ui/settings.rs:402 src/ui/settings.rs:1534
 msgid "Notifications"
 msgstr "通知"
 
@@ -554,7 +554,7 @@ msgstr "桌面通知"
 msgid "For chats you are not looking at. Muted chats stay quiet."
 msgstr "用于你当前没在看的聊天。静音的聊天不会提醒。"
 
-#: src/ui/settings.rs:415 src/ui/settings.rs:1537
+#: src/ui/settings.rs:415 src/ui/settings.rs:1541
 msgid "Play sounds for group messages"
 msgstr "群组消息播放提示音"
 
@@ -662,24 +662,24 @@ msgstr "用于 GIF 搜索。会替换此版本内置的密钥。"
 msgid "For GIF search. Get a free key at developers.giphy.com."
 msgstr "用于 GIF 搜索。可在 developers.giphy.com 获取免费密钥。"
 
-#: src/ui/settings.rs:613 src/ui/settings.rs:1582 src/ui/settings.rs:1588
+#: src/ui/settings.rs:613 src/ui/settings.rs:1586 src/ui/settings.rs:1592
 msgid "Account"
 msgstr "账号"
 
-#: src/ui/settings.rs:616 src/ui/settings.rs:1133
+#: src/ui/settings.rs:616 src/ui/settings.rs:1135
 msgid "Your name"
 msgstr "你的名字"
 
-#: src/ui/settings.rs:617 src/ui/settings.rs:697 src/ui/settings.rs:1141
-#: src/ui/settings.rs:1303
+#: src/ui/settings.rs:617 src/ui/settings.rs:697 src/ui/settings.rs:1143
+#: src/ui/settings.rs:1305
 msgid "About"
 msgstr "关于"
 
-#: src/ui/settings.rs:618 src/ui/settings.rs:1110
+#: src/ui/settings.rs:618 src/ui/settings.rs:1112
 msgid "Change profile picture"
 msgstr "更换头像"
 
-#: src/ui/settings.rs:619 src/ui/settings.rs:1177 src/ui/settings.rs:1584
+#: src/ui/settings.rs:619 src/ui/settings.rs:1179 src/ui/settings.rs:1588
 msgid "Unlink this computer"
 msgstr "取消关联此电脑"
 
@@ -715,87 +715,87 @@ msgstr "日志"
 msgid "Open"
 msgstr "打开"
 
-#: src/ui/settings.rs:701 src/ui/settings.rs:1292
+#: src/ui/settings.rs:701 src/ui/settings.rs:1294
 msgid "Keyboard shortcuts"
 msgstr "键盘快捷键"
 
-#: src/ui/settings.rs:702 src/ui/settings.rs:1314
+#: src/ui/settings.rs:702 src/ui/settings.rs:1316
 msgid "Source code"
 msgstr "源代码"
 
-#: src/ui/settings.rs:808 src/ui/settings.rs:817
+#: src/ui/settings.rs:809 src/ui/settings.rs:818
 msgid "Auto"
 msgstr "自动"
 
-#: src/ui/settings.rs:903
+#: src/ui/settings.rs:905
 msgid "Add doodles"
 msgstr "添加涂鸦"
 
-#: src/ui/settings.rs:907
+#: src/ui/settings.rs:909
 msgid "Show the default doodles over the selected colour."
 msgstr "在所选颜色上显示默认涂鸦。"
 
-#: src/ui/settings.rs:991
+#: src/ui/settings.rs:993
 msgid "Choose image…"
 msgstr "选择图片…"
 
-#: src/ui/settings.rs:992
+#: src/ui/settings.rs:994
 msgid "Remove image"
 msgstr "移除图片"
 
-#: src/ui/settings.rs:1020
+#: src/ui/settings.rs:1022
 msgctxt "wallpaper colour"
 msgid "Theme"
 msgstr "主题"
 
-#: src/ui/settings.rs:1149
+#: src/ui/settings.rs:1151
 msgid "Linked device"
 msgstr "已关联的设备"
 
-#: src/ui/settings.rs:1160
+#: src/ui/settings.rs:1162
 msgid "Edit your name and About"
 msgstr "编辑你的名字和个人简介"
 
-#: src/ui/settings.rs:1197
+#: src/ui/settings.rs:1199
 msgid "Save"
 msgstr "保存"
 
-#: src/ui/settings.rs:1271
+#: src/ui/settings.rs:1273
 msgid "A native WhatsApp client built with Rust, egui, and whatsapp-rust."
 msgstr "用 Rust、egui 和 whatsapp-rust 构建的原生 WhatsApp 客户端。"
 
-#: src/ui/settings.rs:1282
+#: src/ui/settings.rs:1284
 #, rust-format
 msgid "Update to {version}"
 msgstr "更新到 {version}"
 
-#: src/ui/settings.rs:1360
+#: src/ui/settings.rs:1362
 msgid "Mention sound"
 msgstr "提及提示音"
 
-#: src/ui/settings.rs:1361
+#: src/ui/settings.rs:1363
 msgid "When a group mentions you or replies to you."
 msgstr "当群组提及你或回复你时。"
 
-#: src/ui/settings.rs:1364
+#: src/ui/settings.rs:1366
 msgid "Message sound"
 msgstr "消息提示音"
 
-#: src/ui/settings.rs:1381
+#: src/ui/settings.rs:1383
 msgid "Pidgin alert"
 msgstr "Pidgin 提示音"
 
-#: src/ui/settings.rs:1382
+#: src/ui/settings.rs:1384
 msgid "System default"
 msgstr "系统默认"
 
 #. Translators: no notification sound.
-#: src/ui/settings.rs:1384
+#: src/ui/settings.rs:1386
 msgctxt "sound"
 msgid "None"
 msgstr "无"
 
-#: src/ui/settings.rs:1421
+#: src/ui/settings.rs:1423
 msgid "Choose a file…"
 msgstr "选择文件…"
 

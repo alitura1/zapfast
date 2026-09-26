@@ -97,7 +97,17 @@ fn row(app: &mut App, ui: &mut egui::Ui, record: &CallRecord, actions: &mut Vec<
     let name = app.call_name(&record.chat);
     let picture = app.call_avatar(&record.chat);
     let missed = record.status.missed();
-    let frame = Frame::new()
+    // Register the whole-row hit target before the call-back buttons it contains, so a button keeps
+    // its own click instead of the row also opening the chat. The row has a fixed height, so its
+    // rectangle is known before it is drawn; the transcript uses the same parent-before-child order.
+    let row = ui
+        .interact(
+            egui::Rect::from_min_size(ui.cursor().min, egui::vec2(ui.available_width(), ROW)),
+            ui.id().with(("call-row", &record.id)),
+            Sense::click(),
+        )
+        .on_hover_cursor(egui::CursorIcon::PointingHand);
+    Frame::new()
         .fill(palette.surface)
         .corner_radius(CornerRadius::same(theme::RADIUS))
         .inner_margin(Margin::symmetric(12, 8))
@@ -175,15 +185,7 @@ fn row(app: &mut App, ui: &mut egui::Ui, record: &CallRecord, actions: &mut Vec<
                 });
             });
         });
-    // The whole row opens the chat, so the buttons above win their own clicks first.
-    let clicked = ui
-        .interact(
-            frame.response.rect,
-            ui.id().with(("call-row", &record.id)),
-            Sense::click(),
-        )
-        .on_hover_cursor(egui::CursorIcon::PointingHand);
-    if clicked.clicked() {
+    if row.clicked() {
         actions.push(Action::OpenCallChat(record.chat.clone()));
     }
     ui.add_space(6.0);
@@ -216,6 +218,8 @@ pub(crate) fn outcome(locale: Locale, record: &CallRecord) -> String {
     }
     match record.status {
         CallStatus::Answered => crate::util::duration(record.duration as u32),
+        // Another device took the call. This device has no length to show, only that fact.
+        CallStatus::AnsweredElsewhere => gettext(locale, "Answered elsewhere").into_owned(),
         CallStatus::Missed => gettext(locale, "Missed").into_owned(),
         CallStatus::Declined => gettext(locale, "Declined").into_owned(),
         CallStatus::Busy => gettext(locale, "Busy").into_owned(),

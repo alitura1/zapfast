@@ -154,7 +154,9 @@ impl CallOutcome {
     /// peer's answer rather than the sequence of stanzas that led to it.
     pub fn status(self) -> CallStatus {
         match self {
-            Self::Answered | Self::AnsweredElsewhere => CallStatus::Answered,
+            Self::Answered => CallStatus::Answered,
+            // Answered here? No: another device took it, so this device has no length to record.
+            Self::AnsweredElsewhere => CallStatus::AnsweredElsewhere,
             Self::Missed => CallStatus::Missed,
             Self::Declined | Self::DeclinedElsewhere => CallStatus::Declined,
             Self::Busy => CallStatus::Busy,
@@ -924,6 +926,17 @@ struct CameraCapture {
 
 impl CameraCapture {
     fn start(device: Option<String>, ticks: async_channel::Sender<VideoTick>) -> Result<Self> {
+        // Refuse a camera that cannot be opened before any signaling, rather than spawning a
+        // thread that exits and sends a video call with no local picture: `capture` treats a
+        // missing device as "no camera" and returns, which would otherwise pass silently.
+        let Some(device) = device else {
+            return Err(anyhow!("no camera is available"));
+        };
+        // A node that enumerates no pixel format is not a capture device (a metadata node, or one
+        // v4l2-ctl cannot open); starting on it would leave the peer with an empty video stream.
+        if !captures(&device) {
+            return Err(anyhow!("{device} is not a usable camera"));
+        }
         let (control, commands) = async_channel::bounded::<CameraCmd>(4);
         let (frames, timed) = async_channel::bounded::<TimedVideoFrame>(4);
         let running = Arc::new(AtomicBool::new(true));
@@ -935,7 +948,7 @@ impl CameraCapture {
             .name("zapfast-camera".to_owned())
             .spawn(move || {
                 let _alive = alive;
-                capture(device, commands, frames, ticks, slot, stopping);
+                capture(Some(device), commands, frames, ticks, slot, stopping);
             })
             .context("camera thread could not be started")?;
         Ok(Self {
@@ -2081,7 +2094,10 @@ impl Call {
             return None;
         }
         let ringing = self.phase == CallPhase::Incoming;
-        let live = self.phase.is_connected();
+        // Only a call that reached Active really connected here. A resolve that arrives during
+        // media negotiation is not an answered-elsewhere call with a zero duration: this device
+        // never had the call up.
+        let live = self.started.is_some();
         log::info!(
             "[CALL] resolved elsewhere call_id={} phase={:?}",
             self.call_id,
@@ -2857,9 +2873,29 @@ mod tests {
         let update = live.resolved_elsewhere().expect("resolved elsewhere");
         assert_eq!(update.phase, CallPhase::Ended);
         assert_eq!(update.outcome, Some(CallOutcome::AnsweredElsewhere));
-        assert_eq!(
-            live.record().expect("a record").status,
-            CallStatus::Answered
+        // The other device answered, so this device's record is not an answered call with no
+        // length: it carries its own status and an explicit history label.
+        let record = live.record().expect("a record");
+        assert_eq!(record.status, CallStatus::AnsweredElsewhere);
+        assert!(
+            !record.status.connected(),
+            "this device never carried the call"
+        );
+    }
+
+    #[test]
+    fn a_call_resolved_elsewhere_before_it_is_active_is_not_answered_elsewhere() {
+        // The peer answered and the media plane is still negotiating, so this device never reached
+        // Active: a resolve now is not a call another device took with a zero local duration.
+        let mut call = dialing();
+        call.signaling(&accept()).expect("the peer answered");
+        assert_eq!(call.phase(), CallPhase::Connecting);
+        let update = call.resolved_elsewhere().expect("resolved elsewhere");
+        assert_eq!(update.phase, CallPhase::Failed);
+        assert_eq!(update.outcome, Some(CallOutcome::NoAnswer));
+        assert!(
+            !call.record().expect("a record").status.connected(),
+            "never answered here"
         );
     }
 

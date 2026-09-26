@@ -137,6 +137,7 @@ fn media_from_key(key: &str) -> CallMedia {
 fn status_key(status: CallStatus) -> &'static str {
     match status {
         CallStatus::Answered => "answered",
+        CallStatus::AnsweredElsewhere => "answered_elsewhere",
         CallStatus::Missed => "missed",
         CallStatus::Declined => "declined",
         CallStatus::Busy => "busy",
@@ -151,6 +152,7 @@ fn status_key(status: CallStatus) -> &'static str {
 fn status_from_key(key: &str) -> CallStatus {
     match key {
         "answered" => CallStatus::Answered,
+        "answered_elsewhere" => CallStatus::AnsweredElsewhere,
         "missed" => CallStatus::Missed,
         "declined" => CallStatus::Declined,
         "busy" => CallStatus::Busy,
@@ -236,6 +238,7 @@ mod tests {
     fn every_status_survives_a_round_trip() {
         for status in [
             CallStatus::Answered,
+            CallStatus::AnsweredElsewhere,
             CallStatus::Missed,
             CallStatus::Declined,
             CallStatus::Busy,

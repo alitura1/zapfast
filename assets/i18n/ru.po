@@ -6,7 +6,7 @@ msgstr ""
 "Project-Id-Version: ZapFast\n"
 "Report-Msgid-Bugs-To: https://github.com/crmne/zapfast/issues/new?"
 "template=translation.yml\n"
-"POT-Creation-Date: 2026-09-26 00:45+0300\n"
+"POT-Creation-Date: 2026-09-26 11:09+0300\n"
 "PO-Revision-Date: 2026-09-22 00:00-0300\n"
 "Last-Translator: ZapFast contributors\n"
 "Language-Team: Russian\n"
@@ -833,23 +833,23 @@ msgstr ""
 msgid "Missed call"
 msgstr ""
 
-#: src/ui/call.rs:303 src/ui/calls.rs:220
+#: src/ui/call.rs:303 src/ui/calls.rs:224
 msgid "Declined"
 msgstr ""
 
-#: src/ui/call.rs:304 src/ui/calls.rs:221
+#: src/ui/call.rs:304 src/ui/calls.rs:225
 msgid "Busy"
 msgstr ""
 
-#: src/ui/call.rs:305 src/ui/calls.rs:222
+#: src/ui/call.rs:305 src/ui/calls.rs:226
 msgid "Could not connect"
 msgstr ""
 
-#: src/ui/call.rs:306 src/ui/calls.rs:223
+#: src/ui/call.rs:306 src/ui/calls.rs:227
 msgid "No answer"
 msgstr ""
 
-#: src/ui/call.rs:309 src/ui/calls.rs:224
+#: src/ui/call.rs:309 src/ui/calls.rs:228
 msgid "Connection lost"
 msgstr ""
 
@@ -956,11 +956,11 @@ msgstr ""
 msgid "Camera"
 msgstr ""
 
-#: src/ui/call.rs:781 src/ui/calls.rs:207 src/app.rs:3229
+#: src/ui/call.rs:781 src/ui/calls.rs:209 src/app.rs:3270
 msgid "Incoming video call"
 msgstr ""
 
-#: src/ui/call.rs:783 src/ui/calls.rs:201 src/app.rs:3231
+#: src/ui/call.rs:783 src/ui/calls.rs:203 src/app.rs:3272
 msgid "Incoming voice call"
 msgstr ""
 
@@ -986,23 +986,27 @@ msgstr ""
 msgid "Back to chats"
 msgstr ""
 
-#: src/ui/calls.rs:143
+#: src/ui/calls.rs:153
 msgid "Call back"
 msgstr ""
 
-#: src/ui/calls.rs:159
+#: src/ui/calls.rs:169
 msgid "Call back with video"
 msgstr ""
 
-#: src/ui/calls.rs:198
+#: src/ui/calls.rs:200
 msgid "Outgoing voice call"
 msgstr ""
 
-#: src/ui/calls.rs:204
+#: src/ui/calls.rs:206
 msgid "Outgoing video call"
 msgstr ""
 
-#: src/ui/calls.rs:219
+#: src/ui/calls.rs:222
+msgid "Answered elsewhere"
+msgstr ""
+
+#: src/ui/calls.rs:223
 msgid "Missed"
 msgstr ""
 
@@ -1100,11 +1104,11 @@ msgstr "Код для заблокированных чатов"
 msgid "Unknown caller"
 msgstr "Заглушать неизвестных абонентов"
 
-#: src/app.rs:2646
+#: src/app.rs:2666
 msgid "Not sent: ZapFast is not connected to WhatsApp."
 msgstr "Не отправлено: ZapFast не подключён к WhatsApp."
 
-#: src/app.rs:2650
+#: src/app.rs:2670
 msgid ""
 "Not sent: the message you’re replying to isn’t available on this computer. "
 "Cancel the reply to send without a quote."
@@ -1112,28 +1116,28 @@ msgstr ""
 "Не отправлено: сообщение, на которое вы отвечаете, недоступно на этом "
 "компьютере. Отмените ответ, чтобы отправить без цитаты."
 
-#: src/app.rs:4136
+#: src/app.rs:4186
 msgid "Added to favorites"
 msgstr "Добавлено в избранное"
 
-#: src/app.rs:4211
+#: src/app.rs:4261
 msgid "Sending the sticker pack…"
 msgstr "Отправка набора стикеров…"
 
-#: src/app.rs:4496 src/ui/labels.rs:237
+#: src/app.rs:4546 src/ui/labels.rs:237
 #, rust-format
 msgid "You have {limit} labels, the most ZapFast keeps."
 msgstr "У вас {limit} меток — больше ZapFast не хранит."
 
-#: src/app.rs:5019
+#: src/app.rs:5069
 msgid "This video opens in your system player"
 msgstr "Это видео откроется в системном плеере"
 
-#: src/app.rs:5502
+#: src/app.rs:5552
 msgid "Copied image"
 msgstr "Изображение скопировано"
 
-#: src/app.rs:5505 src/app.rs:5510
+#: src/app.rs:5555 src/app.rs:5560
 msgid "Failed to copy image"
 msgstr "Не удалось скопировать изображение"
 

@@ -1845,10 +1845,7 @@ impl App {
                 }
                 Event::Call(update) => self.handle_call_update(*update),
                 Event::CallDevices(devices) => self.call_devices = *devices,
-                Event::CallLog(calls) => {
-                    self.call_log = *calls;
-                    self.call_log_loaded = true;
-                }
+                Event::CallLog(calls) => self.apply_call_log(*calls),
                 Event::ChatCalls { chat, calls } => {
                     self.conversations.entry(chat).or_default().calls = *calls;
                 }
@@ -2773,6 +2770,26 @@ impl App {
                 };
                 log::warn!("attachment download failed; details are shown in the bubble");
                 media.state = MediaState::Failed(notice);
+            }
+        }
+    }
+
+    /// Replaces the call log and rebuilds the per-chat entries already loaded.
+    ///
+    /// A privacy-id mapping can move a call from an @lid onto its phone number, so a chat that was
+    /// opened before the mapping keeps a call row under an id the locked-chat filter no longer
+    /// recognizes unless its entries are rebuilt from the refreshed log.
+    fn apply_call_log(&mut self, calls: Vec<crate::model::CallRecord>) {
+        self.call_log = calls;
+        self.call_log_loaded = true;
+        for (chat, conversation) in self.conversations.iter_mut() {
+            if conversation.requested {
+                conversation.calls = self
+                    .call_log
+                    .iter()
+                    .filter(|record| &record.chat == chat)
+                    .cloned()
+                    .collect();
             }
         }
     }
@@ -9492,6 +9509,42 @@ mod tests {
             !app.call_surface_hidden,
             "an ordinary call returns as before"
         );
+    }
+
+    #[test]
+    fn a_call_log_refresh_moves_a_chat_entry_off_a_stale_privacy_id() {
+        let mut app = app();
+        let lid = "12345@lid";
+        let pn = "15551234567@s.whatsapp.net";
+        // A chat opened before the mapping arrived, with its call filed under the privacy id.
+        let opened = app.conversations.entry(lid.to_owned()).or_default();
+        opened.requested = true;
+        opened.calls.push(call_record("call-1", lid));
+        app.conversations
+            .entry(pn.to_owned())
+            .or_default()
+            .requested = true;
+        // The mapping is learned and the log is refreshed: the call now lives under the number.
+        app.apply_call_log(vec![call_record("call-1", pn)]);
+        assert!(
+            app.conversations[lid].calls.is_empty(),
+            "the stale privacy id keeps no call row"
+        );
+        assert_eq!(app.conversations[pn].calls.len(), 1);
+        assert_eq!(app.conversations[pn].calls[0].chat, pn);
+    }
+
+    fn call_record(id: &str, chat: &str) -> crate::model::CallRecord {
+        crate::model::CallRecord {
+            id: id.to_owned(),
+            chat: chat.to_owned(),
+            started_at: 100,
+            ended_at: 160,
+            direction: crate::model::CallDirection::Outgoing,
+            media: crate::model::CallMedia::Voice,
+            status: crate::model::CallStatus::Answered,
+            duration: 60,
+        }
     }
 
     /// An incoming call for a specific chat, as the backend would publish it.

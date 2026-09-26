@@ -1739,8 +1739,16 @@ impl Worker {
         }
         self.lid_to_pn.insert(lid.to_owned(), pn.to_owned());
         match self.archive.put_lid(lid, pn) {
-            Ok(true) => self.emit_chats(),
-            Ok(false) => {}
+            Ok(changed) => {
+                // The mapping moves this chat's calls from its privacy id onto its phone number in
+                // the archive, so the in-memory log is refreshed even when no chat preference was
+                // touched: otherwise the Calls view keeps a record under the old id, which the
+                // locked-chat filter no longer recognizes.
+                self.load_calls();
+                if changed {
+                    self.emit_chats();
+                }
+            }
             Err(error) => log::warn!("could not remember an id mapping: {error}"),
         }
         // Receipts filed under the privacy id may name messages archived
@@ -9304,6 +9312,41 @@ mod tests {
                 .any(|event| matches!(event, Event::CallLog(_))),
             "the withheld read is answered once recovery completes"
         );
+    }
+
+    #[test]
+    fn learning_a_privacy_id_moves_its_calls_onto_the_phone_number() {
+        let (mut worker, events, _, _) = receipt_tests::worker();
+        const LID: &str = "12345";
+        const PN: &str = "15551234567";
+        let lid_chat = format!("{LID}@lid");
+        worker.archive.ensure_chat(&lid_chat, "Fixture").unwrap();
+        worker
+            .archive
+            .save_call(&crate::model::CallRecord {
+                id: "call-1".into(),
+                chat: lid_chat.clone(),
+                started_at: 100,
+                ended_at: 130,
+                direction: crate::model::CallDirection::Outgoing,
+                media: crate::model::CallMedia::Voice,
+                status: crate::model::CallStatus::Answered,
+                duration: 30,
+            })
+            .unwrap();
+        while events.try_recv().is_ok() {}
+        // The mapping arrives and the log is refreshed under the phone number, so the Calls view
+        // never keeps a record the locked-chat filter cannot place.
+        worker.learn_lid(LID, PN);
+        let calls = events
+            .try_iter()
+            .find_map(|event| match event {
+                Event::CallLog(calls) => Some(calls),
+                _ => None,
+            })
+            .expect("the refreshed log is published");
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].chat, format!("{PN}@s.whatsapp.net"));
     }
 
     /// A chat opened while lock state was still being recovered asked for its

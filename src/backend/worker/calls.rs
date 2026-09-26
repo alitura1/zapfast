@@ -540,7 +540,12 @@ impl Worker {
         if let Some(runtime) = self.call.as_ref() {
             runtime.call.log_media_stats();
         }
-        let devices = calls::devices();
+        // Discovery launches `pw-dump`, `v4l2-ctl` and a format probe per node, so it runs on a
+        // blocking thread rather than on the worker's async loop: a slow or stuck helper must not
+        // hold up message handling or the active call's own events.
+        let devices = tokio::task::spawn_blocking(calls::devices)
+            .await
+            .unwrap_or_default();
         // Read before the fresh list replaces it: a device that just went away is still named in
         // here by the description the user saw.
         let known = self.call_devices.clone();

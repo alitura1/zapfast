@@ -885,6 +885,9 @@ pub enum CallMedia {
 pub enum CallStatus {
     /// The two sides were connected, so the record's length is real.
     Answered,
+    /// Another of this account's devices took the call. This device never connected, so the
+    /// record's length is not the call's: it is shown as its own outcome, not as an answered call.
+    AnsweredElsewhere,
     /// An incoming call nobody here picked up.
     Missed,
     /// The peer rejected it, or we did.

@@ -552,6 +552,10 @@ pub fn populate(app: &mut App) {
                 .chain(std::iter::once(ME.to_owned()))
                 .collect();
             chat.read_only = sample.name == "Section 8 Berlin";
+            // Rust Berlin lets every member edit its info, Family is locked
+            // but we are an admin, and Section 8 Berlin is locked for us.
+            chat.info_locked = Some(sample.name != "Rust Berlin");
+            chat.admin = sample.name == "Family";
         }
         chat.last = conversation
             .messages
@@ -1958,6 +1962,23 @@ pub fn apply_flags(app: &mut App, page: Option<&str>) {
             }
             "info" => {
                 app.dialog = app.open_chat.clone().map(Dialog::ChatInfo);
+            }
+            "group-info" | "group-info-rename" | "group-info-locked" | "group-info-saving" => {
+                // A group whose name and photo we may change, the same with its
+                // name being typed or its change on the way, and one locked for us.
+                let group = if part == "group-info-locked" {
+                    "120363011122233344@g.us"
+                } else {
+                    SAMPLES[1].id
+                };
+                app.open_chat = Some(group.to_owned());
+                app.dialog = Some(Dialog::ChatInfo(group.to_owned()));
+                if part == "group-info-rename" {
+                    app.group_name_edit = Some("Rust Berlin 🦀".to_owned());
+                }
+                if part == "group-info-saving" {
+                    app.group_saving.insert(group.to_owned());
+                }
             }
             "forward" => {
                 app.dialog = app.open_chat.clone().map(|chat| Dialog::Forward {
@@ -3846,6 +3867,10 @@ mod tests {
             "about",
             "failed",
             "info",
+            "group-info",
+            "group-info-rename",
+            "group-info-locked",
+            "group-info-saving",
             "forward",
             "unlink",
             "leave-group",
@@ -4127,6 +4152,126 @@ mod tests {
             repeat: false,
             modifiers,
         }
+    }
+
+    /// The group dialog offers the pencil and the photo menu only when we may
+    /// change the group's info, and not while a change is on its way.
+    #[test]
+    fn group_info_offers_editing_only_when_allowed() {
+        use crate::ui::dialogs::{group_name_button_id, group_photo_id};
+        for (page, offered) in [
+            ("group-info", true),
+            ("group-info-locked", false),
+            ("group-info-saving", false),
+        ] {
+            let mut app = app();
+            let ctx = egui::Context::default();
+            app.attach(&ctx);
+            apply_flags(&mut app, Some(page));
+            render(&mut app, &ctx);
+            let drawn = |id| ctx.data(|data| data.get_temp::<egui::Rect>(id)).is_some();
+            assert_eq!(drawn(group_name_button_id()), offered, "{page}: the pencil");
+            assert_eq!(drawn(group_photo_id()), offered, "{page}: the photo menu");
+        }
+    }
+
+    /// The pencil opens the name editor; Enter renames the group on WhatsApp,
+    /// an unchanged name sends nothing, and Escape cancels without closing the
+    /// dialog. The photo opens its menu.
+    #[test]
+    fn a_group_is_renamed_from_its_info_dialog() {
+        use crate::backend::Command;
+        use crate::ui::dialogs::{group_name_button_id, group_photo_id};
+        let mut app = app();
+        let ctx = egui::Context::default();
+        app.attach(&ctx);
+        app.backend.record_demo_commands();
+        apply_flags(&mut app, Some("group-info"));
+        render(&mut app, &ctx);
+        let group = SAMPLES[1].id;
+        let click = |app: &mut App, id: egui::Id| {
+            let pos = ctx
+                .data(|data| data.get_temp::<egui::Rect>(id))
+                .expect("the control is on screen")
+                .center();
+            let press = |pressed| egui::Event::PointerButton {
+                pos,
+                button: egui::PointerButton::Primary,
+                pressed,
+                modifiers: egui::Modifiers::NONE,
+            };
+            frame_with(app, &ctx, vec![egui::Event::PointerMoved(pos), press(true)]);
+            frame_with(app, &ctx, vec![press(false)]);
+            render(app, &ctx);
+        };
+        let enter = |app: &mut App| {
+            frame_with(
+                app,
+                &ctx,
+                vec![key(egui::Key::Enter, egui::Modifiers::NONE)],
+            );
+            render(app, &ctx);
+            app.backend.take_demo_commands()
+        };
+
+        click(&mut app, group_name_button_id());
+        assert_eq!(app.group_name_edit.as_deref(), Some("Rust Berlin"));
+        // Unchanged: the editor closes and nothing is sent.
+        let sent = enter(&mut app);
+        assert!(app.group_name_edit.is_none());
+        assert!(
+            !sent
+                .iter()
+                .any(|command| matches!(command, Command::SetGroupName { .. })),
+            "an unchanged name is not sent"
+        );
+
+        click(&mut app, group_name_button_id());
+        app.group_name_edit = Some("  Rust Berlin meetups ".into());
+        render(&mut app, &ctx);
+        let sent = enter(&mut app);
+        assert!(
+            sent.iter().any(|command| matches!(command,
+                Command::SetGroupName { chat, name }
+                    if chat == group && name == "Rust Berlin meetups")),
+            "Enter renames the group, trimmed"
+        );
+        assert!(app.group_name_edit.is_none());
+        assert_eq!(
+            app.chat(group).map(|chat| chat.name.as_str()),
+            Some("Rust Berlin"),
+            "the name waits for WhatsApp to accept it"
+        );
+
+        click(&mut app, group_name_button_id());
+        assert!(app.group_name_edit.is_some());
+        frame_with(
+            &mut app,
+            &ctx,
+            vec![key(egui::Key::Escape, egui::Modifiers::NONE)],
+        );
+        render(&mut app, &ctx);
+        assert!(app.group_name_edit.is_none(), "Escape cancels the rename");
+        assert!(
+            matches!(app.dialog, Some(Dialog::ChatInfo(_))),
+            "and keeps the dialog"
+        );
+
+        click(&mut app, group_photo_id());
+        assert!(egui::Popup::is_any_open(&ctx), "the photo opens its menu");
+        app.actions
+            .push(crate::model::Action::RemoveGroupPicture(group.into()));
+        render(&mut app, &ctx);
+        assert!(
+            app.backend
+                .take_demo_commands()
+                .iter()
+                .any(|command| matches!(
+                    command,
+                    Command::SetGroupPicture { chat, jpeg: None } if chat == group
+                )),
+            "Remove photo asks WhatsApp to remove it"
+        );
     }
 
     #[test]

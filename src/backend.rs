@@ -383,6 +383,24 @@ pub enum Command {
     PickProfilePicture,
     /// Internal: a picked picture, cropped and encoded as JPEG.
     SetProfilePicture(Vec<u8>),
+    /// Renames a group on WhatsApp, for everyone in it.
+    SetGroupName {
+        chat: ChatId,
+        name: String,
+    },
+    /// Asks for a picture and makes it the group's photo.
+    PickGroupPicture(ChatId),
+    /// Sets the group's photo to a JPEG, or removes it with `None`.
+    SetGroupPicture {
+        chat: ChatId,
+        jpeg: Option<Vec<u8>>,
+    },
+    /// Internal: WhatsApp answered a change to a group's name or photo.
+    GroupEdited {
+        chat: ChatId,
+        edit: GroupEdit,
+        result: Result<(), String>,
+    },
     /// Internal: the server accepted a profile change.
     ProfileSaved {
         name: Option<String>,
@@ -618,6 +636,13 @@ pub enum Command {
         /// The chat's leave generation when this metadata was asked for. A
         /// snapshot older than a confirmed leave cannot undo it.
         leave_generation: u64,
+        /// Whether only admins may edit the group's name and photo.
+        info_locked: bool,
+        /// Whether we are an admin of the group.
+        admin: bool,
+        /// The chat's rename generation when this metadata was asked for. A
+        /// snapshot older than a rename made here cannot restore the old name.
+        subject_generation: u64,
     },
     /// Internal pairing-code result.
     PairCode {
@@ -883,6 +908,21 @@ pub enum Event {
         reason: Refusal,
     },
     Error(String),
+    /// A change to a group's name or photo went to WhatsApp (`saving`), or
+    /// WhatsApp answered it.
+    GroupSaving {
+        chat: ChatId,
+        saving: bool,
+    },
+}
+
+/// A change to a group's info, as sent to WhatsApp.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum GroupEdit {
+    /// The new subject.
+    Name(String),
+    /// A new photo, or none.
+    Picture { removed: bool },
 }
 
 /// Why the worker refused a send.

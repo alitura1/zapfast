@@ -426,6 +426,10 @@ pub struct App {
     pub interactive_sending: HashSet<(ChatId, String)>,
     /// Contact-name editor buffers.
     pub contact_edit: Option<(String, String)>,
+    /// The group name being typed in the group info dialog.
+    pub group_name_edit: Option<String>,
+    /// Groups whose name or photo change WhatsApp has not answered yet.
+    pub group_saving: HashSet<ChatId>,
     /// New-contact buffers and lookup state.
     pub new_contact_phone: String,
     pub new_contact_name: String,
@@ -867,6 +871,8 @@ impl App {
             poll_voting: HashSet::new(),
             interactive_sending: HashSet::new(),
             contact_edit: None,
+            group_name_edit: None,
+            group_saving: HashSet::new(),
             new_contact_phone: String::new(),
             new_contact_name: String::new(),
             new_contact_last: String::new(),
@@ -2265,6 +2271,13 @@ impl App {
                     unsent,
                     reason,
                 } => self.send_refused(chat, quoting, unsent, reason),
+                Event::GroupSaving { chat, saving } => {
+                    if saving {
+                        self.group_saving.insert(chat);
+                    } else {
+                        self.group_saving.remove(&chat);
+                    }
+                }
                 Event::Error(message) => {
                     self.sticker_import_pending = false;
                     self.new_contact_pending = false;
@@ -4188,6 +4201,7 @@ impl App {
                     self.new_contact_pending = false;
                 }
                 self.contact_edit = None;
+                self.group_name_edit = None;
                 self.dialog = Some(dialog);
             }
             Action::CloseDialog => {
@@ -4196,6 +4210,7 @@ impl App {
                 self.invite = None;
                 self.forward_search.clear();
                 self.contact_edit = None;
+                self.group_name_edit = None;
                 self.refocus_composer(ctx);
             }
             Action::EditContact(prefill) => {
@@ -4569,6 +4584,17 @@ impl App {
                 self.backend.send(Command::SetProfile { name, about });
             }
             Action::PickProfilePicture => self.backend.send(Command::PickProfilePicture),
+            Action::EditGroupName(name) => self.group_name_edit = Some(name),
+            Action::CloseGroupName => self.group_name_edit = None,
+            Action::SetGroupName { chat, name } => {
+                self.group_name_edit = None;
+                self.backend.send(Command::SetGroupName { chat, name });
+            }
+            Action::PickGroupPicture(chat) => self.backend.send(Command::PickGroupPicture(chat)),
+            Action::RemoveGroupPicture(chat) => {
+                self.backend
+                    .send(Command::SetGroupPicture { chat, jpeg: None });
+            }
             Action::SetChatSound { chat, sound } => {
                 if let Some(known) = self.chat_mut(&chat) {
                     known.notification_sound = sound.clone();

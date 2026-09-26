@@ -166,6 +166,12 @@ protocol. These notes are for coding agents and new contributors.
   server's rate limit, which once left groups called "Group" forever.
   Failures back off (30 s doubling, seven tries); item-not-found,
   forbidden and not-authorized are final and stop the asking.
+  The same metadata stores `is_locked` and our admin role
+  (`chats.info_locked`, NULL until known, and `chats.group_admin`);
+  `Chat::can_edit_info` gates renaming and the group photo in the group
+  dialog. A rename lands only after WhatsApp accepts it, and bumps
+  `subject_generation` so a metadata answer asked for earlier cannot restore
+  the old subject. A refusal re-asks the metadata to relearn the rights.
 - A download that answers 403/404/410 goes through
   `client.media_reupload().request(..)` (a server-error receipt; WhatsApp
   has the phone re-upload and answers with a fresh `direct_path`) and is

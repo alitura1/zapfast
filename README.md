@@ -286,7 +286,13 @@ See **[zapfast.rocks](https://zapfast.rocks)** for downloads and guides.
   chats, replies, mentions, and notifications.
 - **Groups.** See members, sender names, and sender pictures (shown in groups
   only, as on WhatsApp). Announcement
-  groups are read-only for non-admins. Clicking a `chat.whatsapp.com` invite
+  groups are read-only for non-admins. Rename a group with the pencil beside
+  its name in the group's info (Enter saves, Escape cancels), and click its
+  photo to change or remove it; the picture is cropped to a centred square
+  and sent at up to 640 pixels. These appear when WhatsApp lets you edit the
+  group's info (every member, or only admins when the group is set that
+  way), apply for everyone in the group, and show here once WhatsApp accepts
+  them. Changes made on the phone or by other members arrive as before. Clicking a `chat.whatsapp.com` invite
   link shows the group's name, size, and description, and joins it (or sends a
   join request when admins approve members) without leaving ZapFast.
 - **Presence.** See online, last-seen, and typing status, and send your typing
@@ -396,7 +402,8 @@ See **[zapfast.rocks](https://zapfast.rocks)** for downloads and guides.
 
 - Play videos in codecs other than H.264 in the app (they open in your system
   player).
-- Calls, status posts, communities, newsletters, and group administration.
+- Calls, status posts, communities, newsletters, and group administration
+  beyond a group's name and photo (members, admins, descriptions, settings).
 - Submit interactive forms, payments, shopping flows, or carousel selections.
   Use these in WhatsApp Web or on your phone. Embedded videos and documents,
   and templates without readable text also need another client.
@@ -585,6 +592,9 @@ Offline previews for these states use `--demo --demo-page channel`,
 `--demo --demo-page keyring`. The open locked-folder preview uses `demo-code`.
 Use `--demo-page locked-prompt`, `locked-setup`, `new-chat`, `unnamed-group`,
 or `react-picker` for the new dialogs, shared group summaries, and reactions.
+`group-info`, `group-info-rename`, `group-info-saving`, and `group-info-locked`
+show a group's info with its name and photo editable, being renamed, saving,
+and locked to admins.
 
 The protocol dependency includes the upstream WhatsApp Business pairing fix.
 Device-store migration waits until an updated window is acknowledged, preserving

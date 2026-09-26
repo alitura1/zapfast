@@ -105,6 +105,9 @@ pub fn handle(app: &mut App, ctx: &egui::Context) {
     if escape {
         if app.show_update {
             actions.push(Action::CloseUpdate);
+        } else if app.dialog.is_some() && app.group_name_edit.is_some() {
+            // Cancels the group rename and keeps the dialog open.
+            actions.push(Action::CloseGroupName);
         } else if app.dialog.is_some() {
             actions.push(Action::CloseDialog);
         } else if app.recording.is_some() {

@@ -1458,10 +1458,88 @@ fn chat_info(app: &mut App, ui: &mut egui::Ui, id: &str) {
     let mut saved = None;
     let mut leave = false;
     let can_leave = chat.can_leave(&app.our_ids());
+    // A group's name and photo, when WhatsApp lets us change them. Nothing is
+    // offered while a change is on its way.
+    let saving = app.group_saving.contains(id);
+    let group_editable = chat.can_edit_info() && !saving;
+    let mut renaming = app.group_name_edit.take().filter(|_| group_editable);
+    let mut group_action = None;
     ui.vertical_centered(|ui| {
-        super::widgets::avatar(ui, &palette, &name, id, photo, picture.as_deref());
+        if group_editable {
+            group_action = group_photo(app, ui, &name, id, photo, picture.as_deref());
+        } else {
+            super::widgets::avatar(ui, &palette, &name, id, photo, picture.as_deref());
+        }
         ui.add_space(6.0);
-        if let Some((first, last)) = editing.as_mut() {
+        if let Some(draft) = renaming.as_mut() {
+            match group_name_field(app, ui, draft) {
+                Some(true) => {
+                    let typed = draft.trim();
+                    // An empty or unchanged name closes the editor and sends nothing.
+                    group_action = Some(if typed.is_empty() || typed == chat.name {
+                        Action::CloseGroupName
+                    } else {
+                        Action::SetGroupName {
+                            chat: id.to_owned(),
+                            name: typed.to_owned(),
+                        }
+                    });
+                }
+                Some(false) => group_action = Some(Action::CloseGroupName),
+                None => {}
+            }
+        } else if group_editable {
+            let edit = crate::i18n::gettext(app.locale, "Edit group name");
+            // Center the name and its pencil together.
+            let button = 15.0 + 12.0;
+            let spacing = ui.spacing().item_spacing.x;
+            let available = ui.available_width();
+            let text_width = super::widgets::line(
+                ui,
+                &name,
+                theme::bold(19.0),
+                palette.text,
+                (available - button - spacing).max(40.0),
+                1,
+            )
+            .size()
+            .x;
+            ui.horizontal(|ui| {
+                ui.add_space(((available - text_width - spacing - button) / 2.0).max(0.0));
+                ui.allocate_ui(vec2(text_width + 1.0, 30.0), |ui| {
+                    super::widgets::selectable_rich_text(
+                        ui,
+                        &name,
+                        theme::bold(19.0),
+                        palette.text,
+                    );
+                });
+                let pencil = theme::icon_button(
+                    ui,
+                    Icon::Pencil,
+                    15.0,
+                    palette.secondary,
+                    palette.text,
+                    &edit,
+                );
+                ui.ctx()
+                    .data_mut(|data| data.insert_temp(group_name_button_id(), pencil.rect));
+                if pencil.clicked() {
+                    // The field appears next frame; egui keeps a focus
+                    // request that long.
+                    ui.memory_mut(|memory| memory.request_focus(group_name_field_id()));
+                    // An unnamed group starts empty rather than from its
+                    // members' summary, the title `chat_title` falls back to.
+                    let unnamed = chat.name.trim().is_empty()
+                        || (chat.name == "Group" && !chat.group_subject_known);
+                    group_action = Some(Action::EditGroupName(if unnamed {
+                        String::new()
+                    } else {
+                        chat.name.clone()
+                    }));
+                }
+            });
+        } else if let Some((first, last)) = editing.as_mut() {
             let mut submit = false;
             ui.horizontal(|ui| {
                 ui.add_space((ui.available_width() - 288.0).max(0.0) / 2.0);
@@ -1538,6 +1616,14 @@ fn chat_info(app: &mut App, ui: &mut egui::Ui, id: &str) {
                 palette.secondary,
             );
         }
+        if saving {
+            theme::text(
+                ui,
+                crate::i18n::gettext(app.locale, "Saving…"),
+                theme::regular(12.5),
+                palette.dim,
+            );
+        }
         if chat.is_group() && !chat.participants.is_empty() {
             theme::text(
                 ui,
@@ -1588,6 +1674,10 @@ fn chat_info(app: &mut App, ui: &mut egui::Ui, id: &str) {
         });
     }
     app.contact_edit = editing;
+    app.group_name_edit = renaming;
+    if let Some(action) = group_action {
+        app.actions.push(action);
+    }
     if leave {
         app.actions
             .push(Action::ShowDialog(Dialog::ConfirmLeaveGroup(id.to_owned())));
@@ -1780,6 +1870,143 @@ fn chat_info(app: &mut App, ui: &mut egui::Ui, id: &str) {
     if let Some(actions) = fired {
         app.actions.extend(actions);
     }
+}
+
+/// Where the pencil that renames a group was drawn, for interaction tests.
+pub fn group_name_button_id() -> egui::Id {
+    egui::Id::new("group-name-edit")
+}
+
+/// Where the group photo that opens its menu was drawn, for interaction tests.
+pub fn group_photo_id() -> egui::Id {
+    egui::Id::new("group-photo")
+}
+
+/// The group's big photo, which opens a menu to change or remove it.
+fn group_photo(
+    app: &App,
+    ui: &mut egui::Ui,
+    name: &str,
+    id: &str,
+    size: f32,
+    picture: Option<&std::path::Path>,
+) -> Option<Action> {
+    let palette = app.palette;
+    let label = crate::i18n::gettext(app.locale, "Change group photo");
+    let response = super::widgets::clickable_avatar(ui, &palette, name, id, size, picture, &label)
+        .on_hover_cursor(egui::CursorIcon::PointingHand)
+        .on_hover_text(label.as_ref());
+    ui.ctx()
+        .data_mut(|data| data.insert_temp(group_photo_id(), response.rect));
+    let change = crate::i18n::gettext(app.locale, "Change photo");
+    let remove = crate::i18n::gettext(app.locale, "Remove photo");
+    let width = super::widgets::menu_width(ui, &[change.as_ref(), remove.as_ref()], true);
+    let mut chosen = None;
+    egui::Popup::menu(&response)
+        .width(width)
+        .frame(super::widgets::menu_frame(&palette))
+        .show(|ui| {
+            if super::widgets::menu_item(ui, &palette, Some(Icon::Image), &change) {
+                chosen = Some(Action::PickGroupPicture(id.to_owned()));
+                ui.close();
+            }
+            // Only a photo that is there can be removed.
+            if picture.is_some()
+                && super::widgets::menu_item(ui, &palette, Some(Icon::Trash), &remove)
+            {
+                chosen = Some(Action::RemoveGroupPicture(id.to_owned()));
+                ui.close();
+            }
+        });
+    chosen
+}
+
+/// The group name being typed. Returns `Some(true)` when Enter or the check
+/// submits it, `Some(false)` when the cross cancels it.
+fn group_name_field(app: &App, ui: &mut egui::Ui, draft: &mut String) -> Option<bool> {
+    let palette = app.palette;
+    let mut outcome = None;
+    ui.horizontal(|ui| {
+        let buttons = 2.0 * (18.0 + 12.0) + 2.0 * ui.spacing().item_spacing.x;
+        let width = 240.0_f32.min(ui.available_width() - buttons);
+        ui.add_space(((ui.available_width() - width - buttons) / 2.0).max(0.0));
+        let format = egui::TextFormat::simple(theme::semibold(15.0), palette.text);
+        let mut layouter = |ui: &egui::Ui, text: &dyn egui::TextBuffer, wrap: f32| {
+            crate::bidi::layout_field(ui, text.as_str(), &format, wrap)
+        };
+        let align = if crate::bidi::base_rtl(draft) {
+            Align::RIGHT
+        } else {
+            Align::LEFT
+        };
+        let hint = crate::i18n::gettext(app.locale, "Group name");
+        let field = Frame::new()
+            .fill(palette.surface)
+            .corner_radius(CornerRadius::same(theme::RADIUS))
+            .inner_margin(Margin::symmetric(10, 5))
+            .show(ui, |ui| {
+                ui.add(
+                    egui::TextEdit::singleline(draft)
+                        .id(group_name_field_id())
+                        .hint_text(
+                            egui::RichText::new(hint.as_ref())
+                                .color(palette.dim)
+                                .font(theme::semibold(15.0)),
+                        )
+                        .font(theme::semibold(15.0))
+                        .text_color(palette.text)
+                        .frame(Frame::NONE)
+                        // WhatsApp refuses longer names.
+                        .char_limit(crate::model::GROUP_NAME_LIMIT)
+                        .desired_width(width - 20.0)
+                        .horizontal_align(align)
+                        .layouter(&mut layouter),
+                )
+            });
+        theme::focus_outline(
+            ui,
+            field.inner.id,
+            field.response.rect,
+            f32::from(theme::RADIUS),
+        );
+        // Read before focus is requested again below: egui answers
+        // `lost_focus` from the current focus, not from this frame's input.
+        if field.inner.lost_focus() && ui.input(|input| input.key_pressed(egui::Key::Enter)) {
+            outcome = Some(true);
+        } else if ui.memory(|memory| memory.focused().is_none()) {
+            field.inner.request_focus();
+        }
+        if theme::icon_button(
+            ui,
+            Icon::Check,
+            18.0,
+            palette.secondary,
+            palette.accent,
+            &crate::i18n::gettext(app.locale, "Save name (Enter)"),
+        )
+        .clicked()
+        {
+            outcome = Some(true);
+        }
+        if theme::icon_button(
+            ui,
+            Icon::X,
+            18.0,
+            palette.secondary,
+            palette.text,
+            &crate::i18n::gettext(app.locale, "Cancel (Escape)"),
+        )
+        .clicked()
+        {
+            outcome = Some(false);
+        }
+    });
+    outcome
+}
+
+/// The group name editor's text field.
+pub fn group_name_field_id() -> egui::Id {
+    egui::Id::new("group-name-field")
 }
 
 /// A filled button for a destructive action.

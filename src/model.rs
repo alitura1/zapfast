@@ -126,6 +126,11 @@ pub struct Chat {
     /// `read_only`, which an announcement group also carries and which a later
     /// metadata refresh rewrites.
     pub left: bool,
+    /// Whether only admins may change the group's name and photo (WhatsApp's
+    /// "Edit group settings"); `None` until the group's metadata has said.
+    pub info_locked: Option<bool>,
+    /// Whether we are an admin of this group, as its metadata last said.
+    pub admin: bool,
     /// Hidden while WhatsApp chat lock is enabled on the phone.
     pub locked: bool,
     /// Disappearing-message duration in seconds, if enabled.
@@ -170,6 +175,8 @@ impl Chat {
             participants: Vec::new(),
             read_only: false,
             left: false,
+            info_locked: None,
+            admin: false,
             locked: false,
             ephemeral_expiration: None,
             labels: Vec::new(),
@@ -214,6 +221,14 @@ impl Chat {
             return false;
         }
         ours.is_empty() || self.participants.is_empty() || self.lists_any(ours)
+    }
+
+    /// Whether we may change the group's name and photo: any member while the
+    /// group's info is open to everyone, only admins once it is locked. Until
+    /// the metadata says which, nothing is offered, and a group we left is
+    /// not ours to edit.
+    pub fn can_edit_info(&self) -> bool {
+        self.is_group() && !self.left && (self.admin || self.info_locked == Some(false))
     }
 
     /// Whether the member list names any of `ours`.
@@ -566,6 +581,9 @@ impl PollDraft {
         if self.multiple { self.options.len() } else { 1 }
     }
 }
+
+/// The longest group name WhatsApp accepts, in characters.
+pub const GROUP_NAME_LIMIT: usize = whatsapp_rust::wacore::iq::groups::GROUP_SUBJECT_MAX_LENGTH;
 
 /// WhatsApp's longest live location share, in seconds.
 pub const LIVE_LOCATION_LIMIT: i64 = 8 * 60 * 60;
@@ -1545,6 +1563,20 @@ pub enum Action {
     },
     /// Asks for a picture and makes it our profile picture.
     PickProfilePicture,
+    /// Opens the group name editor in the group info dialog, starting from
+    /// the current name.
+    EditGroupName(String),
+    /// Closes the group name editor without renaming.
+    CloseGroupName,
+    /// Renames a group on WhatsApp; the editor closes.
+    SetGroupName {
+        chat: ChatId,
+        name: String,
+    },
+    /// Asks for a picture and makes it the group's photo.
+    PickGroupPicture(ChatId),
+    /// Removes the group's photo.
+    RemoveGroupPicture(ChatId),
     /// Sets or resets (`None`) the folder for new downloads.
     SetDownloadFolder(Option<PathBuf>),
     /// Saves the proxy setting and reconnects. Empty follows the environment.
@@ -1644,6 +1676,25 @@ mod tests {
         chat.left = false;
         chat.participants = vec![me.into()];
         assert!(chat.can_leave(&[me]));
+    }
+
+    #[test]
+    fn group_info_is_editable_when_open_or_by_admins() {
+        let mut chat = super::Chat::new("1-2@g.us".into(), "Rust".into());
+        assert!(!chat.can_edit_info(), "unknown until the metadata says");
+        chat.info_locked = Some(false);
+        assert!(chat.can_edit_info(), "an open group lets every member edit");
+        chat.info_locked = Some(true);
+        assert!(!chat.can_edit_info(), "a locked group is for admins");
+        chat.admin = true;
+        assert!(chat.can_edit_info(), "which we are");
+        chat.left = true;
+        assert!(!chat.can_edit_info(), "a group we left is not ours to edit");
+
+        let mut direct = super::Chat::new("1@s.whatsapp.net".into(), "Ada".into());
+        direct.info_locked = Some(false);
+        direct.admin = true;
+        assert!(!direct.can_edit_info(), "only groups have group info");
     }
 
     #[test]

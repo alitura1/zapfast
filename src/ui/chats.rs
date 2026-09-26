@@ -547,7 +547,7 @@ fn locked_entry(app: &mut App, ui: &mut egui::Ui) {
     );
     if ui.is_rect_visible(rect) {
         if response.hovered() {
-            ui.painter().rect_filled(rect, 0.0, palette.surface_hover);
+            widgets::row_highlight(ui, rect, palette.surface_hover);
         }
         let icon_rect =
             Rect::from_center_size(pos2(rect.left() + 38.0, rect.center().y), Vec2::splat(22.0));
@@ -709,7 +709,7 @@ fn hit_row(app: &mut App, ui: &mut egui::Ui, hit: &Message) {
     theme::reveal_focus(&response);
     if ui.is_rect_visible(rect) {
         if response.hovered() {
-            ui.painter().rect_filled(rect, 0.0, palette.surface_hover);
+            widgets::row_highlight(ui, rect, palette.surface_hover);
         }
         let avatar_rect =
             Rect::from_center_size(pos2(rect.left() + 38.0, rect.center().y), Vec2::splat(48.0));
@@ -824,7 +824,7 @@ fn person_row(
     theme::reveal_focus(&response);
     if ui.is_rect_visible(rect) {
         if response.hovered() {
-            ui.painter().rect_filled(rect, 0.0, palette.surface_hover);
+            widgets::row_highlight(ui, rect, palette.surface_hover);
         }
         let avatar_rect =
             Rect::from_center_size(pos2(rect.left() + 38.0, rect.center().y), Vec2::splat(48.0));
@@ -878,9 +878,9 @@ fn row(app: &mut App, ui: &mut egui::Ui, chat: &Chat) -> egui::Response {
     });
     if ui.is_rect_visible(rect) {
         if selected {
-            ui.painter().rect_filled(rect, 0.0, palette.surface_active);
+            widgets::row_highlight(ui, rect, palette.surface_active);
         } else if response.hovered() {
-            ui.painter().rect_filled(rect, 0.0, palette.surface_hover);
+            widgets::row_highlight(ui, rect, palette.surface_hover);
         }
         let avatar_rect =
             Rect::from_center_size(pos2(rect.left() + 38.0, rect.center().y), Vec2::splat(48.0));

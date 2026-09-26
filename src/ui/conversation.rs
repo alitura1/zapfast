@@ -28,6 +28,8 @@ const SENDER_AVATAR: f32 = 28.0;
 /// from the viewport can be skipped by exactly the space it would have taken.
 const CALL_ENTRY_HEIGHT: f32 = 30.0;
 const BODY_SIZE: f32 = 14.5;
+/// Extra space above the first message of a run from one side.
+const RUN_GAP: f32 = 5.0;
 /// Footer label on an outgoing message that failed to send.
 const NOT_SENT: &str = "Not sent";
 const NOT_SENT_HINT: &str =
@@ -42,12 +44,20 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
         return;
     };
     wallpaper::paint(ui, &app.wallpaper());
-    header(app, ui, &chat);
+    let header = header(app, ui, &chat);
     if theme::macos_chrome(ui.ctx()) {
         super::banner(app, ui);
     }
     composer(app, ui, &chat);
     messages(app, ui, &chat);
+    // Over the messages, which scroll under the header.
+    widgets::paint_shadow_below(
+        ui,
+        &app.palette,
+        header.left(),
+        header.right(),
+        header.bottom(),
+    );
 }
 
 fn empty(app: &mut App, ui: &mut egui::Ui) {
@@ -93,7 +103,7 @@ fn empty(app: &mut App, ui: &mut egui::Ui) {
     }
 }
 
-fn header(app: &mut App, ui: &mut egui::Ui, chat: &Chat) {
+fn header(app: &mut App, ui: &mut egui::Ui, chat: &Chat) -> Rect {
     let palette = app.palette;
     let title = app.chat_title(chat);
     egui::Panel::top("chat-header")
@@ -380,7 +390,9 @@ fn header(app: &mut App, ui: &mut egui::Ui, chat: &Chat) {
                     }
                 });
             });
-        });
+        })
+        .response
+        .rect
 }
 
 /// Chat-header subtitle.
@@ -2070,11 +2082,22 @@ fn messages(app: &mut App, ui: &mut egui::Ui, chat: &Chat) {
                                 || previous.is_none_or(|previous| {
                                     previous.sender != message.sender || previous.from_me
                                 }));
+                        // The first message of a run from one side, as the
+                        // phone draws it: a little apart, with a tail.
+                        let first_in_run = new_day
+                            || previous.is_none_or(|previous| {
+                                previous.from_me != message.from_me
+                                    || (!message.from_me && previous.sender != message.sender)
+                            });
+                        if first_in_run && !new_day && previous.is_some() {
+                            ui.add_space(RUN_GAP);
+                        }
                         let flash = jump
                             .as_ref()
                             .filter(|jump| jump.message == message.id)
                             .map(|_| (ui.painter().add(egui::Shape::Noop), ui.cursor().top()));
-                        let response = bubble(ui, &view, message, show_sender, &mut actions);
+                        let response =
+                            bubble(ui, &view, message, show_sender, first_in_run, &mut actions);
                         if let Some((slot, top)) = flash {
                             if view.anchor == Some(message.id.as_str()) && response.is_some() {
                                 jump_since.set(Some(time));
@@ -2461,11 +2484,16 @@ fn typing_bubble(ui: &mut egui::Ui, view: &View<'_>, typers: &[(String, String)]
             }
             ui.add_space(2.0);
         }
-        Frame::new()
-            .fill(palette.bubble_in)
-            .corner_radius(CornerRadius::same(10))
+        let backdrop = ui.painter().add(egui::Shape::Noop);
+        let rect = Frame::new()
             .inner_margin(Margin::symmetric(12, 9))
-            .show(ui, |ui| typing_dots(ui, &palette));
+            .show(ui, |ui| typing_dots(ui, &palette))
+            .response
+            .rect;
+        ui.painter().set(
+            backdrop,
+            widgets::bubble_shape(&palette, rect, palette.bubble_in, Some(widgets::Side::Left)),
+        );
     });
 }
 
@@ -2686,6 +2714,7 @@ fn bubble(
     view: &View<'_>,
     message: &Message,
     show_sender: bool,
+    first_in_run: bool,
     actions: &mut Vec<Action>,
 ) -> Option<egui::Response> {
     let own = message.from_me;
@@ -2755,6 +2784,7 @@ fn bubble(
                             view,
                             message,
                             show_sender,
+                            first_in_run,
                             max_width,
                             actions,
                         ));
@@ -2766,6 +2796,7 @@ fn bubble(
                     view,
                     message,
                     show_sender,
+                    first_in_run,
                     max_width,
                     actions,
                 ));
@@ -3079,6 +3110,7 @@ fn bubble_frame(
     view: &View<'_>,
     message: &Message,
     show_sender: bool,
+    first_in_run: bool,
     max_width: f32,
     actions: &mut Vec<Action>,
 ) -> egui::Response {
@@ -3105,9 +3137,14 @@ fn bubble_frame(
     let rect_id = bubble_id.with("rect");
     let previous = ui.ctx().data(|data| data.get_temp::<Rect>(rect_id));
     let early = previous.map(|rect| ui.interact(rect, bubble_id, Sense::CLICK));
+    // Painted once the contents are measured, beneath them.
+    let backdrop = ui.painter().add(egui::Shape::Noop);
+    let tail = (first_in_run && fill != Color32::TRANSPARENT).then_some(if own {
+        widgets::Side::Right
+    } else {
+        widgets::Side::Left
+    });
     let inner = Frame::new()
-        .fill(fill)
-        .corner_radius(CornerRadius::same(10))
         .inner_margin(Margin {
             left: 10,
             right: 10,
@@ -3188,6 +3225,12 @@ fn bubble_frame(
                 interactive_buttons(ui, view, message, card, settled.unwrap_or(cap), actions);
             }
         });
+    if fill != Color32::TRANSPARENT && ui.is_rect_visible(inner.response.rect) {
+        ui.painter().set(
+            backdrop,
+            widgets::bubble_shape(&palette, inner.response.rect, fill, tail),
+        );
+    }
     ui.ctx()
         .data_mut(|data| data.insert_temp(rect_id, inner.response.rect));
     let bubble = early.unwrap_or_else(|| ui.interact(inner.response.rect, bubble_id, Sense::CLICK));

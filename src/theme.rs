@@ -164,6 +164,33 @@ impl Palette {
         }
     }
 
+    /// The soft shadow that lifts message bubbles and date chips off the
+    /// wallpaper: two points down with a short blur, a little denser than
+    /// the palette's own shadow colour, so custom themes steer it. A shadow
+    /// alone barely darkens a dark chat; [`Palette::raised_edge`] lights
+    /// the top as well.
+    pub fn bubble_shadow(&self) -> egui::epaint::Shadow {
+        egui::epaint::Shadow {
+            offset: [0, 2],
+            blur: 6,
+            spread: 0,
+            color: denser(self.shadow, SHADOW_DENSITY),
+        }
+    }
+
+    /// The faint light along the top edge of a raised surface of colour
+    /// `fill`. In a dark theme the fill moves a little toward the text
+    /// colour, so it follows every dark palette, mid-dark ones included; in
+    /// a light one, where the text is dark, it moves toward white instead,
+    /// which shows on tinted surfaces and vanishes on white ones.
+    pub fn raised_edge(&self, fill: Color32) -> Color32 {
+        if self.dark {
+            fill.lerp_to_gamma(self.text, DARK_EDGE_TINT)
+        } else {
+            fill.lerp_to_gamma(Color32::WHITE, LIGHT_EDGE_TINT)
+        }
+    }
+
     /// Group-sender color derived from the avatar hue.
     pub fn sender(&self, hue: f32) -> Color32 {
         if self.dark {
@@ -247,6 +274,22 @@ impl fastframe_theme::Palette for Palette {
             self.overlay = self.panel;
         }
     }
+}
+
+/// How much denser than the palette's shadow colour a bubble's shadow is.
+const SHADOW_DENSITY: f32 = 1.3;
+/// How far a dark theme's raised edge moves from the surface toward the text.
+const DARK_EDGE_TINT: f32 = 0.16;
+/// How far a light theme's raised edge moves from the surface toward white.
+const LIGHT_EDGE_TINT: f32 = 0.6;
+/// How thick the raised edge is, in points.
+pub const RAISED_EDGE: f32 = 1.0;
+
+/// `color` with its opacity scaled by `factor`, up to opaque.
+fn denser(color: Color32, factor: f32) -> Color32 {
+    let [r, g, b, a] = color.to_srgba_unmultiplied();
+    let alpha = (f32::from(a) * factor).round().clamp(0.0, 255.0) as u8;
+    Color32::from_rgba_unmultiplied(r, g, b, alpha)
 }
 
 /// Converts HSL to color bytes for non-egui drawing.
@@ -1005,6 +1048,51 @@ pub fn titlebar_inset(ctx: &egui::Context) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn raised_surfaces_get_a_lit_edge_and_a_denser_shadow() {
+        let preset = |name: &str| {
+            crate::theme::presets()
+                .find(|theme| theme.filename == name)
+                .unwrap()
+                .palette
+        };
+        // A mid-dark custom palette follows too.
+        let mut mid = Palette::dark();
+        mid.chat = Color32::from_rgb(0x3a, 0x3f, 0x4b);
+        mid.bubble_in = Color32::from_rgb(0x4c, 0x52, 0x60);
+        let palettes = [
+            Palette::dark(),
+            preset("Catppuccin.json"),
+            mid,
+            Palette::light(),
+            preset("Catppuccin Latte.json"),
+        ];
+        let luminance = |color: Color32| contrast(color, Color32::BLACK);
+        for palette in palettes {
+            for fill in [palette.bubble_in, palette.bubble_out, palette.panel] {
+                let edge = palette.raised_edge(fill);
+                // Lighter than the surface, or the same where it is white.
+                assert!(
+                    luminance(edge) > luminance(fill) || fill == Color32::WHITE,
+                    "{fill:?} -> {edge:?}"
+                );
+                if palette.dark {
+                    // Close to a bubble: a hint, not an outline.
+                    if fill != palette.panel {
+                        let lift = contrast(edge, palette.chat) / contrast(fill, palette.chat);
+                        assert!(lift > 1.05 && lift < 1.6, "{fill:?} -> {edge:?}: {lift}");
+                    }
+                } else {
+                    // Toward white, never toward the dark text.
+                    assert_eq!(edge, fill.lerp_to_gamma(Color32::WHITE, LIGHT_EDGE_TINT));
+                }
+            }
+            let shadow = palette.bubble_shadow();
+            assert_eq!((shadow.offset, shadow.blur), ([0, 2], 6));
+            assert!(shadow.color.a() > palette.shadow.a() || palette.shadow.a() == 255);
+        }
+    }
 
     /// The palette decides the theme, and the desktop's rendering its text
     /// options: linear coverage in both themes on Linux, as GTK draws it.

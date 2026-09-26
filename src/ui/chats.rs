@@ -98,13 +98,19 @@ fn header(app: &mut App, ui: &mut egui::Ui) {
                         &me,
                         34.0,
                         picture.as_deref(),
-                        "Your profile and settings",
+                        // The label follows the action: while Settings are
+                        // showing, this click closes them.
+                        if app.page == Page::Settings {
+                            "Close settings"
+                        } else {
+                            "Your profile and settings"
+                        },
                     )
                     .tab_stop(Stop::Profile)
                     .on_hover_text(tooltip)
                     .on_hover_cursor(egui::CursorIcon::PointingHand);
                     if response.clicked() {
-                        app.actions.push(Action::Open(Page::Settings));
+                        app.actions.push(Action::ToggleSettings);
                     }
                     ui.add_space(2.0);
                     theme::text(
@@ -119,14 +125,24 @@ fn header(app: &mut App, ui: &mut egui::Ui) {
                         ui,
                         Icon::Settings,
                         18.0,
-                        palette.secondary,
+                        if app.page == Page::Settings {
+                            palette.accent
+                        } else {
+                            palette.secondary
+                        },
                         palette.text,
-                        "Settings (Ctrl+,)",
+                        // Same as the avatar: the label says what the click
+                        // does now, not what it opened.
+                        if app.page == Page::Settings {
+                            "Close settings (Ctrl+,)"
+                        } else {
+                            "Settings (Ctrl+,)"
+                        },
                     )
                     .tab_stop(Stop::Settings)
                     .clicked()
                     {
-                        app.actions.push(Action::Open(Page::Settings));
+                        app.actions.push(Action::ToggleSettings);
                     }
                     if theme::icon_button(
                         ui,
@@ -473,6 +489,8 @@ fn list(app: &mut App, ui: &mut egui::Ui) {
         widgets::empty_state(ui, &palette, Icon::MessageCircle, title, body);
         return;
     }
+    // Rows touch: one clickable surface from top to bottom, no gaps or rules.
+    ui.spacing_mut().item_spacing.y = 0.0;
     let row_height = theme::ROW_HEIGHT;
     let total = chats.len();
     let mut scroll_area = egui::ScrollArea::vertical()
@@ -550,11 +568,6 @@ fn locked_entry(app: &mut App, ui: &mut egui::Ui) {
             theme::regular(12.5),
             palette.accent,
         );
-        ui.painter().hline(
-            (rect.left() + 76.0)..=rect.right(),
-            rect.bottom() - 0.5,
-            egui::Stroke::new(1.0, palette.outline),
-        );
     }
     if response
         .on_hover_cursor(egui::CursorIcon::PointingHand)
@@ -579,6 +592,7 @@ fn locked_list(app: &mut App, ui: &mut egui::Ui) {
         return;
     }
     let chats: Vec<Chat> = chats.into_iter().cloned().collect();
+    ui.spacing_mut().item_spacing.y = 0.0;
     egui::ScrollArea::vertical()
         .id_salt("locked-chats")
         .auto_shrink([false, false])
@@ -630,6 +644,7 @@ fn results(app: &mut App, ui: &mut egui::Ui) {
         );
         return;
     }
+    ui.spacing_mut().item_spacing.y = 0.0;
     egui::ScrollArea::vertical()
         .id_salt("search-results")
         .auto_shrink([false, false])
@@ -673,7 +688,7 @@ fn section(ui: &mut egui::Ui, palette: &Palette, label: &str) {
             left: 14,
             right: 14,
             top: 0,
-            bottom: 4,
+            bottom: 10,
         })
         .show(ui, |ui| {
             theme::text(ui, label, theme::semibold(12.5), palette.accent);
@@ -760,11 +775,6 @@ fn hit_row(app: &mut App, ui: &mut egui::Ui, hit: &Message) {
             1,
         );
         words.paint(ui, pos2(x, line_y), palette.dim);
-        ui.painter().hline(
-            left..=rect.right(),
-            rect.bottom() - 0.5,
-            egui::Stroke::new(1.0, palette.outline),
-        );
     }
     let response = response.on_hover_cursor(egui::CursorIcon::PointingHand);
     if response.clicked() {
@@ -841,11 +851,6 @@ fn person_row(
             );
             phone_line.paint(ui, pos2(left, rect.top() + 38.0), palette.dim);
         }
-        ui.painter().hline(
-            left..=rect.right(),
-            rect.bottom() - 0.5,
-            egui::Stroke::new(1.0, palette.outline),
-        );
     }
     response.on_hover_cursor(egui::CursorIcon::PointingHand)
 }
@@ -1017,11 +1022,6 @@ fn row(app: &mut App, ui: &mut egui::Ui, chat: &Chat) -> egui::Response {
             widgets::line(ui, "", theme::regular(13.0), preview_color, 1.0, 1)
         };
         preview.paint(ui, pos2(x, line_y), preview_color);
-        ui.painter().hline(
-            left..=rect.right(),
-            rect.bottom() - 0.5,
-            egui::Stroke::new(1.0, palette.outline),
-        );
     }
     let response = response.on_hover_cursor(egui::CursorIcon::PointingHand);
     if let Some((area, prefix, full)) = full_preview {

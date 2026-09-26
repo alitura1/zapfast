@@ -13,8 +13,8 @@ use crate::i18n::Locale;
 use crate::image_preview::PreviewState;
 use crate::model::{
     Action, Chat, ChatFilter, ChatId, Contact, Content, Delivery, Dialog, Gif, GifError, Label,
-    Media, MediaState, Message, Page, PickerTab, SidebarDisplayMode, StickerPack, StickerShelf,
-    Toast, ToastKind,
+    Media, MediaState, Message, Page, PickerTab, Scroll, SidebarDisplayMode, StickerPack,
+    StickerShelf, Toast, ToastKind,
 };
 use crate::paths::AppDirs;
 use crate::settings::{NotificationSound, Settings, ThemeChoice};
@@ -91,6 +91,54 @@ pub struct Conversation {
     pub(crate) rows: HashMap<String, RowHeight>,
     /// This chat's calls, newest first, drawn among the messages by time.
     pub calls: Vec<crate::model::CallRecord>,
+    /// The keyboard page, Home, or End scroll under way in the message list.
+    pub(crate) key_scroll: Option<KeyScroll>,
+}
+
+/// A keyboard scroll the message list eases through, one instant step per
+/// frame.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct KeyScroll {
+    pub kind: Scroll,
+    /// For PgUp/PgDn, the signed `scroll_with_delta` distance still to cover.
+    pub remaining: f32,
+    /// `ui.input().time` when it started.
+    start: f64,
+    duration: f32,
+    /// The eased progress already applied, from 0 to 1.
+    progress: f32,
+}
+
+impl KeyScroll {
+    pub fn new(kind: Scroll, remaining: f32, start: f64, duration: f32) -> Self {
+        Self {
+            kind,
+            remaining,
+            start,
+            duration,
+            progress: 0.0,
+        }
+    }
+
+    /// Advances the easing to `now` and returns the share of the distance
+    /// still to cover that this frame moves: all of it once time is up. A
+    /// pass redone in the same frame gets 0.
+    pub fn advance(&mut self, now: f64) -> f32 {
+        let t = ((now - self.start) / f64::from(self.duration)).clamp(0.0, 1.0) as f32;
+        if t >= 1.0 || self.progress >= 1.0 {
+            self.progress = 1.0;
+            return 1.0;
+        }
+        // Ease out: a scroll a held key restarts still moves at once.
+        let eased = egui::emath::easing::cubic_out(t);
+        let fraction = (eased - self.progress) / (1.0 - self.progress);
+        self.progress = eased;
+        fraction
+    }
+
+    pub fn done(&self) -> bool {
+        self.progress >= 1.0
+    }
 }
 
 /// A transcript row's height as last laid out or estimated.
@@ -180,7 +228,14 @@ pub struct App {
     pub palette: Palette,
     pub custom_themes: theme::Catalog,
     applied_dark: Option<bool>,
+    /// Reveals a new palette from the middle of the window outwards.
+    theme_transition: fastframe_theme::Transition,
+    /// Whether palette changes are revealed. Off in tests, whose frames send
+    /// no screenshots and would hold the old palette.
+    pub reveal_theme_changes: bool,
     zoom_applied: bool,
+    /// The wallpaper image named in the settings, decoded off this thread.
+    pub wallpaper_image: crate::wallpaper::CustomImage,
 
     pub link: LinkStatus,
     /// Whether link-time history sync is active.
@@ -300,6 +355,9 @@ pub struct App {
     /// Demo/test: keep this chat row's context menu open.
     #[cfg(any(test, feature = "demo"))]
     pub open_chat_menu: Option<ChatId>,
+    /// Demo/test: keep the open chat's header menu open.
+    #[cfg(any(test, feature = "demo"))]
+    pub open_header_menu: Option<ChatId>,
     /// Emoji-grid header to scroll into view.
     pub emoji_jump: Option<&'static str>,
     /// Attachments pending in the composer.
@@ -343,6 +401,8 @@ pub struct App {
     pub gif_pending: bool,
     pub gif_error: Option<GifError>,
     pub stickers: Vec<PathBuf>,
+    /// Downloaded stickers others sent, newest first.
+    pub stickers_received: Vec<PathBuf>,
     /// Favorite stickers, newest first.
     pub stickers_saved: Vec<PathBuf>,
     /// Imported sticker packs, newest first.
@@ -386,6 +446,10 @@ pub struct App {
     pub interactive_sending: HashSet<(ChatId, String)>,
     /// Contact-name editor buffers.
     pub contact_edit: Option<(String, String)>,
+    /// The group name being typed in the group info dialog.
+    pub group_name_edit: Option<String>,
+    /// Groups whose name or photo change WhatsApp has not answered yet.
+    pub group_saving: HashSet<ChatId>,
     /// New-contact buffers and lookup state.
     pub new_contact_phone: String,
     pub new_contact_name: String,
@@ -423,6 +487,15 @@ pub struct App {
     pub update_arguments: Vec<String>,
     /// Whether to scroll the conversation to its newest message.
     pub scroll_to_bottom: bool,
+    /// One-shot: an explicit jump (Ctrl+End, or the return-to-bottom button)
+    /// must reach the bottom even while a message bubble retains keyboard
+    /// focus, unlike `scroll_to_bottom` set for other reasons (opening a
+    /// chat, sending a message), which still defers to that focus so it is
+    /// not pulled out from under a keyboard-navigating reader.
+    pub scroll_to_bottom_forced: bool,
+    /// A pending page-relative scroll for the open chat, consumed by its
+    /// message list on the next frame.
+    pub scroll_page: Option<Scroll>,
     /// Whether the conversation was at the bottom last frame.
     pub at_bottom: bool,
     /// Message id to scroll into view.
@@ -727,7 +800,10 @@ impl App {
             palette,
             custom_themes: theme::Catalog::default(),
             applied_dark: None,
+            theme_transition: fastframe_theme::Transition::default(),
+            reveal_theme_changes: !cfg!(test),
             zoom_applied: false,
+            wallpaper_image: crate::wallpaper::CustomImage::default(),
             link: LinkStatus::Starting,
             syncing: false,
             sync_percent: None,
@@ -799,6 +875,8 @@ impl App {
             open_message_menu: None,
             #[cfg(any(test, feature = "demo"))]
             open_chat_menu: None,
+            #[cfg(any(test, feature = "demo"))]
+            open_header_menu: None,
             emoji_jump: None,
             pending: Vec::new(),
             composer_tools_open: false,
@@ -820,6 +898,7 @@ impl App {
             gif_pending: false,
             gif_error: None,
             stickers: Vec::new(),
+            stickers_received: Vec::new(),
             stickers_saved: Vec::new(),
             sticker_packs: Vec::new(),
             stickers_pending: false,
@@ -847,6 +926,8 @@ impl App {
             poll_voting: HashSet::new(),
             interactive_sending: HashSet::new(),
             contact_edit: None,
+            group_name_edit: None,
+            group_saving: HashSet::new(),
             new_contact_phone: String::new(),
             new_contact_name: String::new(),
             new_contact_last: String::new(),
@@ -872,6 +953,8 @@ impl App {
             update_inspecting: false,
             update_arguments: Vec::new(),
             scroll_to_bottom: true,
+            scroll_to_bottom_forced: false,
+            scroll_page: None,
             at_bottom: true,
             scroll_anchor: None,
             jump_highlight: None,
@@ -926,6 +1009,21 @@ impl App {
         self.window_focused = false;
         self.hide_intent = false;
         self.wants_show = false;
+    }
+
+    /// What the conversation shows behind its bubbles, for the chat and the
+    /// wallpaper preview alike.
+    pub fn wallpaper(&self) -> crate::wallpaper::Look {
+        crate::wallpaper::Look {
+            color: self.settings.wallpaper_background(&self.palette),
+            doodles: self.settings.show_wallpaper,
+            image: self
+                .settings
+                .wallpaper_image
+                .is_some()
+                .then(|| self.wallpaper_image.ready())
+                .flatten(),
+        }
     }
 
     /// Whether window close keeps the app in the tray.
@@ -1092,6 +1190,7 @@ impl App {
             .spawn(crate::emoji::warm_up)
             .ok();
         self.applied_dark = None;
+        self.theme_transition = fastframe_theme::Transition::default();
         self.zoom_applied = false;
         self.window_hidden = false;
         self.paste_before_release = false;
@@ -1167,10 +1266,16 @@ impl App {
         if matches!(
             &self.dialog,
             Some(
-                Dialog::ChatInfo(chat) | Dialog::CreatePoll(chat) | Dialog::ConfirmDeleteChat(chat)
+                Dialog::ChatInfo(chat)
+                    | Dialog::CreatePoll(chat)
+                    | Dialog::ConfirmDeleteChat(chat)
+                    | Dialog::ConfirmClearChat(chat)
             ) if chat == id
-        ) || matches!(&self.dialog, Some(Dialog::Forward { chat, .. }) if chat == id)
-        {
+        ) || matches!(
+            &self.dialog,
+            Some(Dialog::Forward { chat, .. } | Dialog::ConfirmDeleteMessage { chat, .. })
+                if chat == id
+        ) {
             self.dialog = None;
             self.poll_creating = false;
         }
@@ -2085,11 +2190,13 @@ impl App {
                     favorites,
                     packs,
                     recent,
+                    received,
                     emojis,
                 } => {
                     self.stickers_saved = favorites;
                     self.sticker_packs = packs;
                     self.stickers = recent;
+                    self.stickers_received = received;
                     self.sticker_emojis = emojis;
                     // Show a pack made here as soon as it exists. Packs list
                     // newest first, so the first match is the new one.
@@ -2197,6 +2304,16 @@ impl App {
                 }
                 Event::DownloadFolderPicked(path) => {
                     self.actions.push(Action::SetDownloadFolder(Some(path)));
+                }
+                Event::WallpaperImagePicked(Ok(path)) => {
+                    // The copy may keep the earlier one's name: decode it anew.
+                    self.wallpaper_image.reload();
+                    self.settings.wallpaper_image = Some(path);
+                    self.mark_settings_dirty();
+                }
+                Event::WallpaperImagePicked(Err(error)) => {
+                    let message = crate::i18n::gettext(self.locale, "Could not use this image");
+                    self.toast_error(format!("{message}: {error}"));
                 }
                 Event::NotificationSoundPicked { mention, path } => {
                     crate::notify::play_sound(crate::settings::NotificationSound::Custom(
@@ -2323,6 +2440,13 @@ impl App {
                     unsent,
                     reason,
                 } => self.send_refused(chat, quoting, unsent, reason),
+                Event::GroupSaving { chat, saving } => {
+                    if saving {
+                        self.group_saving.insert(chat);
+                    } else {
+                        self.group_saving.remove(&chat);
+                    }
+                }
                 Event::Error(message) => {
                     self.sticker_import_pending = false;
                     self.new_contact_pending = false;
@@ -2469,6 +2593,11 @@ impl App {
     /// one of its messages would otherwise refer to rows that are gone, and a
     /// pending edit would send `EditText` for a message that no longer exists.
     fn handle_chat_cleared(&mut self, id: &str, through: i64) {
+        // A confirmation that is open for this chat is about messages that are
+        // already gone: clearing again would take what arrived since.
+        if matches!(&self.dialog, Some(Dialog::ConfirmClearChat(chat)) if chat == id) {
+            self.dialog = None;
+        }
         self.notifications.clear(id);
         // Clearing a chat also removes its stored draft.
         self.drafts.remove(id);
@@ -2940,6 +3069,11 @@ impl App {
             // A run of voice messages belongs to the chat it started in.
             self.voice_chat = None;
             self.voice_wanted = None;
+            // A page request belongs to the chat it was pressed in.
+            self.scroll_page = None;
+            if let Some(conversation) = self.conversations.get_mut(&id) {
+                conversation.key_scroll = None;
+            }
         }
         self.emoji_start = None;
         self.mention_start = None;
@@ -3454,9 +3588,21 @@ impl App {
                 }
             },
         );
-        ctx.set_theme(preference);
-        // Use the same preference for our palette and egui's native controls.
-        let dark = ctx.theme() == egui::Theme::Dark;
+        if !self.zoom_applied {
+            ctx.set_zoom_factor(self.settings.zoom);
+            self.zoom_applied = true;
+        }
+        // Resolved here rather than after `set_theme`, so a change can keep the
+        // old colours, egui's own controls included, while it is revealed.
+        let dark = match preference {
+            egui::ThemePreference::Dark => true,
+            egui::ThemePreference::Light => false,
+            egui::ThemePreference::System => {
+                ctx.system_theme()
+                    .unwrap_or_else(|| ctx.options(|options| options.fallback_theme))
+                    == egui::Theme::Dark
+            }
+        };
         let palette = self.settings.cached_palette().unwrap_or_else(|| {
             if dark {
                 Palette::dark()
@@ -3467,14 +3613,21 @@ impl App {
         if crate::theme::apply_text_rendering_change(ctx) {
             self.applied_dark = None;
         }
+        // A change of colours after the window's first is revealed from the
+        // middle outwards, as Omarchy does; the old palette stays until the
+        // window's picture of it arrives.
+        if self.applied_dark.is_some() && self.palette != palette && self.reveal_theme_changes {
+            self.theme_transition.begin(ctx);
+            if self.theme_transition.holding(ctx) {
+                return;
+            }
+        }
+        // Use the same preference for our palette and egui's native controls.
+        ctx.set_theme(preference);
         if self.applied_dark.is_none() || self.palette != palette {
             self.palette = palette;
             crate::theme::apply(ctx, &self.palette);
             self.applied_dark = Some(dark);
-        }
-        if !self.zoom_applied {
-            ctx.set_zoom_factor(self.settings.zoom);
-            self.zoom_applied = true;
         }
     }
 
@@ -3506,6 +3659,16 @@ impl App {
                     self.settings_search.clear();
                     self.refocus_composer(ctx);
                 }
+            }
+            Action::ToggleSettings => {
+                // The button that opened settings closes them again, and
+                // closing lands on what was showing, exactly as Escape does.
+                let page = if self.page == Page::Settings {
+                    Page::Chats
+                } else {
+                    Page::Settings
+                };
+                self.apply(Action::Open(page), ctx);
             }
             Action::OpenChat(id) => self.open_chat(id),
             Action::ShowCalls => {
@@ -3752,6 +3915,11 @@ impl App {
                     });
                 } else {
                     self.actions.push(Action::OpenFile(path));
+                }
+            }
+            Action::ZoomImageBy(factor) => {
+                if let Some(preview) = &mut self.image_preview {
+                    preview.zoom_by(factor);
                 }
             }
             Action::ZoomImageIn => {
@@ -4386,6 +4554,9 @@ impl App {
             // The chat leaves the list once the phone confirmed, through
             // `Event::ChatRemoved`.
             Action::DeleteChat(chat) => self.backend.send(Command::DeleteChat(chat)),
+            // The messages go once the phone confirmed, through
+            // `Event::ChatCleared`; the chat stays either way.
+            Action::ClearChat(chat) => self.backend.send(Command::ClearChat(chat)),
             Action::SetPinned(chat, pinned) => {
                 if pinned && self.pinned_count() >= self.pin_limit {
                     self.toast(format!("You can only pin {} chats", self.pin_limit));
@@ -4433,6 +4604,7 @@ impl App {
                     self.new_contact_pending = false;
                 }
                 self.contact_edit = None;
+                self.group_name_edit = None;
                 self.dialog = Some(dialog);
             }
             Action::CloseDialog => {
@@ -4441,6 +4613,7 @@ impl App {
                 self.invite = None;
                 self.forward_search.clear();
                 self.contact_edit = None;
+                self.group_name_edit = None;
                 self.refocus_composer(ctx);
             }
             Action::EditContact(prefill) => {
@@ -4610,7 +4783,21 @@ impl App {
                 self.focus_search = false;
                 self.focus_composer = true;
             }
-            Action::ScrollToBottom => self.scroll_to_bottom = true,
+            Action::ScrollToBottom => {
+                self.scroll_to_bottom = true;
+                // Ctrl+End and the return-to-bottom button are explicit: they
+                // must win over a message bubble's retained keyboard focus.
+                self.scroll_to_bottom_forced = true;
+            }
+            Action::ScrollPage(scroll) => {
+                // Reaching the top releases stick-to-bottom, as the wheel and
+                // the edge-scroll drag do; reaching the bottom (paging down or
+                // End) lets it take over again, so it is left alone here.
+                if matches!(scroll, Scroll::PageUp | Scroll::Top) {
+                    self.scroll_to_bottom = false;
+                }
+                self.scroll_page = Some(scroll);
+            }
             Action::ScrollTo(id) => {
                 self.scroll_to_bottom = false;
                 let Some(chat) = self.open_chat.clone() else {
@@ -4718,6 +4905,14 @@ impl App {
                 self.settings.show_wallpaper = show;
                 self.mark_settings_dirty();
             }
+            Action::PickWallpaperImage => self.backend.send(Command::PickWallpaperImage),
+            Action::RemoveWallpaperImage => {
+                if self.settings.wallpaper_image.take().is_some() {
+                    self.mark_settings_dirty();
+                }
+                crate::wallpaper::forget_image(ctx);
+                self.backend.send(Command::RemoveWallpaperImage);
+            }
             Action::ReloadThemes => self.load_custom_themes(),
             Action::OpenThemesFolder => {
                 let directory = self.dirs.config.join("themes");
@@ -4800,6 +4995,17 @@ impl App {
                 self.backend.send(Command::SetProfile { name, about });
             }
             Action::PickProfilePicture => self.backend.send(Command::PickProfilePicture),
+            Action::EditGroupName(name) => self.group_name_edit = Some(name),
+            Action::CloseGroupName => self.group_name_edit = None,
+            Action::SetGroupName { chat, name } => {
+                self.group_name_edit = None;
+                self.backend.send(Command::SetGroupName { chat, name });
+            }
+            Action::PickGroupPicture(chat) => self.backend.send(Command::PickGroupPicture(chat)),
+            Action::RemoveGroupPicture(chat) => {
+                self.backend
+                    .send(Command::SetGroupPicture { chat, jpeg: None });
+            }
             Action::SetChatSound { chat, sound } => {
                 if let Some(known) = self.chat_mut(&chat) {
                     known.notification_sound = sound.clone();
@@ -4969,6 +5175,8 @@ impl App {
         self.actions.extend(crate::macos::drain(self.window_hidden));
         self.handle_control_commands();
         self.poll_custom_themes();
+        self.wallpaper_image
+            .sync(self.settings.wallpaper_image.as_deref(), &self.waker);
         self.handle_notification_opens();
         self.handle_events();
         self.tick(ctx);
@@ -4987,6 +5195,13 @@ impl App {
         if let Some(badge) = &mut self.badge {
             badge.set(count);
         }
+    }
+
+    /// The unread total for the Windows taskbar overlay, which the window
+    /// applies itself; `None` in demo and test runs.
+    #[cfg(target_os = "windows")]
+    pub fn taskbar_badge_count(&self) -> Option<u32> {
+        self.badge.as_ref()?.count()
     }
 
     /// Pauses other apps' music while recording or playing audio, as the
@@ -5279,6 +5494,8 @@ impl App {
         self.take_drops_and_pastes(ctx);
         crate::ui::show(self, ui);
         self.apply_actions(ctx);
+        // The old colours, if a change is being revealed, go over everything.
+        self.theme_transition.paint(ctx);
         // Release the image caches of everything that scrolled away.
         crate::image_cache::sweep(ctx);
         // Only fading info toasts animate. Errors wait for the reader.
@@ -5510,6 +5727,12 @@ impl App {
         });
     }
 
+    /// Whether the latest wheel input came in points (a trackpad), which the
+    /// image preview pans with instead of zooming.
+    pub fn scroll_from_trackpad(&self) -> bool {
+        self.scroll_from_trackpad
+    }
+
     pub fn save_state(&mut self) {
         if self.settings_dirty {
             self.save_settings();
@@ -5726,11 +5949,50 @@ mod tests {
         App::headless(AppDirs::under(&root), Settings::default()).0
     }
 
+    /// A chat that is gone or emptied takes its confirmation with it: a modal
+    /// left behind for a chat that no longer exists still dispatches its
+    /// action, and after a remote clear that action would take what arrived
+    /// since.
+    #[test]
+    fn a_remote_removal_or_clear_closes_the_confirmation() {
+        let mut app = app();
+        let (backend, events) = Backend::detached();
+        app.backend = backend;
+        let chat = "peer@s.whatsapp.net";
+        app.chats.push(Chat::new(chat.into(), "Peer".into()));
+
+        app.dialog = Some(Dialog::ConfirmClearChat(chat.into()));
+        events
+            .send(Event::ChatCleared {
+                chat: chat.into(),
+                through: 100,
+            })
+            .unwrap();
+        app.handle_events();
+        assert!(
+            app.dialog.is_none(),
+            "a cleared chat closes its confirmation"
+        );
+
+        app.dialog = Some(Dialog::ConfirmClearChat(chat.into()));
+        events
+            .send(Event::ChatRemoved { chat: chat.into() })
+            .unwrap();
+        app.handle_events();
+        assert!(
+            app.dialog.is_none(),
+            "a removed chat closes its confirmation"
+        );
+    }
+
     /// Demo and test runs share the machine with a linked ZapFast, whose real
     /// taskbar badge they must not overwrite.
     #[test]
     fn demo_and_test_runs_do_not_publish_a_taskbar_badge() {
-        assert!(app().badge.is_none());
+        let app = app();
+        assert!(app.badge.is_none());
+        #[cfg(target_os = "windows")]
+        assert!(app.taskbar_badge_count().is_none());
     }
 
     #[test]
@@ -5876,6 +6138,7 @@ mod tests {
             favorites: Vec::new(),
             packs,
             recent: Vec::new(),
+            received: Vec::new(),
             emojis: std::collections::HashMap::new(),
         }
     }
@@ -6756,6 +7019,50 @@ mod tests {
         assert_eq!(app.palette, Palette::light());
     }
 
+    /// A change of colours keeps the old palette while the window's picture
+    /// of it is on its way, and applies the new one once it arrives or after
+    /// a short wait without it. The window's first palette is not revealed.
+    #[test]
+    fn a_theme_change_holds_the_old_colours_until_its_reveal_can_start() {
+        let mut app = app();
+        app.reveal_theme_changes = true;
+        app.settings.theme = ThemeChoice::Dark;
+        app.settings.custom_theme = None;
+        let ctx = egui::Context::default();
+        let at = |app: &mut App, time: f64| {
+            let mut output = ctx.run_ui(
+                egui::RawInput {
+                    time: Some(time),
+                    ..Default::default()
+                },
+                |ui| app.apply_theme(ui.ctx()),
+            );
+            output.textures_delta.clear();
+        };
+        at(&mut app, 0.0);
+        assert_eq!(
+            app.palette,
+            Palette::dark(),
+            "the first palette applies at once"
+        );
+
+        app.settings.theme = ThemeChoice::Light;
+        at(&mut app, 1.0);
+        assert_eq!(
+            app.palette,
+            Palette::dark(),
+            "held for the window's picture"
+        );
+        at(&mut app, 1.1);
+        assert_eq!(app.palette, Palette::dark());
+        at(&mut app, 1.5);
+        assert_eq!(
+            app.palette,
+            Palette::light(),
+            "no picture came: applied anyway"
+        );
+    }
+
     #[test]
     fn automatic_updates_require_opt_in_and_explicit_restart() {
         use crate::updates::{DownloadState, Installation, Kind, Prepared};
@@ -7272,6 +7579,94 @@ mod tests {
         assert!(app.dialog.is_none());
         // Neighbouring chats and their search hits stay.
         assert!(app.chat(other).is_some());
+        assert_eq!(app.search_hits.len(), 1);
+    }
+
+    /// A pending delete-message question belongs to one chat. When that chat
+    /// goes away the message is gone with it, so the question must not stay
+    /// open over another chat.
+    #[test]
+    fn a_removed_chat_closes_its_pending_message_deletion() {
+        let directory = tempfile::tempdir().unwrap();
+        let (mut app, events) =
+            App::headless(AppDirs::under(directory.path()), Settings::default());
+        let chat = "peer@s.whatsapp.net";
+        let other = "other@s.whatsapp.net";
+        for id in [chat, other] {
+            app.chats.push(Chat::new(id.into(), "Peer".into()));
+        }
+        app.dialog = Some(Dialog::ConfirmDeleteMessage {
+            chat: other.into(),
+            message: "m1".into(),
+            for_everyone: true,
+        });
+
+        events
+            .send(Event::ChatRemoved { chat: chat.into() })
+            .unwrap();
+        app.handle_events();
+        // Another chat's question stays open.
+        assert!(app.dialog.is_some());
+
+        events
+            .send(Event::ChatRemoved { chat: other.into() })
+            .unwrap();
+        app.handle_events();
+        assert_eq!(app.dialog, None);
+    }
+
+    #[test]
+    fn a_cleared_chat_keeps_its_row_until_the_phone_confirmed_it() {
+        let mut app = app();
+        let (backend, mut commands) = Backend::recording();
+        app.backend = backend;
+        let chat = "peer@s.whatsapp.net";
+        let other = "friend@s.whatsapp.net";
+        app.chats.push(Chat::new(chat.into(), "Peer".into()));
+        app.conversations
+            .entry(chat.into())
+            .or_default()
+            .merge(vec![message(chat, "m1", 100)], false);
+        app.drafts.insert(chat.into(), "half-written".into());
+        app.open_chat = Some(chat.into());
+        app.search_hits.push(message(chat, "m1", 100));
+        app.search_hits.push(message(other, "m2", 100));
+
+        let ctx = egui::Context::default();
+        app.apply(Action::ClearChat(chat.into()), &ctx);
+
+        // Nothing changes here until the phone has cleared the chat too.
+        assert!(app.chat(chat).is_some());
+        assert_eq!(
+            app.conversations.get(chat).map(|open| open.messages.len()),
+            Some(1)
+        );
+        assert!(app.drafts.contains_key(chat));
+        assert!(
+            std::iter::from_fn(|| commands.try_recv().ok())
+                .any(|command| matches!(command, Command::ClearChat(id) if id == chat))
+        );
+
+        let (backend, events) = Backend::detached();
+        app.backend = backend;
+        events
+            .send(Event::ChatCleared {
+                chat: chat.into(),
+                through: 100,
+            })
+            .unwrap();
+        app.handle_events();
+
+        // The chat stays open with nothing left in it, and its draft goes.
+        assert!(app.chat(chat).is_some());
+        assert_eq!(
+            app.conversations.get(chat).map(|open| open.messages.len()),
+            Some(0)
+        );
+        assert!(!app.drafts.contains_key(chat));
+        assert_eq!(app.open_chat, Some(chat.into()));
+        // Only the cleared chat loses its search hits.
+        assert!(app.search_hits.iter().all(|hit| hit.chat != chat));
         assert_eq!(app.search_hits.len(), 1);
     }
 

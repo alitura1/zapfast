@@ -280,6 +280,8 @@ fn main() -> eframe::Result<()> {
                         app,
                         window_recovery_checked: false,
                         update_receipt: receipt,
+                        #[cfg(target_os = "windows")]
+                        taskbar: Default::default(),
                         #[cfg(feature = "demo")]
                         shot,
                         #[cfg(feature = "demo")]
@@ -357,6 +359,9 @@ struct Shell {
     window_recovery_checked: bool,
     update_receipt: Option<fastframe_update::Receipt>,
     app: fastframe_shell::Held<app::App>,
+    /// This window's unread overlay on its taskbar button.
+    #[cfg(target_os = "windows")]
+    taskbar: zapfast::notify::Taskbar,
     #[cfg(feature = "demo")]
     shot: Option<Shot>,
     #[cfg(feature = "demo")]
@@ -444,6 +449,12 @@ impl eframe::App for Shell {
             tour.drive(app, ctx);
         }
         app.background_frame(ctx);
+        #[cfg(target_os = "windows")]
+        if let (Some(window), Some(count)) = (frame.winit_window(), app.taskbar_badge_count())
+            && let Some(at) = self.taskbar.show(window, count, app.locale)
+        {
+            ctx.request_repaint_after(at.saturating_duration_since(std::time::Instant::now()));
+        }
         // The chat header is 60 points and zooms; the linking screen keeps
         // AppKit's own 28-point strip.
         let title_bar = if app.is_linked() {

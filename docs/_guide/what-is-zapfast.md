@@ -38,8 +38,8 @@ RAM, compared with 1.13 GB for WhatsApp Web and its Chromium processes.
 - **Runs in the background.** Closing the window keeps ZapFast in the system
   tray. Notifications can show the chat picture and open the chat at the
   message they announced. Supported desktops show the unread count on the app
-  icon in the taskbar or dock. Muting
-  a chat also mutes it on your phone.
+  icon in the taskbar or dock; on Windows, the count appears while the window
+  has a taskbar button. Muting a chat also mutes it on your phone.
 - **Calls.** Voice and video calls, one to one, with incoming calls taking
   over the window to accept or decline. Microphone, speaker, and camera are
   chosen inside the call and remembered. Finished calls are listed under

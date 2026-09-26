@@ -4,7 +4,8 @@
 #
 # Usage: packaging/install-user.sh [binary] [prefix]
 #   binary  the built executable (default: target/release/zapfast)
-#   prefix  the install prefix   (default: $PREFIX, else ~/.local)
+#   prefix  the install prefix   (default: $PREFIX, else ~/.local with data
+#           in $XDG_DATA_HOME when it is set)
 #
 # The desktop file in packaging/ names its binary as `Exec=zapfast`, which is
 # right for a package: a package manager installs the binary to /usr/bin,
@@ -20,9 +21,18 @@ here=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 repo=$(dirname -- "$here")
 
 binary=${1:-"$repo/target/release/zapfast"}
-prefix=${2:-"${PREFIX:-$HOME/.local}"}
+prefix=${2:-"${PREFIX:-}"}
+if [[ -n "$prefix" ]]; then
+  # An explicit prefix owns everything, data included, and is made absolute
+  # because a launcher cannot resolve a relative Exec path.
+  mkdir -p "$prefix"
+  prefix=$(cd -- "$prefix" && pwd)
+  data_dir="$prefix/share"
+else
+  prefix="$HOME/.local"
+  data_dir="${XDG_DATA_HOME:-$prefix/share}"
+fi
 bin_dir="$prefix/bin"
-data_dir="${XDG_DATA_HOME:-$prefix/share}"
 apps_dir="$data_dir/applications"
 icons_dir="$data_dir/icons/hicolor/scalable/apps"
 

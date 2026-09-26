@@ -63,4 +63,16 @@ check_prefix "$work/with%percent"
 # Exec would name a path the binary was never installed to.
 check_prefix "$work/with\\nbackslash"
 
+# An explicit prefix wins over XDG_DATA_HOME, so the test never writes into
+# the developer's real data directory.
+XDG_DATA_HOME="$work/elsewhere" check_prefix "$work/explicit"
+test ! -e "$work/elsewhere" || { echo "wrote into XDG_DATA_HOME despite a prefix" >&2; exit 1; }
+
+# A relative prefix becomes absolute, since a launcher cannot resolve it.
+(cd "$work" && bash "$script_dir/install-user.sh" "$fake" relative >/dev/null)
+grep -qxF "Exec=\"$work/relative/bin/zapfast\"" "$work/relative/share/applications/zapfast.desktop" || {
+  echo "a relative prefix left a relative Exec" >&2
+  exit 1
+}
+
 echo "install-user.sh wrote a valid, escaped launcher entry for every prefix."

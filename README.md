@@ -486,18 +486,11 @@ cargo build --release --locked
 packaging/install-user.sh
 ```
 
-`install-user.sh` is Linux-only: it writes an XDG `.desktop` entry. On macOS
-and Windows a source build has no launcher integration; use a packaged release
-or run the binary directly.
-
-The script installs the binary, the icon, and a desktop file under `~/.local`
-(or `$PREFIX`), and writes that desktop file's `Exec=` as the quoted full path
-to the binary it just installed, with spaces and special characters escaped. A
-package keeps `Exec=zapfast`, because it puts the binary in `/usr/bin`, which
-every session has on `PATH`; a user install lands in `~/.local/bin`, which a
-graphical session often does not have on `PATH`, and that is exactly why the
-launcher entry has to name the path. ZapFast then opens
-from the application launcher, under its own icon, with no terminal.
+The script installs the binary, the icon, and a desktop entry under
+`~/.local` (or the prefix you pass), with `Exec=` set to the installed binary's
+full path, since a graphical session often lacks `~/.local/bin` on `PATH`. It
+is Linux-only; on macOS and Windows use a packaged release or run the binary
+directly.
 
 `whatsapp-rust` is pinned to a Git commit because version 0.7.0 on crates.io
 enables a `simd` feature that needs nightly Rust. The pinned commit builds on

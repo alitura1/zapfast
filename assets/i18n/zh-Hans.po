@@ -6,7 +6,7 @@ msgstr ""
 "Project-Id-Version: ZapFast\n"
 "Report-Msgid-Bugs-To: https://github.com/crmne/zapfast/issues/new?"
 "template=translation.yml\n"
-"POT-Creation-Date: 2026-09-26 14:53+0200\n"
+"POT-Creation-Date: 2026-09-26 15:06+0200\n"
 "PO-Revision-Date: 2026-09-25 23:00-0300\n"
 "Last-Translator: ZapFast contributors\n"
 "Language-Team: Chinese (Simplified)\n"
@@ -167,7 +167,7 @@ msgstr "给自己发消息"
 msgid "Remove from favorites"
 msgstr "取消收藏"
 
-#: src/ui/chats.rs:1015 src/ui/chats.rs:1373 src/ui/conversation.rs:3718
+#: src/ui/chats.rs:1015 src/ui/chats.rs:1373 src/ui/conversation.rs:3727
 #: src/ui/dialogs.rs:1013 src/ui/picker.rs:1582
 msgid "Add to favorites"
 msgstr "添加到收藏"
@@ -210,121 +210,121 @@ msgstr "你已退出此群组"
 msgid "Attach"
 msgstr "添加附件"
 
-#: src/ui/conversation.rs:1067
+#: src/ui/conversation.rs:1070
 msgid "Type a message"
 msgstr "输入消息"
 
-#: src/ui/conversation.rs:1070
+#: src/ui/conversation.rs:1073
 msgid "Add a caption"
 msgstr "添加说明文字"
 
-#: src/ui/conversation.rs:1267
+#: src/ui/conversation.rs:1270
 msgid ""
 "Enter sends · Shift+Enter for a new line · *bold* _italic_ ~strike~ · Ctrl+V "
 "pastes a picture"
 msgstr "回车发送 · Shift+回车换行 · *粗体* _斜体_ ~删除线~ · Ctrl+V 粘贴图片"
 
-#: src/ui/conversation.rs:1269
+#: src/ui/conversation.rs:1272
 msgid "Ctrl+Enter sends · *bold* _italic_ ~strike~ · Ctrl+V pastes a picture"
 msgstr "Ctrl+回车发送 · *粗体* _斜体_ ~删除线~ · Ctrl+V 粘贴图片"
 
-#: src/ui/conversation.rs:1280
+#: src/ui/conversation.rs:1283
 msgid "Hide shortcut hints (bring them back from Keyboard shortcuts)"
 msgstr "隐藏快捷键提示（可从“键盘快捷键”恢复）"
 
-#: src/ui/conversation.rs:1295
+#: src/ui/conversation.rs:1298
 #, rust-format
 msgid "All shortcuts ({})"
 msgstr "全部快捷键（{}）"
 
-#: src/ui/conversation.rs:1425
+#: src/ui/conversation.rs:1434
 msgid "Send files"
 msgstr "发送文件"
 
-#: src/ui/conversation.rs:1429
+#: src/ui/conversation.rs:1438
 msgid "Create poll"
 msgstr "创建投票"
 
-#: src/ui/conversation.rs:1447
+#: src/ui/conversation.rs:1456
 #, rust-format
 msgid "Voice message ({duration}) not sent"
 msgstr "语音消息（{duration}）未发送"
 
-#: src/ui/conversation.rs:1449
+#: src/ui/conversation.rs:1458
 msgid "Discard voice message"
 msgstr "放弃语音消息"
 
-#: src/ui/conversation.rs:1902 src/notify/badge_windows.rs:255
+#: src/ui/conversation.rs:1911 src/notify/badge_windows.rs:255
 #, rust-format
 msgid "{} unread message"
 msgid_plural "{} unread messages"
 msgstr[0] "{} 条未读消息"
 
-#: src/ui/conversation.rs:3087 src/ui/conversation.rs:3727
+#: src/ui/conversation.rs:3096 src/ui/conversation.rs:3736
 msgid "Open in system player"
 msgstr "用系统播放器打开"
 
-#: src/ui/conversation.rs:3088 src/ui/conversation.rs:3786
+#: src/ui/conversation.rs:3097 src/ui/conversation.rs:3795
 #: src/ui/message_info.rs:17
 msgid "Message info"
 msgstr "消息信息"
 
-#: src/ui/conversation.rs:4120
+#: src/ui/conversation.rs:4129
 msgid "Location"
 msgstr "位置"
 
-#: src/ui/conversation.rs:4146
+#: src/ui/conversation.rs:4155
 msgid "Live location ended"
 msgstr "实时位置已结束"
 
-#: src/ui/conversation.rs:4148 src/ui/conversation.rs:4338
+#: src/ui/conversation.rs:4157 src/ui/conversation.rs:4347
 msgid "Live location"
 msgstr "实时位置"
 
-#: src/ui/conversation.rs:4158
+#: src/ui/conversation.rs:4167
 #, rust-format
 msgid "Updated {time}"
 msgstr "更新于 {time}"
 
-#: src/ui/conversation.rs:4208
+#: src/ui/conversation.rs:4217
 msgid "Chat"
 msgstr "聊天"
 
-#: src/ui/conversation.rs:4222
+#: src/ui/conversation.rs:4231
 msgid "Add"
 msgstr "添加"
 
-#: src/ui/conversation.rs:4267
+#: src/ui/conversation.rs:4276
 #, rust-format
 msgid "{} sticker"
 msgid_plural "{} stickers"
 msgstr[0] "{} 个贴图"
 
-#: src/ui/conversation.rs:4280
+#: src/ui/conversation.rs:4289
 msgid "View stickers"
 msgstr "查看贴图"
 
-#: src/ui/conversation.rs:4346
+#: src/ui/conversation.rs:4355
 msgid "Open WhatsApp on your phone to follow it."
 msgstr "在手机上打开 WhatsApp 即可查看。"
 
-#: src/ui/conversation.rs:5192
+#: src/ui/conversation.rs:5201
 msgid "Open in a map"
 msgstr "在地图中打开"
 
-#: src/ui/conversation.rs:5751
+#: src/ui/conversation.rs:5760
 msgid "Pause"
 msgstr "暂停"
 
-#: src/ui/conversation.rs:5753 src/ui/settings.rs:1349
+#: src/ui/conversation.rs:5762 src/ui/settings.rs:1349
 msgid "Play"
 msgstr "播放"
 
-#: src/ui/conversation.rs:5776
+#: src/ui/conversation.rs:5785
 msgid "Unmute"
 msgstr "取消静音"
 
-#: src/ui/conversation.rs:5778
+#: src/ui/conversation.rs:5787
 msgid "Mute"
 msgstr "静音"
 

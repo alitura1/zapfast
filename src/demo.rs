@@ -8252,6 +8252,37 @@ mod tests {
         }
     }
 
+    /// The text starts right after the plus and emoji pair, as close to the
+    /// emoji as the emoji is to the plus, not a field's width away.
+    #[test]
+    fn the_composers_text_follows_the_emoji_button_closely() {
+        use crate::ui::focus::Stop;
+        for draft in ["", "A synthetic draft"] {
+            let mut app = app();
+            app.composer = draft.into();
+            let ctx = egui::Context::default();
+            app.attach(&ctx);
+            for _ in 0..4 {
+                frame_sized(&mut app, &ctx, 780.0, Vec::new());
+            }
+            let emoji = crate::ui::focus::stops(&ctx)
+                .into_iter()
+                .find(|(found, _)| *found == Stop::Emoji)
+                .and_then(|(_, id)| ctx.read_response(id))
+                .expect("the emoji button is drawn")
+                .rect;
+            let text = ctx
+                .read_response(egui::Id::new("composer-text"))
+                .expect("the field is drawn")
+                .rect;
+            let gap = text.left() - emoji.right();
+            assert!(
+                (gap - crate::ui::conversation::COMPOSER_TEXT_GAP).abs() < 0.5,
+                "{draft:?}: the text starts {gap} after the emoji button"
+            );
+        }
+    }
+
     /// Plus, emoji, the first line of text and send or record share the
     /// rounded field's vertical centre; a longer draft keeps them on its
     /// last line.

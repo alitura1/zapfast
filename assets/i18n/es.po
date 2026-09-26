@@ -6,7 +6,7 @@ msgstr ""
 "Project-Id-Version: ZapFast\n"
 "Report-Msgid-Bugs-To: https://github.com/crmne/zapfast/issues/new?"
 "template=translation.yml\n"
-"POT-Creation-Date: 2026-09-26 14:53+0200\n"
+"POT-Creation-Date: 2026-09-26 15:06+0200\n"
 "PO-Revision-Date: 2026-09-22 00:00-0300\n"
 "Last-Translator: ZapFast contributors\n"
 "Language-Team: Spanish\n"
@@ -167,7 +167,7 @@ msgstr "Envíate un mensaje"
 msgid "Remove from favorites"
 msgstr "Quitar de favoritos"
 
-#: src/ui/chats.rs:1015 src/ui/chats.rs:1373 src/ui/conversation.rs:3718
+#: src/ui/chats.rs:1015 src/ui/chats.rs:1373 src/ui/conversation.rs:3727
 #: src/ui/dialogs.rs:1013 src/ui/picker.rs:1582
 msgid "Add to favorites"
 msgstr "Añadir a favoritos"
@@ -210,15 +210,15 @@ msgstr "Saliste de este grupo"
 msgid "Attach"
 msgstr "Adjuntar"
 
-#: src/ui/conversation.rs:1067
+#: src/ui/conversation.rs:1070
 msgid "Type a message"
 msgstr "Escribe un mensaje"
 
-#: src/ui/conversation.rs:1070
+#: src/ui/conversation.rs:1073
 msgid "Add a caption"
 msgstr "Añade un título"
 
-#: src/ui/conversation.rs:1267
+#: src/ui/conversation.rs:1270
 msgid ""
 "Enter sends · Shift+Enter for a new line · *bold* _italic_ ~strike~ · Ctrl+V "
 "pastes a picture"
@@ -226,112 +226,112 @@ msgstr ""
 "Enter envía · Shift+Enter para nueva línea · *negrita* _cursiva_ ~tachado~ · "
 "Ctrl+V pega una imagen"
 
-#: src/ui/conversation.rs:1269
+#: src/ui/conversation.rs:1272
 msgid "Ctrl+Enter sends · *bold* _italic_ ~strike~ · Ctrl+V pastes a picture"
 msgstr ""
 "Ctrl+Enter envía · *negrita* _cursiva_ ~tachado~ · Ctrl+V pega una imagen"
 
-#: src/ui/conversation.rs:1280
+#: src/ui/conversation.rs:1283
 msgid "Hide shortcut hints (bring them back from Keyboard shortcuts)"
 msgstr "Ocultar sugerencias de atajos (se recuperan en Atajos de teclado)"
 
-#: src/ui/conversation.rs:1295
+#: src/ui/conversation.rs:1298
 #, rust-format
 msgid "All shortcuts ({})"
 msgstr "Todos los atajos ({})"
 
-#: src/ui/conversation.rs:1425
+#: src/ui/conversation.rs:1434
 msgid "Send files"
 msgstr "Enviar archivos"
 
-#: src/ui/conversation.rs:1429
+#: src/ui/conversation.rs:1438
 msgid "Create poll"
 msgstr "Crear encuesta"
 
-#: src/ui/conversation.rs:1447
+#: src/ui/conversation.rs:1456
 #, rust-format
 msgid "Voice message ({duration}) not sent"
 msgstr "Mensaje de voz ({duration}) no enviado"
 
-#: src/ui/conversation.rs:1449
+#: src/ui/conversation.rs:1458
 msgid "Discard voice message"
 msgstr "Descartar mensaje de voz"
 
-#: src/ui/conversation.rs:1902 src/notify/badge_windows.rs:255
+#: src/ui/conversation.rs:1911 src/notify/badge_windows.rs:255
 #, rust-format
 msgid "{} unread message"
 msgid_plural "{} unread messages"
 msgstr[0] "{} mensaje no leído"
 msgstr[1] "{} mensajes no leídos"
 
-#: src/ui/conversation.rs:3087 src/ui/conversation.rs:3727
+#: src/ui/conversation.rs:3096 src/ui/conversation.rs:3736
 msgid "Open in system player"
 msgstr "Abrir en el reproductor del sistema"
 
-#: src/ui/conversation.rs:3088 src/ui/conversation.rs:3786
+#: src/ui/conversation.rs:3097 src/ui/conversation.rs:3795
 #: src/ui/message_info.rs:17
 msgid "Message info"
 msgstr "Info. del mensaje"
 
-#: src/ui/conversation.rs:4120
+#: src/ui/conversation.rs:4129
 #, fuzzy
 msgid "Location"
 msgstr "Ubicación en tiempo real"
 
-#: src/ui/conversation.rs:4146
+#: src/ui/conversation.rs:4155
 msgid "Live location ended"
 msgstr "Ubicación en tiempo real finalizada"
 
-#: src/ui/conversation.rs:4148 src/ui/conversation.rs:4338
+#: src/ui/conversation.rs:4157 src/ui/conversation.rs:4347
 msgid "Live location"
 msgstr "Ubicación en tiempo real"
 
-#: src/ui/conversation.rs:4158
+#: src/ui/conversation.rs:4167
 #, rust-format
 msgid "Updated {time}"
 msgstr "Actualizada a las {time}"
 
-#: src/ui/conversation.rs:4208
+#: src/ui/conversation.rs:4217
 #, fuzzy
 msgid "Chat"
 msgstr "Chats"
 
-#: src/ui/conversation.rs:4222
+#: src/ui/conversation.rs:4231
 msgid "Add"
 msgstr ""
 
-#: src/ui/conversation.rs:4267
+#: src/ui/conversation.rs:4276
 #, rust-format
 msgid "{} sticker"
 msgid_plural "{} stickers"
 msgstr[0] "{} sticker"
 msgstr[1] "{} stickers"
 
-#: src/ui/conversation.rs:4280
+#: src/ui/conversation.rs:4289
 msgid "View stickers"
 msgstr "Ver stickers"
 
-#: src/ui/conversation.rs:4346
+#: src/ui/conversation.rs:4355
 msgid "Open WhatsApp on your phone to follow it."
 msgstr "Abre WhatsApp en tu teléfono para seguirla."
 
-#: src/ui/conversation.rs:5192
+#: src/ui/conversation.rs:5201
 msgid "Open in a map"
 msgstr "Abrir en un mapa"
 
-#: src/ui/conversation.rs:5751
+#: src/ui/conversation.rs:5760
 msgid "Pause"
 msgstr "Pausa"
 
-#: src/ui/conversation.rs:5753 src/ui/settings.rs:1349
+#: src/ui/conversation.rs:5762 src/ui/settings.rs:1349
 msgid "Play"
 msgstr "Reproducir"
 
-#: src/ui/conversation.rs:5776
+#: src/ui/conversation.rs:5785
 msgid "Unmute"
 msgstr "Activar sonido"
 
-#: src/ui/conversation.rs:5778
+#: src/ui/conversation.rs:5787
 msgid "Mute"
 msgstr "Silenciar"
 

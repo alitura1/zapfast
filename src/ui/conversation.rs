@@ -996,6 +996,9 @@ fn composer(app: &mut App, ui: &mut egui::Ui, chat: &Chat) {
                         }
                         app.actions.push(Action::TogglePicker(PickerTab::Emoji));
                     }
+                    // The text follows the pair as closely as the emoji
+                    // follows the plus (the field's own left margin included).
+                    ui.add_space(COMPOSER_TEXT_GAP - ui.spacing().item_spacing.x - 8.0);
                 }
                 // The send button closes the row, flush with the field's end.
                 let field_width =
@@ -1336,6 +1339,11 @@ const COMPOSER_INSET: i8 = 2;
 /// 22-point icon by six points a side, so this leaves eight between the
 /// icons, a pair.
 const COMPOSER_PAIR_GAP: f32 = -4.0;
+/// From the emoji button's edge to the text. The plus's glyph leaves more of
+/// its box empty than the round emoji's, so this is wider than the pair's
+/// gap: at it, the text starts as far from the emoji's ink as the emoji
+/// starts from the plus's.
+pub(crate) const COMPOSER_TEXT_GAP: f32 = 6.0;
 /// Width of the plus button: its 22-point icon and `icon_button`'s padding.
 const PLUS_EDGE: f32 = 34.0;
 

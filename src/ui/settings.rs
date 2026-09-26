@@ -797,8 +797,22 @@ fn theme_picker(ui: &mut egui::Ui, app: &mut App) {
         {
             app.actions.push(Action::OpenThemesFolder);
         }
+        if theme::soft_button(
+            ui,
+            &palette,
+            Some(Icon::ExternalLink),
+            &crate::i18n::gettext(app.locale, "How to make a theme"),
+            false,
+        )
+        .clicked()
+        {
+            app.actions.push(Action::OpenUrl(THEMES_GUIDE.to_owned()));
+        }
     });
 }
+
+/// The website's page on writing a theme.
+const THEMES_GUIDE: &str = "https://zapfast.rocks/themes/";
 
 /// The interface language menu.
 fn language_picker(ui: &mut egui::Ui, app: &mut App) {

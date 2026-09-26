@@ -8253,6 +8253,63 @@ mod tests {
         }
     }
 
+    /// The theme row links to the website's guide to writing a theme.
+    #[test]
+    fn the_theme_row_opens_the_guide_to_making_a_theme() {
+        let mut app = app();
+        app.page = crate::model::Page::Settings;
+        let ctx = egui::Context::default();
+        ctx.enable_accesskit();
+        app.attach(&ctx);
+        render(&mut app, &ctx);
+        let nodes = accessible_nodes(&mut app, &ctx, Vec::new());
+        let pos = nodes
+            .into_iter()
+            .find(|(label, role, _)| {
+                label == "How to make a theme" && *role == egui::accesskit::Role::Button
+            })
+            .map(|(_, _, centre)| centre)
+            .expect("the guide button is on the Settings page");
+        let mut opened = Vec::new();
+        for pressed in [true, false] {
+            let mut output = ctx.run_ui(
+                egui::RawInput {
+                    screen_rect: Some(egui::Rect::from_min_size(
+                        egui::Pos2::ZERO,
+                        egui::vec2(1180.0, 780.0),
+                    )),
+                    events: vec![
+                        egui::Event::PointerMoved(pos),
+                        egui::Event::PointerButton {
+                            pos,
+                            button: egui::PointerButton::Primary,
+                            pressed,
+                            modifiers: egui::Modifiers::NONE,
+                        },
+                    ],
+                    ..Default::default()
+                },
+                |ui| {
+                    let ctx = ui.ctx().clone();
+                    app.background_frame(&ctx);
+                    app.frame_ui(ui);
+                },
+            );
+            output.textures_delta.clear();
+            opened.extend(
+                output
+                    .platform_output
+                    .commands
+                    .into_iter()
+                    .filter_map(|command| match command {
+                        egui::OutputCommand::OpenUrl(open) => Some(open.url),
+                        _ => None,
+                    }),
+            );
+        }
+        assert_eq!(opened, ["https://zapfast.rocks/themes/"]);
+    }
+
     /// The chat list is one clickable surface: each row starts where the one
     /// above ends, with no gap or rule between them.
     #[test]

@@ -6,7 +6,7 @@ msgstr ""
 "Project-Id-Version: ZapFast\n"
 "Report-Msgid-Bugs-To: https://github.com/crmne/zapfast/issues/new?"
 "template=translation.yml\n"
-"POT-Creation-Date: 2026-09-26 16:01+0200\n"
+"POT-Creation-Date: 2026-09-26 15:57+0200\n"
 "PO-Revision-Date: 2026-09-22 00:00-0300\n"
 "Last-Translator: ZapFast contributors\n"
 "Language-Team: Spanish\n"
@@ -323,7 +323,7 @@ msgstr "Abrir en un mapa"
 msgid "Pause"
 msgstr "Pausa"
 
-#: src/ui/conversation.rs:5760 src/ui/settings.rs:1406
+#: src/ui/conversation.rs:5760 src/ui/settings.rs:1420
 msgid "Play"
 msgstr "Reproducir"
 
@@ -375,7 +375,7 @@ msgstr "Emojis que lo describan, como 😂 o ❤️"
 msgid "Send"
 msgstr "Enviar"
 
-#: src/ui/dialogs.rs:1020 src/ui/dialogs.rs:1168 src/ui/settings.rs:1209
+#: src/ui/dialogs.rs:1020 src/ui/dialogs.rs:1168 src/ui/settings.rs:1223
 msgid "Cancel"
 msgstr "Cancelar"
 
@@ -554,7 +554,7 @@ msgstr "Código secreto"
 msgid "Clear"
 msgstr "Borrar"
 
-#: src/ui/settings.rs:402 src/ui/settings.rs:1534
+#: src/ui/settings.rs:402 src/ui/settings.rs:1548
 msgid "Notifications"
 msgstr "Notificaciones"
 
@@ -566,7 +566,7 @@ msgstr "Notificaciones de escritorio"
 msgid "For chats you are not looking at. Muted chats stay quiet."
 msgstr "Para los chats que no estás mirando. Los chats silenciados no avisan."
 
-#: src/ui/settings.rs:415 src/ui/settings.rs:1541
+#: src/ui/settings.rs:415 src/ui/settings.rs:1555
 msgid "Play sounds for group messages"
 msgstr "Reproducir sonidos para mensajes de grupo"
 
@@ -680,24 +680,24 @@ msgstr "Para buscar GIF. Sustituye la clave incluida en esta versión."
 msgid "For GIF search. Get a free key at developers.giphy.com."
 msgstr "Para buscar GIF. Consigue una clave gratuita en developers.giphy.com."
 
-#: src/ui/settings.rs:613 src/ui/settings.rs:1586 src/ui/settings.rs:1592
+#: src/ui/settings.rs:613 src/ui/settings.rs:1600 src/ui/settings.rs:1606
 msgid "Account"
 msgstr "Cuenta"
 
-#: src/ui/settings.rs:616 src/ui/settings.rs:1135
+#: src/ui/settings.rs:616 src/ui/settings.rs:1149
 msgid "Your name"
 msgstr "Tu nombre"
 
-#: src/ui/settings.rs:617 src/ui/settings.rs:697 src/ui/settings.rs:1143
-#: src/ui/settings.rs:1305
+#: src/ui/settings.rs:617 src/ui/settings.rs:697 src/ui/settings.rs:1157
+#: src/ui/settings.rs:1319
 msgid "About"
 msgstr "Acerca de"
 
-#: src/ui/settings.rs:618 src/ui/settings.rs:1112
+#: src/ui/settings.rs:618 src/ui/settings.rs:1126
 msgid "Change profile picture"
 msgstr "Cambiar foto de perfil"
 
-#: src/ui/settings.rs:619 src/ui/settings.rs:1179 src/ui/settings.rs:1588
+#: src/ui/settings.rs:619 src/ui/settings.rs:1193 src/ui/settings.rs:1602
 msgid "Unlink this computer"
 msgstr "Desvincular este ordenador"
 
@@ -733,87 +733,91 @@ msgstr "Registro"
 msgid "Open"
 msgstr "Abrir"
 
-#: src/ui/settings.rs:701 src/ui/settings.rs:1294
+#: src/ui/settings.rs:701 src/ui/settings.rs:1308
 msgid "Keyboard shortcuts"
 msgstr "Atajos de teclado"
 
-#: src/ui/settings.rs:702 src/ui/settings.rs:1316
+#: src/ui/settings.rs:702 src/ui/settings.rs:1330
 msgid "Source code"
 msgstr "Código fuente"
 
-#: src/ui/settings.rs:809 src/ui/settings.rs:818
+#: src/ui/settings.rs:804
+msgid "How to make a theme"
+msgstr "Cómo crear un tema"
+
+#: src/ui/settings.rs:823 src/ui/settings.rs:832
 msgid "Auto"
 msgstr "Automático"
 
-#: src/ui/settings.rs:905
+#: src/ui/settings.rs:919
 msgid "Add doodles"
 msgstr "Añadir dibujos"
 
-#: src/ui/settings.rs:909
+#: src/ui/settings.rs:923
 msgid "Show the default doodles over the selected colour."
 msgstr "Mostrar los dibujos predeterminados sobre el color seleccionado."
 
-#: src/ui/settings.rs:993
+#: src/ui/settings.rs:1007
 msgid "Choose image…"
 msgstr "Elegir imagen…"
 
-#: src/ui/settings.rs:994
+#: src/ui/settings.rs:1008
 msgid "Remove image"
 msgstr "Quitar imagen"
 
-#: src/ui/settings.rs:1022
+#: src/ui/settings.rs:1036
 msgctxt "wallpaper colour"
 msgid "Theme"
 msgstr "Tema"
 
-#: src/ui/settings.rs:1151
+#: src/ui/settings.rs:1165
 msgid "Linked device"
 msgstr "Dispositivo vinculado"
 
-#: src/ui/settings.rs:1162
+#: src/ui/settings.rs:1176
 msgid "Edit your name and About"
 msgstr "Editar tu nombre e info."
 
-#: src/ui/settings.rs:1199
+#: src/ui/settings.rs:1213
 msgid "Save"
 msgstr "Guardar"
 
-#: src/ui/settings.rs:1273
+#: src/ui/settings.rs:1287
 msgid "A native WhatsApp client built with Rust, egui, and whatsapp-rust."
 msgstr "Un cliente nativo de WhatsApp hecho con Rust, egui y whatsapp-rust."
 
-#: src/ui/settings.rs:1284
+#: src/ui/settings.rs:1298
 #, rust-format
 msgid "Update to {version}"
 msgstr "Actualizar a {version}"
 
-#: src/ui/settings.rs:1362
+#: src/ui/settings.rs:1376
 msgid "Mention sound"
 msgstr "Sonido de mención"
 
-#: src/ui/settings.rs:1363
+#: src/ui/settings.rs:1377
 msgid "When a group mentions you or replies to you."
 msgstr "Cuando alguien te menciona o te responde en un grupo."
 
-#: src/ui/settings.rs:1366
+#: src/ui/settings.rs:1380
 msgid "Message sound"
 msgstr "Sonido de mensaje"
 
-#: src/ui/settings.rs:1383
+#: src/ui/settings.rs:1397
 msgid "Pidgin alert"
 msgstr "Alerta de Pidgin"
 
-#: src/ui/settings.rs:1384
+#: src/ui/settings.rs:1398
 msgid "System default"
 msgstr "Predeterminado del sistema"
 
 #. Translators: no notification sound.
-#: src/ui/settings.rs:1386
+#: src/ui/settings.rs:1400
 msgctxt "sound"
 msgid "None"
 msgstr "Ninguno"
 
-#: src/ui/settings.rs:1423
+#: src/ui/settings.rs:1437
 msgid "Choose a file…"
 msgstr "Elegir un archivo…"
 

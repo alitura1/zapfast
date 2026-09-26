@@ -1000,15 +1000,15 @@ fn composer(app: &mut App, ui: &mut egui::Ui, chat: &Chat) {
                 // The send button closes the row, flush with the field's end.
                 let field_width =
                     (ui.available_width() - button_width - ui.spacing().item_spacing.x).max(0.0);
-                // The capitals' ink is centred on the controls, not the line
-                // box: the box holds room below the baseline that most text
-                // leaves empty, and at fractional scales the glyphs round to
-                // the pixel grid a point higher in it, so centring the box
-                // left typed text visibly high. Measured at this scale and
-                // snapped to a whole pixel.
-                let cap_middle = cap_middle(ui, line_height);
+                // The ink is centred on the controls, not the line box: the
+                // span from a capital's top to a descender's bottom sits as far
+                // from the field's top as from its bottom. Inter's box leaves
+                // more room above the capitals than below the descenders, and
+                // at fractional scales the glyphs round to the pixel grid off
+                // centre in it. Measured at this scale, snapped to a pixel.
+                let ink_middle = ink_middle(ui, line_height);
                 let top = fastframe_text::snap_to_pixels(
-                    row_height - line / 2.0 - (text_height - line_height) - cap_middle,
+                    row_height - line / 2.0 - (text_height - line_height) - ink_middle,
                     ui.ctx().pixels_per_point(),
                 )
                 .max(0.0);
@@ -1357,19 +1357,20 @@ pub(crate) fn scroll_metrics_id(chat: &ChatId) -> egui::Id {
     egui::Id::new(("message-scroll-metrics", chat))
 }
 
-/// How far below the top of a composer text row the middle of a capital's
-/// ink sits, at this scale.
-fn cap_middle(ui: &egui::Ui, line_height: f32) -> f32 {
+/// How far below the top of a composer text row the middle of its ink sits,
+/// at this scale: halfway from a capital's top to a descender's bottom.
+fn ink_middle(ui: &egui::Ui, line_height: f32) -> f32 {
     let format = egui::TextFormat::simple(theme::regular(BODY_SIZE), Color32::WHITE);
-    let (galley, _) = crate::bidi::layout_editor(ui, "H", &format, f32::INFINITY, true);
+    let (galley, _) = crate::bidi::layout_editor(ui, "Hy", &format, f32::INFINITY, true);
     galley
         .rows
         .first()
         .and_then(|row| {
-            let glyph = row.glyphs.first()?;
-            (!glyph.uv_rect.is_nothing()).then(|| {
-                row.pos.y + glyph.pos.y + glyph.uv_rect.offset.y + glyph.uv_rect.size.y / 2.0
-            })
+            let [capital, descender] = [row.glyphs.first()?, row.glyphs.get(1)?];
+            let top = capital.pos.y + capital.uv_rect.offset.y;
+            let bottom = descender.pos.y + descender.uv_rect.offset.y + descender.uv_rect.size.y;
+            (!capital.uv_rect.is_nothing() && !descender.uv_rect.is_nothing())
+                .then(|| row.pos.y + (top + bottom) / 2.0)
         })
         .unwrap_or(line_height / 2.0)
 }

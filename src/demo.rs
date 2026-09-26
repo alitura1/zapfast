@@ -8144,13 +8144,15 @@ mod tests {
         );
     }
 
-    /// A draft's capitals centre on the plus and emoji buttons at every
-    /// scale. Centring the line box instead left typed text two points high
-    /// at 133%, where glyphs round to the pixel grid higher in their box.
+    /// A draft sits as far below the field's top as above its bottom: the
+    /// span from the capitals' top to the descenders' bottom centres on the
+    /// plus and emoji buttons at every scale. Centring the line box left
+    /// typed text two points high at 133%; centring the capitals alone left
+    /// it low, since descenders reach further down than accents rise.
     #[test]
-    fn the_composers_capitals_centre_on_its_controls_at_every_scale() {
+    fn the_composers_text_centres_on_its_controls_at_every_scale() {
         use crate::ui::focus::Stop;
-        const DRAFT: &str = "HEXT";
+        const DRAFT: &str = "Hy";
         for scale in [1.0_f32, 1.25, 1.333_333, 1.5, 2.0] {
             let mut app = app();
             app.composer = DRAFT.into();
@@ -8216,7 +8218,7 @@ mod tests {
             // One physical pixel at 133%.
             assert!(
                 (middle - control).abs() <= 0.75,
-                "at {scale}x the capitals centre on {middle}, the controls on {control}"
+                "at {scale}x the text centres on {middle}, the controls on {control}"
             );
         }
     }
@@ -8292,10 +8294,11 @@ mod tests {
             render(&mut app, &ctx);
             let (pill, text, controls) = measure(&mut app, &ctx);
             let middle = pill.center().y;
+            // The text's ink, not its line box, centres on the field: see
+            // `the_composers_text_centres_on_its_controls_at_every_scale`.
             assert!(
-                (text.center().y - middle).abs() <= 1.0,
-                "text {} vs field {middle} ({draft:?})",
-                text.center().y
+                pill.contains_rect(text),
+                "text {text:?} leaves the field {pill:?}"
             );
             for (stop, y) in [Stop::Attach, Stop::Emoji, Stop::Send].iter().zip(controls) {
                 assert!(
@@ -8315,8 +8318,13 @@ mod tests {
         assert!(pill.height() > 70.0, "the field grew: {pill:?}");
         let line = text.height() / 3.0;
         let last = text.bottom() - line / 2.0;
+        // The last line's ink centres on the controls, which puts its line box
+        // up to a couple of points higher (Inter's box is roomier above).
         for (stop, y) in [Stop::Attach, Stop::Emoji, Stop::Send].iter().zip(controls) {
-            assert!((y - last).abs() <= 1.0, "{stop:?} {y} vs last line {last}");
+            assert!(
+                (0.0..=2.5).contains(&(y - last)),
+                "{stop:?} {y} vs last line {last}"
+            );
         }
     }
 

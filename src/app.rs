@@ -215,6 +215,11 @@ pub struct App {
     pub palette: Palette,
     pub custom_themes: theme::Catalog,
     applied_dark: Option<bool>,
+    /// Reveals a new palette from the middle of the window outwards.
+    theme_transition: fastframe_theme::Transition,
+    /// Whether palette changes are revealed. Off in tests, whose frames send
+    /// no screenshots and would hold the old palette.
+    pub reveal_theme_changes: bool,
     zoom_applied: bool,
 
     pub link: LinkStatus,
@@ -748,6 +753,8 @@ impl App {
             palette,
             custom_themes: theme::Catalog::default(),
             applied_dark: None,
+            theme_transition: fastframe_theme::Transition::default(),
+            reveal_theme_changes: !cfg!(test),
             zoom_applied: false,
             link: LinkStatus::Starting,
             syncing: false,
@@ -1105,6 +1112,7 @@ impl App {
             .spawn(crate::emoji::warm_up)
             .ok();
         self.applied_dark = None;
+        self.theme_transition = fastframe_theme::Transition::default();
         self.zoom_applied = false;
         self.window_hidden = false;
         self.paste_before_release = false;
@@ -3253,9 +3261,21 @@ impl App {
                 }
             },
         );
-        ctx.set_theme(preference);
-        // Use the same preference for our palette and egui's native controls.
-        let dark = ctx.theme() == egui::Theme::Dark;
+        if !self.zoom_applied {
+            ctx.set_zoom_factor(self.settings.zoom);
+            self.zoom_applied = true;
+        }
+        // Resolved here rather than after `set_theme`, so a change can keep the
+        // old colours, egui's own controls included, while it is revealed.
+        let dark = match preference {
+            egui::ThemePreference::Dark => true,
+            egui::ThemePreference::Light => false,
+            egui::ThemePreference::System => {
+                ctx.system_theme()
+                    .unwrap_or_else(|| ctx.options(|options| options.fallback_theme))
+                    == egui::Theme::Dark
+            }
+        };
         let palette = self.settings.cached_palette().unwrap_or_else(|| {
             if dark {
                 Palette::dark()
@@ -3266,14 +3286,21 @@ impl App {
         if crate::theme::apply_text_rendering_change(ctx) {
             self.applied_dark = None;
         }
+        // A change of colours after the window's first is revealed from the
+        // middle outwards, as Omarchy does; the old palette stays until the
+        // window's picture of it arrives.
+        if self.applied_dark.is_some() && self.palette != palette && self.reveal_theme_changes {
+            self.theme_transition.begin(ctx);
+            if self.theme_transition.holding(ctx) {
+                return;
+            }
+        }
+        // Use the same preference for our palette and egui's native controls.
+        ctx.set_theme(preference);
         if self.applied_dark.is_none() || self.palette != palette {
             self.palette = palette;
             crate::theme::apply(ctx, &self.palette);
             self.applied_dark = Some(dark);
-        }
-        if !self.zoom_applied {
-            ctx.set_zoom_factor(self.settings.zoom);
-            self.zoom_applied = true;
         }
     }
 
@@ -5081,6 +5108,8 @@ impl App {
         self.take_drops_and_pastes(ctx);
         crate::ui::show(self, ui);
         self.apply_actions(ctx);
+        // The old colours, if a change is being revealed, go over everything.
+        self.theme_transition.paint(ctx);
         // Release the image caches of everything that scrolled away.
         crate::image_cache::sweep(ctx);
         // Only fading info toasts animate. Errors wait for the reader.
@@ -6545,6 +6574,50 @@ mod tests {
         assert_eq!(app.palette.accent, egui::Color32::GREEN);
         app.apply(Action::SetTheme(ThemeChoice::Light), &ctx);
         assert_eq!(app.palette, Palette::light());
+    }
+
+    /// A change of colours keeps the old palette while the window's picture
+    /// of it is on its way, and applies the new one once it arrives or after
+    /// a short wait without it. The window's first palette is not revealed.
+    #[test]
+    fn a_theme_change_holds_the_old_colours_until_its_reveal_can_start() {
+        let mut app = app();
+        app.reveal_theme_changes = true;
+        app.settings.theme = ThemeChoice::Dark;
+        app.settings.custom_theme = None;
+        let ctx = egui::Context::default();
+        let at = |app: &mut App, time: f64| {
+            let mut output = ctx.run_ui(
+                egui::RawInput {
+                    time: Some(time),
+                    ..Default::default()
+                },
+                |ui| app.apply_theme(ui.ctx()),
+            );
+            output.textures_delta.clear();
+        };
+        at(&mut app, 0.0);
+        assert_eq!(
+            app.palette,
+            Palette::dark(),
+            "the first palette applies at once"
+        );
+
+        app.settings.theme = ThemeChoice::Light;
+        at(&mut app, 1.0);
+        assert_eq!(
+            app.palette,
+            Palette::dark(),
+            "held for the window's picture"
+        );
+        at(&mut app, 1.1);
+        assert_eq!(app.palette, Palette::dark());
+        at(&mut app, 1.5);
+        assert_eq!(
+            app.palette,
+            Palette::light(),
+            "no picture came: applied anyway"
+        );
     }
 
     #[test]

@@ -704,7 +704,7 @@ pub fn row_highlight(ui: &Ui, rect: Rect, color: Color32) {
 /// under, beneath a hairline of the bar's raised edge. One gradient quad.
 pub fn paint_shadow_below(ui: &Ui, palette: &Palette, left: f32, right: f32, edge: f32) {
     let height = 9.0;
-    let dark = palette.shadow.gamma_multiply(0.8);
+    let dark = palette.lift_shadow().gamma_multiply(0.8);
     ui.painter().rect_filled(
         Rect::from_min_max(pos2(left, edge - theme::RAISED_EDGE), pos2(right, edge)),
         0.0,

@@ -690,6 +690,106 @@ pub fn paint_vertical_gradient(ui: &Ui, rect: Rect, top: Color32, bottom: Color3
     ui.painter().add(egui::Shape::mesh(mesh));
 }
 
+/// The hover or selection behind a chat-list row: a rounded card inset from
+/// the list's edges rather than a full-width band.
+pub fn row_highlight(ui: &Ui, rect: Rect, color: Color32) {
+    ui.painter().rect_filled(
+        rect.shrink2(vec2(8.0, 2.0)),
+        CornerRadius::same(theme::RADIUS + 2),
+        color,
+    );
+}
+
+/// A soft shadow cast downward from `edge`, for a bar that content scrolls
+/// under. One gradient quad.
+pub fn paint_shadow_below(ui: &Ui, palette: &Palette, left: f32, right: f32, edge: f32) {
+    let height = 6.0;
+    let dark = palette
+        .shadow
+        .gamma_multiply(if palette.dark { 0.45 } else { 0.4 });
+    let mut mesh = egui::Mesh::default();
+    let rect = Rect::from_min_max(pos2(left, edge), pos2(right, edge + height));
+    mesh.colored_vertex(rect.left_top(), dark);
+    mesh.colored_vertex(rect.right_top(), dark);
+    mesh.colored_vertex(rect.right_bottom(), Color32::TRANSPARENT);
+    mesh.colored_vertex(rect.left_bottom(), Color32::TRANSPARENT);
+    mesh.add_triangle(0, 1, 2);
+    mesh.add_triangle(0, 2, 3);
+    ui.painter().add(egui::Shape::mesh(mesh));
+}
+
+/// The side a message bubble's tail points to.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Side {
+    Left,
+    Right,
+}
+
+/// Corner radius of a message bubble.
+pub const BUBBLE_RADIUS: u8 = 10;
+/// How far a bubble's tail reaches out from its side, and down from its top.
+const TAIL_WIDTH: f32 = 8.0;
+const TAIL_HEIGHT: f32 = 11.0;
+
+/// The corners of a message bubble: the one its tail leaves is square.
+pub fn bubble_corners(tail: Option<Side>) -> CornerRadius {
+    let mut corners = CornerRadius::same(BUBBLE_RADIUS);
+    match tail {
+        Some(Side::Left) => corners.nw = 0,
+        Some(Side::Right) => corners.ne = 0,
+        None => {}
+    }
+    corners
+}
+
+/// A message bubble's backdrop: its soft shadow, its fill, and on the first
+/// message of a run a small tail at the top corner toward the sender, as the
+/// phone draws it. A handful of vertices; bubbles off screen are culled
+/// before tessellation.
+pub fn bubble_shape(
+    palette: &Palette,
+    rect: Rect,
+    fill: Color32,
+    tail: Option<Side>,
+) -> egui::Shape {
+    let corners = bubble_corners(tail);
+    let shadow = palette.bubble_shadow();
+    let mut shapes = vec![egui::Shape::Rect(shadow.as_shape(rect, corners))];
+    // The tail overlaps the bubble by a few points so no seam shows where
+    // the two anti-aliased edges meet.
+    let tail_points = tail.map(|side| {
+        let (edge, out, into): (f32, f32, f32) = match side {
+            Side::Left => (rect.left(), -TAIL_WIDTH, 3.0),
+            Side::Right => (rect.right(), TAIL_WIDTH, -3.0),
+        };
+        let top = rect.top();
+        let reach = TAIL_HEIGHT * (TAIL_WIDTH + into.abs()) / TAIL_WIDTH;
+        let mut points = vec![
+            pos2(edge + into, top),
+            pos2(edge + into, top + reach),
+            pos2(edge + out, top),
+        ];
+        // Clockwise winding either way.
+        if side == Side::Right {
+            points.reverse();
+        }
+        points
+    });
+    if let Some(points) = &tail_points {
+        let offset = vec2(shadow.offset[0].into(), shadow.offset[1].into());
+        shapes.push(egui::Shape::convex_polygon(
+            points.iter().map(|point| *point + offset).collect(),
+            shadow.color,
+            Stroke::NONE,
+        ));
+    }
+    shapes.push(egui::Shape::rect_filled(rect, corners, fill));
+    if let Some(points) = tail_points {
+        shapes.push(egui::Shape::convex_polygon(points, fill, Stroke::NONE));
+    }
+    egui::Shape::Vec(shapes)
+}
+
 /// Small pill label used for date separators and pinned markers.
 pub fn chip(ui: &mut Ui, palette: &Palette, label: &str) -> egui::Response {
     let galley =
@@ -799,6 +899,44 @@ pub fn dotted_chip(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_tail_squares_its_corner_and_points_toward_the_sender() {
+        assert_eq!(bubble_corners(None), CornerRadius::same(BUBBLE_RADIUS));
+        let left = bubble_corners(Some(Side::Left));
+        assert_eq!((left.nw, left.ne), (0, BUBBLE_RADIUS));
+        let right = bubble_corners(Some(Side::Right));
+        assert_eq!((right.nw, right.ne), (BUBBLE_RADIUS, 0));
+
+        let rect = Rect::from_min_size(pos2(100.0, 50.0), vec2(200.0, 40.0));
+        let palette = Palette::light();
+        for (side, outside) in [(Side::Left, 92.0), (Side::Right, 308.0)] {
+            let egui::Shape::Vec(shapes) =
+                bubble_shape(&palette, rect, palette.bubble_in, Some(side))
+            else {
+                panic!("a bubble is a list of shapes");
+            };
+            // The tail's tip reaches out of the bubble at its top edge.
+            let tip = shapes
+                .iter()
+                .filter_map(|shape| match shape {
+                    egui::Shape::Path(path) if path.fill == palette.bubble_in => Some(path),
+                    _ => None,
+                })
+                .flat_map(|path| path.points.iter())
+                .find(|point| !rect.contains(**point));
+            assert_eq!(tip.copied(), Some(pos2(outside, rect.top())));
+        }
+        // Later messages of a run draw no tail.
+        let egui::Shape::Vec(shapes) = bubble_shape(&palette, rect, palette.bubble_in, None) else {
+            panic!("a bubble is a list of shapes");
+        };
+        assert!(
+            !shapes
+                .iter()
+                .any(|shape| matches!(shape, egui::Shape::Path(_)))
+        );
+    }
 
     /// The knob radius and the track outline a switch paints in one state.
     fn switch_shapes(on: bool) -> (f32, f32) {

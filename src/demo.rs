@@ -1560,6 +1560,31 @@ fn labels_sample(app: &mut App) {
     }
 }
 
+/// A synthetic dusk gradient as the wallpaper image, shown at once. The file
+/// is never written: the sample hands the decoded image over directly.
+fn wallpaper_image_sample(app: &mut App) {
+    let (width, height) = (1600usize, 1000usize);
+    let pixels = (0..height)
+        .flat_map(|y| {
+            (0..width).map(move |x| {
+                let across = x as f32 / width as f32;
+                let down = y as f32 / height as f32;
+                let sun =
+                    (1.0 - ((across - 0.7).powi(2) + (down - 0.35).powi(2)).sqrt() * 3.0).max(0.0);
+                egui::Color32::from_rgb(
+                    (40.0 + 150.0 * down + 60.0 * sun) as u8,
+                    (50.0 + 60.0 * down + 50.0 * sun) as u8,
+                    (110.0 - 40.0 * down + 20.0 * sun) as u8,
+                )
+            })
+        })
+        .collect();
+    let image = egui::ColorImage::new([width, height], pixels);
+    let path = app.dirs.wallpaper_file("png");
+    app.wallpaper_image.show_now(&path, image);
+    app.settings.wallpaper_image = Some(path);
+}
+
 pub fn apply_flags(app: &mut App, page: Option<&str>) {
     let Some(page) = page else {
         return;
@@ -1849,6 +1874,7 @@ pub fn apply_flags(app: &mut App, page: Option<&str>) {
                 app.settings_search = choice["settings-search=".len()..].to_owned();
             }
             "wallpaper" => app.page = Page::Wallpaper,
+            "wallpaper-image" => wallpaper_image_sample(app),
             "omarchy" | "omarchy-light" => {
                 let mut themes: Vec<_> = crate::theme::presets().collect();
                 let filename = if part == "omarchy-light" {
@@ -3845,7 +3871,10 @@ mod tests {
             "settings-search=System",
             "wallpaper",
             "wallpaper,light",
+            "wallpaper,wallpaper-image",
+            "wallpaper,wallpaper-image,light",
             "wallpaper,theme=Nord.json",
+            "wallpaper-image",
             "update",
             "update-downloading",
             "update-ready",
@@ -9302,7 +9331,7 @@ mod wallpaper_tests {
                 .any(|rect| rect.width() > 600.0 && rect.height() > 600.0),
             "the conversation is filled with the theme's chat colour"
         );
-        let doodles = crate::wallpaper::doodle_texture_id(&ctx);
+        let (_, doodles) = crate::wallpaper::texture_ids(&ctx);
         assert!(!textured(&chat, doodles).is_empty(), "doodles draw over it");
 
         app.page = Page::Wallpaper;
@@ -9331,6 +9360,47 @@ mod wallpaper_tests {
                 .iter()
                 .any(|rect| rect.width() > 300.0 && rect.height() > 600.0)
         );
+    }
+
+    /// An image covers the chat and the preview in place of colour and
+    /// doodles, in light and dark mode, until it is removed.
+    #[test]
+    fn a_wallpaper_image_replaces_colour_and_doodles() {
+        let mut app = app();
+        apply_flags(&mut app, Some("wallpaper,wallpaper-image"));
+        let ctx = egui::Context::default();
+        app.attach(&ctx);
+        let page = shapes(&mut app, &ctx);
+        let (image, doodles) = crate::wallpaper::texture_ids(&ctx);
+        let image = image.expect("the image is uploaded");
+        let previews = textured(&page, image);
+        assert_eq!(previews.len(), 1, "one image fills the preview");
+        assert!(previews[0].width() > 300.0 && previews[0].height() > 600.0);
+        assert!(textured(&page, doodles).is_empty(), "no doodles over it");
+
+        app.page = Page::Chats;
+        let chat = shapes(&mut app, &ctx);
+        assert_eq!(
+            crate::wallpaper::texture_ids(&ctx).0,
+            Some(image),
+            "the texture is made once"
+        );
+        let covers = textured(&chat, image);
+        assert_eq!(covers.len(), 1);
+        assert!(covers[0].width() > 600.0 && covers[0].height() > 600.0);
+        assert!(textured(&chat, doodles).is_empty());
+
+        apply_flags(&mut app, Some("light"));
+        let light = shapes(&mut app, &ctx);
+        assert!(!app.palette.dark);
+        assert_eq!(textured(&light, image).len(), 1, "light mode keeps it");
+
+        app.actions.push(crate::model::Action::RemoveWallpaperImage);
+        let chat = shapes(&mut app, &ctx);
+        assert!(app.settings.wallpaper_image.is_none());
+        assert_eq!(crate::wallpaper::texture_ids(&ctx).0, None);
+        assert!(textured(&chat, image).is_empty());
+        assert!(!textured(&chat, doodles).is_empty(), "the doodles return");
     }
 }
 

@@ -4310,6 +4310,24 @@ impl Worker {
                     }
                 });
             }
+            Command::PickWallpaperImage => {
+                let dirs = self.dirs.clone();
+                let events = self.events.clone();
+                let waker = self.waker.clone();
+                tokio::task::spawn_blocking(move || {
+                    let Some(path) = rfd::FileDialog::new()
+                        .set_title("Choose a wallpaper image")
+                        .add_filter("Images", &["jpg", "jpeg", "png", "webp", "gif"])
+                        .pick_file()
+                    else {
+                        return;
+                    };
+                    let result = crate::wallpaper::import(&path, &dirs);
+                    let _ = events.send(Event::WallpaperImagePicked(result));
+                    waker.wake();
+                });
+            }
+            Command::RemoveWallpaperImage => crate::wallpaper::remove(&self.dirs),
             Command::SetProfile { name, about } => self.set_profile(name, about),
             Command::PickProfilePicture => {
                 let commands = self.commands.clone();

@@ -374,6 +374,10 @@ pub enum Command {
     PickChatSound(ChatId),
     /// Asks for a folder for new downloads.
     PickDownloadFolder,
+    /// Asks for a wallpaper image and copies it into the state directory.
+    PickWallpaperImage,
+    /// Deletes the copied wallpaper image.
+    RemoveWallpaperImage,
     /// Changes our display name and About text; `None` keeps the current one.
     SetProfile {
         name: Option<String>,
@@ -862,6 +866,8 @@ pub enum Event {
     },
     /// A folder chosen for new downloads.
     DownloadFolderPicked(std::path::PathBuf),
+    /// The copy of a chosen wallpaper image, or why it could not be used.
+    WallpaperImagePicked(Result<std::path::PathBuf, String>),
     /// An audio file chosen as a notification sound.
     NotificationSoundPicked {
         mention: bool,

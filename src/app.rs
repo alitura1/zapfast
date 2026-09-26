@@ -221,6 +221,8 @@ pub struct App {
     /// no screenshots and would hold the old palette.
     pub reveal_theme_changes: bool,
     zoom_applied: bool,
+    /// The wallpaper image named in the settings, decoded off this thread.
+    pub wallpaper_image: crate::wallpaper::CustomImage,
 
     pub link: LinkStatus,
     /// Whether link-time history sync is active.
@@ -756,6 +758,7 @@ impl App {
             theme_transition: fastframe_theme::Transition::default(),
             reveal_theme_changes: !cfg!(test),
             zoom_applied: false,
+            wallpaper_image: crate::wallpaper::CustomImage::default(),
             link: LinkStatus::Starting,
             syncing: false,
             sync_percent: None,
@@ -958,6 +961,12 @@ impl App {
         crate::wallpaper::Look {
             color: self.settings.wallpaper_background(&self.palette),
             doodles: self.settings.show_wallpaper,
+            image: self
+                .settings
+                .wallpaper_image
+                .is_some()
+                .then(|| self.wallpaper_image.ready())
+                .flatten(),
         }
     }
 
@@ -2162,6 +2171,16 @@ impl App {
                 }
                 Event::DownloadFolderPicked(path) => {
                     self.actions.push(Action::SetDownloadFolder(Some(path)));
+                }
+                Event::WallpaperImagePicked(Ok(path)) => {
+                    // The copy may keep the earlier one's name: decode it anew.
+                    self.wallpaper_image.reload();
+                    self.settings.wallpaper_image = Some(path);
+                    self.mark_settings_dirty();
+                }
+                Event::WallpaperImagePicked(Err(error)) => {
+                    let message = crate::i18n::gettext(self.locale, "Could not use this image");
+                    self.toast_error(format!("{message}: {error}"));
                 }
                 Event::NotificationSoundPicked { mention, path } => {
                     crate::notify::play_sound(crate::settings::NotificationSound::Custom(
@@ -4538,6 +4557,14 @@ impl App {
                 self.settings.show_wallpaper = show;
                 self.mark_settings_dirty();
             }
+            Action::PickWallpaperImage => self.backend.send(Command::PickWallpaperImage),
+            Action::RemoveWallpaperImage => {
+                if self.settings.wallpaper_image.take().is_some() {
+                    self.mark_settings_dirty();
+                }
+                crate::wallpaper::forget_image(ctx);
+                self.backend.send(Command::RemoveWallpaperImage);
+            }
             Action::ReloadThemes => self.load_custom_themes(),
             Action::OpenThemesFolder => {
                 let directory = self.dirs.config.join("themes");
@@ -4800,6 +4827,8 @@ impl App {
         self.actions.extend(crate::macos::drain(self.window_hidden));
         self.handle_control_commands();
         self.poll_custom_themes();
+        self.wallpaper_image
+            .sync(self.settings.wallpaper_image.as_deref(), &self.waker);
         self.handle_notification_opens();
         self.handle_events();
         self.tick(ctx);

@@ -291,7 +291,11 @@ fn sections(app: &App) -> Vec<Section> {
         translated(locale, "Wallpaper"),
         Text::default(),
         move |ui, app| {
-            let label = wallpaper_label(app.locale, app.settings.wallpaper_color_for(palette.dark));
+            let label = if app.settings.wallpaper_image.is_some() {
+                crate::i18n::gettext(app.locale, "Image").into_owned()
+            } else {
+                wallpaper_label(app.locale, app.settings.wallpaper_color_for(palette.dark))
+            };
             if theme::soft_button(ui, &palette, Some(Icon::ChevronRight), &label, false).clicked() {
                 app.actions.push(Action::Open(Page::Wallpaper));
             }
@@ -907,6 +911,8 @@ pub fn wallpaper_show(app: &mut App, ui: &mut egui::Ui) {
                                             }
                                         },
                                     );
+                                    ui.add_space(12.0);
+                                    image_buttons(app, ui, palette_width);
                                     ui.add_space(18.0);
                                     let button_width = 80.0;
                                     let item_spacing = ui.spacing().item_spacing.x;
@@ -963,7 +969,7 @@ pub fn wallpaper_show(app: &mut App, ui: &mut egui::Ui) {
                         header.left_bottom(),
                         vec2(preview_width, (body_height - HEADER_HEIGHT).max(0.0)),
                     );
-                    // The same look the chat draws, theme colour included.
+                    // The same look the chat draws, image and theme colour included.
                     wallpaper::paint_rect(ui, preview, &app.wallpaper());
                 },
             );
@@ -974,6 +980,35 @@ pub fn wallpaper_show(app: &mut App, ui: &mut egui::Ui) {
                 ],
                 Stroke::new(1.0, palette.outline),
             );
+        },
+    );
+}
+
+/// "Choose image…", and "Remove image" while one is set, centred over the
+/// colours. An image replaces the colour and doodles in the chat.
+fn image_buttons(app: &mut App, ui: &mut egui::Ui, width: f32) {
+    let palette = app.palette;
+    let choose = crate::i18n::gettext(app.locale, "Choose image…");
+    let remove = crate::i18n::gettext(app.locale, "Remove image");
+    let has_image = app.settings.wallpaper_image.is_some();
+    let spacing = ui.spacing().item_spacing.x;
+    let mut row_width = theme::soft_button_width(ui, &choose, true);
+    if has_image {
+        row_width += spacing + theme::soft_button_width(ui, &remove, true);
+    }
+    ui.allocate_ui_with_layout(
+        vec2(width, 32.0),
+        Layout::left_to_right(Align::Center),
+        |ui| {
+            ui.add_space(((width - row_width) / 2.0).max(0.0));
+            if theme::soft_button(ui, &palette, Some(Icon::Image), &choose, false).clicked() {
+                app.actions.push(Action::PickWallpaperImage);
+            }
+            if has_image
+                && theme::soft_button(ui, &palette, Some(Icon::Trash), &remove, false).clicked()
+            {
+                app.actions.push(Action::RemoveWallpaperImage);
+            }
         },
     );
 }

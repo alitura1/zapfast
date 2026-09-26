@@ -353,6 +353,9 @@ pub struct Settings {
     pub wallpaper_color: WallpaperColor,
     /// Colour selected for the dark wallpaper picker.
     pub dark_wallpaper_color: WallpaperColor,
+    /// ZapFast's own copy of the chosen wallpaper image, drawn in place of the
+    /// colour and doodles in light and dark mode alike.
+    pub wallpaper_image: Option<std::path::PathBuf>,
     /// Last open chat, restored at startup.
     pub last_chat: Option<String>,
     /// The hint bar under the composer, hidden with its × and shown again
@@ -428,6 +431,7 @@ impl Default for Settings {
             show_wallpaper: true,
             wallpaper_color: WallpaperColor::Theme,
             dark_wallpaper_color: WallpaperColor::Theme,
+            wallpaper_image: None,
             last_chat: None,
             show_shortcut_hints: true,
             recent_emoji: Vec::new(),
@@ -844,12 +848,13 @@ mod tests {
         assert_eq!(settings.wallpaper_color, WallpaperColor::Beige);
         assert_eq!(settings.dark_wallpaper_color, WallpaperColor::Black);
 
-        // A current file round-trips unchanged.
+        // A current file round-trips unchanged, image path included.
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("settings.json");
         let chosen = Settings {
             wallpaper_color: WallpaperColor::Beige,
             dark_wallpaper_color: WallpaperColor::Black,
+            wallpaper_image: Some(dir.path().join("wallpaper.png")),
             ..Settings::default()
         };
         chosen.save(&path).unwrap();

@@ -670,7 +670,9 @@ from the environment and honors `NO_PROXY`.
 | Device keys | `~/.local/state/zapfast/session.db` | Owned by whatsapp-rust; deleting it unlinks |
 | Messages | `~/.local/state/zapfast/archive.db` | SQLCipher-encrypted SQLite, unlocked by the OS keyring; raw messages retain attachment keys |
 | Attachments, avatars | `~/.cache/zapfast/` | Safe to delete; **Settings > Files > Change…** sends new downloads to another folder, leaving earlier ones in place |
-| Favorite stickers and packs | `~/.local/state/zapfast/stickers/` | Plain WebP files; each pack is a folder || Log of the last run | `~/.local/state/zapfast/zapfast.log` | `--verbose` for more |
+| Favorite stickers and packs | `~/.local/state/zapfast/stickers/` | Plain WebP files; each pack is a folder |
+| Wallpaper image | `~/.local/state/zapfast/wallpaper.jpg` | Copy of the chosen picture, or `.png`, `.webp`, `.gif`; deleted by **Remove image** |
+| Log of the last run | `~/.local/state/zapfast/zapfast.log` | `--verbose` for more |
 
 macOS and Windows use the standard platform directories selected by the
 `directories` crate. On first start, ZapFast moves settings, the linked session,
@@ -718,6 +720,15 @@ background colour in place; the doodles switch between dark and light lines to
 stay visible on any colour. Light and dark selections are stored independently,
 and the embedded SVG is rendered at its native size and repeated across the
 conversation without stretching.
+
+**Choose image…** on the same page uses a picture of your own instead, in light
+and dark mode alike, filling the conversation and cropped from the centre
+without stretching. ZapFast keeps its own copy as `wallpaper.jpg` (or `.png`,
+`.webp`, `.gif`) in its state directory, so the original can move; a picture
+larger than 2560 pixels on its long side is scaled down first. The image
+replaces the colour and doodles, which return with **Remove image**, which also
+deletes the copy. If the copy goes missing or cannot be read, the colour shows
+instead.
 
 On Omarchy, **Follow system** and **Omarchy** read the active desktop palette and
 follow its changes in native, portable, and source builds, even without installed

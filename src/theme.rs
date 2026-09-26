@@ -139,7 +139,7 @@ impl Palette {
             danger: Color32::from_rgb(0xea, 0x00, 0x38),
             warning: Color32::from_rgb(0xa0, 0x6b, 0x00),
             overlay: Color32::from_rgb(0xff, 0xff, 0xff),
-            shadow: Color32::from_black_alpha(50),
+            shadow: Color32::from_black_alpha(LIGHT_SHADOW_ALPHA),
             chat: Color32::from_rgb(0xef, 0xea, 0xe2),
             bubble_in: Color32::from_rgb(0xff, 0xff, 0xff),
             bubble_out: Color32::from_rgb(0xd9, 0xfd, 0xd3),
@@ -174,8 +174,16 @@ impl Palette {
             offset: [0, 2],
             blur: 6,
             spread: 0,
-            color: denser(self.shadow, SHADOW_DENSITY),
+            color: denser(self.lift_shadow(), SHADOW_DENSITY),
         }
+    }
+
+    /// The palette's shadow colour, no heavier than the light theme's: a
+    /// dark palette's own shadow is meant for popups and menus, and under
+    /// every bubble it weighed on an otherwise flat theme.
+    pub fn lift_shadow(&self) -> Color32 {
+        let [r, g, b, a] = self.shadow.to_srgba_unmultiplied();
+        Color32::from_rgba_unmultiplied(r, g, b, a.min(LIGHT_SHADOW_ALPHA))
     }
 
     /// The faint light along the top edge of a raised surface of colour
@@ -277,11 +285,13 @@ impl fastframe_theme::Palette for Palette {
 }
 
 /// How much denser than the palette's shadow colour a bubble's shadow is.
-const SHADOW_DENSITY: f32 = 1.3;
+const SHADOW_DENSITY: f32 = 1.04;
 /// How far a dark theme's raised edge moves from the surface toward the text.
-const DARK_EDGE_TINT: f32 = 0.16;
+const DARK_EDGE_TINT: f32 = 0.128;
+/// The light palette's shadow opacity, the most a raised surface casts.
+const LIGHT_SHADOW_ALPHA: u8 = 50;
 /// How far a light theme's raised edge moves from the surface toward white.
-const LIGHT_EDGE_TINT: f32 = 0.6;
+const LIGHT_EDGE_TINT: f32 = 0.48;
 /// How thick the raised edge is, in points.
 pub const RAISED_EDGE: f32 = 1.0;
 
@@ -1088,9 +1098,15 @@ mod tests {
                     assert_eq!(edge, fill.lerp_to_gamma(Color32::WHITE, LIGHT_EDGE_TINT));
                 }
             }
+            // The same lift in every theme, as heavy as the light theme's.
             let shadow = palette.bubble_shadow();
             assert_eq!((shadow.offset, shadow.blur), ([0, 2], 6));
-            assert!(shadow.color.a() > palette.shadow.a() || palette.shadow.a() == 255);
+            assert_eq!(
+                shadow.color,
+                Palette::light().bubble_shadow().color,
+                "{:?}",
+                palette.shadow
+            );
         }
     }
 

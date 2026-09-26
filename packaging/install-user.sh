@@ -37,8 +37,24 @@ install -Dm644 "$here/icons/zapfast.svg" "$icons_dir/zapfast.svg"
 mkdir -p "$apps_dir"
 # The one line that changes: `Exec=zapfast` becomes the path just installed,
 # so the entry works whether or not ~/.local/bin is on the session's PATH.
+#
+# The path is quoted and escaped the way a Desktop Entry's Exec key wants —
+# the same rules src/autostart.rs applies to the tray entry — because a home
+# directory like `/home/alice/Zap Fast` is valid: unquoted, the launcher would
+# read that as an executable plus an argument and the entry would do nothing.
+# `"`, `` ` ``, `$` and `\` are backslash-escaped, and a literal `%` is doubled.
 awk -v exec="$installed" '
-  /^Exec=/ { print "Exec=" exec; next }
+  function quote(path,   out, i, c) {
+    out = "\""
+    for (i = 1; i <= length(path); i++) {
+      c = substr(path, i, 1)
+      if (c == "\"" || c == "`" || c == "$" || c == "\\") out = out "\\"
+      if (c == "%") out = out "%"
+      out = out c
+    }
+    return out "\""
+  }
+  /^Exec=/ { print "Exec=" quote(exec); next }
   { print }
 ' "$here/applications/zapfast.desktop" > "$apps_dir/zapfast.desktop"
 
@@ -50,5 +66,5 @@ if command -v update-desktop-database >/dev/null 2>&1; then
 fi
 
 echo "Installed $installed"
-echo "Installed $apps_dir/zapfast.desktop (Exec=$installed)"
+echo "Installed $apps_dir/zapfast.desktop (Exec=\"$installed\")"
 echo "ZapFast now opens from the application launcher."

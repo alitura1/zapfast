@@ -487,11 +487,12 @@ packaging/install-user.sh
 ```
 
 The script installs the binary, the icon, and a desktop file under `~/.local`
-(or `$PREFIX`), and writes that desktop file's `Exec=` as the full path to the
-binary it just installed. A package keeps `Exec=zapfast`, because it puts the
-binary in `/usr/bin`, which every session has on `PATH`; a user install lands
-in `~/.local/bin`, which a graphical session often does not have on `PATH`, and
-that is exactly why the launcher entry has to name the path. ZapFast then opens
+(or `$PREFIX`), and writes that desktop file's `Exec=` as the quoted full path
+to the binary it just installed, with spaces and special characters escaped. A
+package keeps `Exec=zapfast`, because it puts the binary in `/usr/bin`, which
+every session has on `PATH`; a user install lands in `~/.local/bin`, which a
+graphical session often does not have on `PATH`, and that is exactly why the
+launcher entry has to name the path. ZapFast then opens
 from the application launcher, under its own icon, with no terminal.
 
 `whatsapp-rust` is pinned to a Git commit because version 0.7.0 on crates.io

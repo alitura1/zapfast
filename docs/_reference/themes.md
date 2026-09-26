@@ -18,6 +18,12 @@ The quickest way there is **Settings → Appearance → Open themes folder**,
 which creates the folder if needed. Each file shows up in the Theme picker
 under its name: `gruvbox.json` becomes **Gruvbox**.
 
+The `examples` folder inside it holds the built-in palettes (Catppuccin, Nord,
+Rose Pine, and the others in the picker) as JSON, to read or start from.
+ZapFast refreshes it each time it reads your themes and never loads it as
+themes, so edits there are overwritten. To change one, copy it up into the
+themes folder: a copy with a built-in palette's name replaces that palette.
+
 ## A first theme
 
 Save this as `themes/gruvbox.json`:
@@ -78,8 +84,7 @@ the selected theme without restarting, and never opens a stopped app.
 
 A file with a mistake is skipped, and its reason is in the log. ZapFast keeps
 the last palette that worked, so a broken or deleted file never resets your
-appearance. A file named like a built-in palette (Catppuccin, Nord, Rose Pine,
-and the others in the picker) replaces it.
+appearance.
 
 On Omarchy, **Follow system** already uses your current Omarchy colours, and
 ZapFast follows each theme change as it happens.

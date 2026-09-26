@@ -8076,6 +8076,35 @@ mod tests {
         }
     }
 
+    /// The chat list is one clickable surface: each row starts where the one
+    /// above ends, with no gap or rule between them.
+    #[test]
+    fn chat_rows_touch_with_no_gap_between_them() {
+        let mut app = app();
+        let ctx = egui::Context::default();
+        app.attach(&ctx);
+        render(&mut app, &ctx);
+        render(&mut app, &ctx);
+        let rects: Vec<egui::Rect> = app
+            .visible_chats()
+            .iter()
+            .filter_map(|chat| {
+                ctx.data(|data| {
+                    data.get_temp::<egui::Rect>(crate::ui::chats::chat_row_id(&chat.id))
+                })
+            })
+            .collect();
+        assert!(rects.len() >= 3, "several rows are on screen");
+        for pair in rects.windows(2) {
+            assert!(
+                (pair[1].top() - pair[0].bottom()).abs() < 0.01,
+                "a gap between rows: {:?} then {:?}",
+                pair[0],
+                pair[1]
+            );
+        }
+    }
+
     /// Plus, emoji, the first line of text and send or record share the
     /// rounded field's vertical centre; a longer draft keeps them on its
     /// last line.

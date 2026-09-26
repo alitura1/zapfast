@@ -165,35 +165,30 @@ impl Palette {
     }
 
     /// The soft shadow that lifts message bubbles and date chips off the
-    /// wallpaper: one point down with a short blur, like the phone's. Both
-    /// come from the palette's own shadow colour, so custom themes steer it.
-    /// A shadow barely darkens a dark chat, so there it is denser, larger,
-    /// and further down, and [`Palette::raised_edge`] lights the top.
+    /// wallpaper: two points down with a short blur, a little denser than
+    /// the palette's own shadow colour, so custom themes steer it. A shadow
+    /// alone barely darkens a dark chat; [`Palette::raised_edge`] lights
+    /// the top as well.
     pub fn bubble_shadow(&self) -> egui::epaint::Shadow {
-        if self.dark {
-            egui::epaint::Shadow {
-                offset: [0, 2],
-                blur: 6,
-                spread: 0,
-                color: denser(self.shadow, DARK_SHADOW_DENSITY),
-            }
-        } else {
-            egui::epaint::Shadow {
-                offset: [0, 1],
-                blur: 3,
-                spread: 0,
-                color: self.shadow.gamma_multiply(0.7),
-            }
+        egui::epaint::Shadow {
+            offset: [0, 2],
+            blur: 6,
+            spread: 0,
+            color: denser(self.shadow, SHADOW_DENSITY),
         }
     }
 
-    /// In a dark theme, the faint light along the top edge of a raised
-    /// surface of colour `fill`: the fill a little toward the text colour,
-    /// so it follows every dark palette, mid-dark ones included. Light
-    /// themes have a shadow that shows and no edge.
-    pub fn raised_edge(&self, fill: Color32) -> Option<Color32> {
-        self.dark
-            .then(|| fill.lerp_to_gamma(self.text, RAISED_EDGE_TINT))
+    /// The faint light along the top edge of a raised surface of colour
+    /// `fill`. In a dark theme the fill moves a little toward the text
+    /// colour, so it follows every dark palette, mid-dark ones included; in
+    /// a light one, where the text is dark, it moves toward white instead,
+    /// which shows on tinted surfaces and vanishes on white ones.
+    pub fn raised_edge(&self, fill: Color32) -> Color32 {
+        if self.dark {
+            fill.lerp_to_gamma(self.text, DARK_EDGE_TINT)
+        } else {
+            fill.lerp_to_gamma(Color32::WHITE, LIGHT_EDGE_TINT)
+        }
     }
 
     /// Group-sender color derived from the avatar hue.
@@ -281,11 +276,12 @@ impl fastframe_theme::Palette for Palette {
     }
 }
 
-/// How much denser than the palette's shadow colour a dark theme's bubble
-/// shadow is.
-const DARK_SHADOW_DENSITY: f32 = 1.3;
+/// How much denser than the palette's shadow colour a bubble's shadow is.
+const SHADOW_DENSITY: f32 = 1.3;
 /// How far a dark theme's raised edge moves from the surface toward the text.
-const RAISED_EDGE_TINT: f32 = 0.16;
+const DARK_EDGE_TINT: f32 = 0.16;
+/// How far a light theme's raised edge moves from the surface toward white.
+const LIGHT_EDGE_TINT: f32 = 0.6;
 /// How thick the raised edge is, in points.
 pub const RAISED_EDGE: f32 = 1.0;
 
@@ -1054,29 +1050,47 @@ mod tests {
     use super::*;
 
     #[test]
-    fn dark_themes_raise_bubbles_with_a_lit_edge_and_a_denser_shadow() {
-        let light = Palette::light();
-        assert_eq!(light.raised_edge(light.bubble_in), None);
-        assert_eq!(light.bubble_shadow().offset, [0, 1]);
-
-        // The built-in dark palette, a Catppuccin-like one, and a mid-dark
-        // custom one all get an edge lighter than the bubble but close to it.
+    fn raised_surfaces_get_a_lit_edge_and_a_denser_shadow() {
+        let preset = |name: &str| {
+            crate::theme::presets()
+                .find(|theme| theme.filename == name)
+                .unwrap()
+                .palette
+        };
+        // A mid-dark custom palette follows too.
         let mut mid = Palette::dark();
         mid.chat = Color32::from_rgb(0x3a, 0x3f, 0x4b);
         mid.bubble_in = Color32::from_rgb(0x4c, 0x52, 0x60);
-        let catppuccin = crate::theme::presets()
-            .find(|theme| theme.filename == "Catppuccin.json")
-            .unwrap()
-            .palette;
-        for palette in [Palette::dark(), catppuccin, mid] {
-            for fill in [palette.bubble_in, palette.bubble_out] {
-                let edge = palette.raised_edge(fill).unwrap();
-                let lift = contrast(edge, palette.chat) / contrast(fill, palette.chat);
-                assert!(lift > 1.05 && lift < 1.6, "{fill:?} -> {edge:?}: {lift}");
+        let palettes = [
+            Palette::dark(),
+            preset("Catppuccin.json"),
+            mid,
+            Palette::light(),
+            preset("Catppuccin Latte.json"),
+        ];
+        let luminance = |color: Color32| contrast(color, Color32::BLACK);
+        for palette in palettes {
+            for fill in [palette.bubble_in, palette.bubble_out, palette.panel] {
+                let edge = palette.raised_edge(fill);
+                // Lighter than the surface, or the same where it is white.
+                assert!(
+                    luminance(edge) > luminance(fill) || fill == Color32::WHITE,
+                    "{fill:?} -> {edge:?}"
+                );
+                if palette.dark {
+                    // Close to a bubble: a hint, not an outline.
+                    if fill != palette.panel {
+                        let lift = contrast(edge, palette.chat) / contrast(fill, palette.chat);
+                        assert!(lift > 1.05 && lift < 1.6, "{fill:?} -> {edge:?}: {lift}");
+                    }
+                } else {
+                    // Toward white, never toward the dark text.
+                    assert_eq!(edge, fill.lerp_to_gamma(Color32::WHITE, LIGHT_EDGE_TINT));
+                }
             }
             let shadow = palette.bubble_shadow();
+            assert_eq!((shadow.offset, shadow.blur), ([0, 2], 6));
             assert!(shadow.color.a() > palette.shadow.a() || palette.shadow.a() == 255);
-            assert!(shadow.blur > light.bubble_shadow().blur);
         }
     }
 

@@ -701,21 +701,15 @@ pub fn row_highlight(ui: &Ui, rect: Rect, color: Color32) {
 }
 
 /// A soft shadow cast downward from `edge`, for a bar that content scrolls
-/// under. One gradient quad; in a dark theme a deeper one, beneath a
-/// hairline of the bar's raised edge.
+/// under, beneath a hairline of the bar's raised edge. One gradient quad.
 pub fn paint_shadow_below(ui: &Ui, palette: &Palette, left: f32, right: f32, edge: f32) {
-    let (height, dark) = if palette.dark {
-        (9.0, palette.shadow.gamma_multiply(0.8))
-    } else {
-        (6.0, palette.shadow.gamma_multiply(0.4))
-    };
-    if let Some(line) = palette.raised_edge(palette.panel) {
-        ui.painter().rect_filled(
-            Rect::from_min_max(pos2(left, edge - theme::RAISED_EDGE), pos2(right, edge)),
-            0.0,
-            line,
-        );
-    }
+    let height = 9.0;
+    let dark = palette.shadow.gamma_multiply(0.8);
+    ui.painter().rect_filled(
+        Rect::from_min_max(pos2(left, edge - theme::RAISED_EDGE), pos2(right, edge)),
+        0.0,
+        palette.raised_edge(palette.panel),
+    );
     let mut mesh = egui::Mesh::default();
     let rect = Rect::from_min_max(pos2(left, edge), pos2(right, edge + height));
     mesh.colored_vertex(rect.left_top(), dark);
@@ -786,34 +780,56 @@ pub fn bubble_shape(
     });
     if let Some(points) = &tail_points {
         let offset = vec2(shadow.offset[0].into(), shadow.offset[1].into());
-        shapes.push(egui::Shape::convex_polygon(
-            points.iter().map(|point| *point + offset).collect(),
-            shadow.color,
-            Stroke::NONE,
-        ));
+        let points: Vec<_> = points.iter().map(|point| *point + offset).collect();
+        shapes.push(soft_triangle(&points, shadow.color, shadow.blur.into()));
     }
     // The raised edge: the same outline a hair higher, under the fill, so
     // only its top shows, thinning out down the rounded corners.
-    if let Some(edge) = palette.raised_edge(fill) {
-        let lift = vec2(0.0, -theme::RAISED_EDGE);
-        shapes.push(egui::Shape::rect_filled(
-            rect.translate(lift),
-            corners,
+    let edge = palette.raised_edge(fill);
+    let lift = vec2(0.0, -theme::RAISED_EDGE);
+    shapes.push(egui::Shape::rect_filled(
+        rect.translate(lift),
+        corners,
+        edge,
+    ));
+    if let Some(points) = &tail_points {
+        shapes.push(egui::Shape::convex_polygon(
+            points.iter().map(|point| *point + lift).collect(),
             edge,
+            Stroke::NONE,
         ));
-        if let Some(points) = &tail_points {
-            shapes.push(egui::Shape::convex_polygon(
-                points.iter().map(|point| *point + lift).collect(),
-                edge,
-                Stroke::NONE,
-            ));
-        }
     }
     shapes.push(egui::Shape::rect_filled(rect, corners, fill));
     if let Some(points) = tail_points {
         shapes.push(egui::Shape::convex_polygon(points, fill, Stroke::NONE));
     }
     egui::Shape::Vec(shapes)
+}
+
+/// A triangle in `color` that fades out over `blur` points around its
+/// edges, like the blurred shadow of the bubble it belongs to: a sharp one
+/// showed as a grey wedge beneath the tail's tip. Six vertices.
+fn soft_triangle(points: &[egui::Pos2], color: Color32, blur: f32) -> egui::Shape {
+    let centre = (points
+        .iter()
+        .fold(Vec2::ZERO, |sum, point| sum + point.to_vec2())
+        / points.len() as f32)
+        .to_pos2();
+    let mut mesh = egui::Mesh::default();
+    for point in points {
+        let out = (*point - centre).normalized();
+        mesh.colored_vertex(*point - out * blur / 4.0, color);
+        mesh.colored_vertex(*point + out * blur / 2.0, Color32::TRANSPARENT);
+    }
+    let count = points.len() as u32;
+    // Inner vertices are even, their faded partners odd.
+    mesh.add_triangle(0, 2, 4);
+    for index in 0..count {
+        let next = (index + 1) % count;
+        mesh.add_triangle(2 * index, 2 * index + 1, 2 * next + 1);
+        mesh.add_triangle(2 * index, 2 * next + 1, 2 * next);
+    }
+    egui::Shape::mesh(mesh)
 }
 
 /// Small pill label used for date separators and pinned markers.
@@ -827,10 +843,11 @@ pub fn chip(ui: &mut Ui, palette: &Palette, label: &str) -> egui::Response {
         let radius = CornerRadius::from(rect.height() / 2.0);
         ui.painter()
             .add(palette.bubble_shadow().as_shape(rect, radius));
-        if let Some(edge) = palette.raised_edge(palette.panel) {
-            ui.painter()
-                .rect_filled(rect.translate(vec2(0.0, -theme::RAISED_EDGE)), radius, edge);
-        }
+        ui.painter().rect_filled(
+            rect.translate(vec2(0.0, -theme::RAISED_EDGE)),
+            radius,
+            palette.raised_edge(palette.panel),
+        );
         ui.painter().rect_filled(rect, radius, palette.panel);
         ui.painter().galley(
             rect.center() - galley.size() / 2.0,
@@ -942,17 +959,20 @@ mod tests {
         let palette = Palette::light();
         for (side, outside) in [(Side::Left, 92.0), (Side::Right, 308.0)] {
             let egui::Shape::Vec(shapes) =
-                bubble_shape(&palette, rect, palette.bubble_in, Some(side))
+                bubble_shape(&palette, rect, palette.bubble_out, Some(side))
             else {
                 panic!("a bubble is a list of shapes");
             };
-            // The tail's tip reaches out of the bubble at its top edge.
+            // The tail's tip reaches out of the bubble at its top edge. The
+            // tail is the last filled triangle, over its shadow and edge.
             let tip = shapes
                 .iter()
-                .filter_map(|shape| match shape {
-                    egui::Shape::Path(path) if path.fill == palette.bubble_in => Some(path),
+                .rev()
+                .find_map(|shape| match shape {
+                    egui::Shape::Path(path) if path.fill == palette.bubble_out => Some(path),
                     _ => None,
                 })
+                .into_iter()
                 .flat_map(|path| path.points.iter())
                 .find(|point| !rect.contains(**point));
             assert_eq!(tip.copied(), Some(pos2(outside, rect.top())));

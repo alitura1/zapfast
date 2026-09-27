@@ -9987,7 +9987,7 @@ mod call_surface_tests {
             "the bar offers the way back: {bar:?}"
         );
         assert!(
-            !bar.contains(&"Back to the chat".to_owned()),
+            !bar.contains(&"Hide the call screen".to_owned()),
             "and the surface that was put aside is not on screen: {bar:?}"
         );
         assert_eq!(
@@ -9999,7 +9999,7 @@ mod call_surface_tests {
         app.actions.push(Action::ReturnToCall);
         let screen = labels(&mut app, &ctx);
         assert!(
-            screen.contains(&"Back to the chat".to_owned()),
+            screen.contains(&"Hide the call screen".to_owned()),
             "the surface comes back: {screen:?}"
         );
         assert!(
@@ -10013,13 +10013,36 @@ mod call_surface_tests {
         );
     }
 
+    /// The bar is a way back to a call that is still up, so it goes when the call does.
+    #[test]
+    fn the_bar_leaves_with_the_call_it_belongs_to() {
+        let (mut app, ctx) = on_a_call();
+        ctx.enable_accesskit();
+        app.actions.push(Action::LeaveCallSurface);
+        frame_with(&mut app, &ctx, Vec::new());
+        let bar = labels(&mut app, &ctx);
+        assert!(
+            bar.contains(&"Return to the call".to_owned()),
+            "the call is still up behind the bar: {bar:?}"
+        );
+
+        let call = app.call.as_mut().expect("a call is up");
+        call.phase = CallPhase::Ended;
+        call.outcome = Some(crate::calls::CallOutcome::Answered);
+        let after = labels(&mut app, &ctx);
+        assert!(
+            !after.contains(&"Return to the call".to_owned()),
+            "a call that is over has no way back: {after:?}"
+        );
+    }
+
     #[test]
     fn the_call_screen_labels_every_control_it_offers() {
         let (mut running, ctx) = on_a_call();
         ctx.enable_accesskit();
         let screen = labels(&mut running, &ctx);
         for expected in [
-            "Back to the chat",
+            "Hide the call screen",
             "Full screen",
             "Mute",
             "Speaker and devices",

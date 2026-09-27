@@ -836,26 +836,51 @@ impl Call {
     /// Reads the engine's media counters into the log, so a call that is up but not carrying audio
     /// can be diagnosed from a bug report rather than guessed at. Called from the call heartbeat.
     pub fn log_media_stats(&self) {
+        self.log_media_stats_at("heartbeat");
+    }
+
+    /// The same counters, tagged with what the call was doing when they were read.
+    ///
+    /// The tag is the whole point of the extra call sites: a heartbeat lands at some arbitrary
+    /// point in a call, while these are read around the transitions that are suspected of changing
+    /// it, so two lines a second apart are a before and an after rather than two samples of a
+    /// steady state.
+    pub fn log_media_stats_at(&self, marker: &str) {
         let Some(handle) = self.handle.as_ref() else {
+            self.log_audio_path(marker);
             return;
         };
         let stats = handle.media_stats();
         log::info!(
-            "[CALL] media stats call_id={} rtp_received={} unexpected_pt={} srtp_failed={} decoded={} delivered={} concealed={} without_decoder={} sink_dropped={} trimmed={} codec_switches={} video_sink_dropped={}",
+            "[CALL] media stats call_id={} at={} rtp_received={} unexpected_pt={} srtp_failed={} sframe_failed={} unclassified={} pipe_dropped={} decoded={} delivered={} foreign_decoded={} concealed={} without_decoder={} without_encoder={} mlow_sid={} mlow_dropped={} sink_dropped={} trimmed={} codec_switches={} video_sink_dropped={} peer_keyframes={}",
             self.call_id,
+            marker,
             stats.rtp_received,
             stats.rtp_payload_type_unexpected,
             stats.srtp_unprotect_failed,
+            stats.sframe_decrypt_failed,
+            stats.relay_packet_unclassified,
+            stats.inbound_pipe_dropped,
             stats.audio_frames_decoded,
             stats.audio_frames_delivered,
+            stats.foreign_frames_decoded,
             stats.audio_frames_concealed,
             stats.audio_frames_without_decoder,
+            stats.outbound_frames_without_encoder,
+            // The two that say a peer's packets arrived and were read as frames that carry no
+            // speech: MLOW's silence descriptor, and a frame the profile's own decoder refused. A
+            // call whose `rtp_received` climbs while `decoded` does not is either of these, and
+            // without them a report cannot tell a peer who stopped talking from one whose audio
+            // this side stopped understanding.
+            stats.mlow_inactive_or_sid,
+            stats.mlow_off_point_dropped,
             stats.audio_sink_dropped,
             stats.playout_trimmed_samples,
             stats.codec_switches,
             stats.video_sink_dropped,
+            stats.peer_keyframe_requests,
         );
-        self.log_audio_path("heartbeat");
+        self.log_audio_path(marker);
     }
 
     /// The call's own audio path, counted where the engine cannot see it.
@@ -867,7 +892,7 @@ impl Call {
     /// stream being restarted rather than rebound.
     pub fn log_audio_path(&self, marker: &str) {
         log::info!(
-            "[CALL] audio path call_id={} at={} mic_opens={} speaker_opens={} speaker_stalls={} live={}",
+            "[CALL] audio path call_id={} at={} mic_opens={} speaker_opens={} speaker_stalls={} speaker_restarts={} live={}",
             self.call_id,
             marker,
             self.mic
@@ -879,6 +904,9 @@ impl Call {
             self.speaker
                 .as_ref()
                 .map_or(0, |speaker| speaker.stalls.load(Ordering::Relaxed)),
+            self.speaker
+                .as_ref()
+                .map_or(0, |speaker| speaker.restarts.load(Ordering::Relaxed)),
             self.phase.is_live(),
         );
     }
@@ -1032,11 +1060,29 @@ fn rejection_outcome(reason: Option<&str>) -> CallOutcome {
 }
 
 /// How a `<terminate>`'s reason reads as an outcome, given whether the call had been up.
+///
+/// The reasons that talk about the call's own progress are read against whether it had been up,
+/// because a reason is what the peer says and the timer is what happened here: a call that was up
+/// has an answer to record whatever arrives. Reported from a real call, a
+/// `<terminate reason="timeout">` four seconds after the camera came on turned a nineteen-second
+/// conversation into a log entry reading "No answer", with its duration sitting right beside it.
+/// Those two facts cannot both be true, and the duration is the one this side measured. The
+/// `*_elsewhere` reasons are facts about the account's other devices and stand either way.
 fn termination_outcome(reason: Option<&str>, connected: bool) -> CallOutcome {
     match reason {
+        // Another of this account's devices took the call over, whichever state this one was in.
         Some("accepted_elsewhere") => CallOutcome::AnsweredElsewhere,
         Some("rejected_elsewhere") => CallOutcome::DeclinedElsewhere,
-        Some("timeout") => CallOutcome::NoAnswer,
+        // The peer's phone giving up on a call that was ringing, for the one that never answered.
+        Some("timeout") => {
+            if connected {
+                CallOutcome::ConnectionLost
+            } else {
+                CallOutcome::NoAnswer
+            }
+        }
+        // A group call that ended under a one-to-one call's member: the call was answered only if
+        // there was a call here to answer.
         Some("group_call_ended") => {
             if connected {
                 CallOutcome::Answered
@@ -1459,6 +1505,13 @@ mod tests {
         assert_eq!(
             termination_outcome(Some("timeout"), false),
             CallOutcome::NoAnswer
+        );
+        // A timeout on a call that was up is the line going away, not a call nobody answered: its
+        // own duration is proof it was answered, and a log entry cannot say both. Reported from a
+        // real nineteen-second call that ended four seconds after the camera came on.
+        assert_eq!(
+            termination_outcome(Some("timeout"), true),
+            CallOutcome::ConnectionLost
         );
         // A plain terminate means the peer ended a call that was up, or gave up before it was.
         assert_eq!(termination_outcome(None, true), CallOutcome::Answered);

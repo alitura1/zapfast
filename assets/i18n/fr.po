@@ -6,7 +6,7 @@ msgstr ""
 "Project-Id-Version: ZapFast\n"
 "Report-Msgid-Bugs-To: https://github.com/crmne/zapfast/issues/new?"
 "template=translation.yml\n"
-"POT-Creation-Date: 2026-09-27 12:32+0300\n"
+"POT-Creation-Date: 2026-09-27 15:43+0300\n"
 "PO-Revision-Date: 2026-09-22 00:00-0300\n"
 "Last-Translator: ZapFast contributors\n"
 "Language-Team: French\n"
@@ -190,7 +190,7 @@ msgstr "Étiquettes"
 msgid "Ctrl+K to search · ? for keyboard shortcuts"
 msgstr "Ctrl+K pour rechercher · ? pour les raccourcis clavier"
 
-#: src/ui/conversation.rs:327 src/ui/call.rs:441
+#: src/ui/conversation.rs:327 src/ui/call.rs:445
 msgid "Hang up"
 msgstr ""
 
@@ -335,11 +335,11 @@ msgstr "Pause"
 msgid "Play"
 msgstr "Lire"
 
-#: src/ui/conversation.rs:5895 src/ui/call.rs:397
+#: src/ui/conversation.rs:5895 src/ui/call.rs:401
 msgid "Unmute"
 msgstr "Réactiver le son"
 
-#: src/ui/conversation.rs:5897 src/ui/call.rs:399
+#: src/ui/conversation.rs:5897 src/ui/call.rs:403
 msgid "Mute"
 msgstr "Couper le son"
 
@@ -837,150 +837,149 @@ msgstr "Aucun"
 msgid "Choose a file…"
 msgstr "Choisir un fichier…"
 
-#: src/ui/call.rs:100
-#, fuzzy
-msgid "Back to the chat"
-msgstr "Envoyer ce pack dans la discussion"
+#: src/ui/call.rs:120
+msgid "Hide the call screen"
+msgstr ""
 
-#: src/ui/call.rs:118
+#: src/ui/call.rs:138
 msgid "Exit full screen"
 msgstr ""
 
-#: src/ui/call.rs:123
+#: src/ui/call.rs:143
 msgid "Full screen"
 msgstr ""
 
-#: src/ui/call.rs:213 src/ui/call.rs:214
+#: src/ui/call.rs:217 src/ui/call.rs:218
 msgid "Return to the call"
 msgstr ""
 
-#: src/ui/call.rs:228
+#: src/ui/call.rs:232
 #, fuzzy
 msgid "Calling…"
 msgstr "Enregistrement…"
 
-#: src/ui/call.rs:230
+#: src/ui/call.rs:234
 #, fuzzy
 msgid "Ringing…"
 msgstr "Enregistrement…"
 
-#: src/ui/call.rs:233 src/ui/call.rs:241
+#: src/ui/call.rs:237 src/ui/call.rs:245
 msgid "Connected"
 msgstr ""
 
-#: src/ui/call.rs:235
+#: src/ui/call.rs:239
 #, fuzzy
 msgid "Connecting…"
 msgstr "Chargement…"
 
-#: src/ui/call.rs:247 src/ui/call.rs:258
+#: src/ui/call.rs:251 src/ui/call.rs:262
 msgid "Call ended"
 msgstr ""
 
-#: src/ui/call.rs:248 src/ui/call.rs:631
+#: src/ui/call.rs:252 src/ui/call.rs:635
 msgid "Incoming call"
 msgstr ""
 
-#: src/ui/call.rs:259
+#: src/ui/call.rs:263
 msgid "Missed call"
 msgstr ""
 
-#: src/ui/call.rs:260
+#: src/ui/call.rs:264
 msgid "Declined"
 msgstr ""
 
-#: src/ui/call.rs:261
+#: src/ui/call.rs:265
 msgid "Busy"
 msgstr ""
 
-#: src/ui/call.rs:262
+#: src/ui/call.rs:266
 msgid "Could not connect"
 msgstr ""
 
-#: src/ui/call.rs:263
+#: src/ui/call.rs:267
 msgid "No answer"
 msgstr ""
 
-#: src/ui/call.rs:266
+#: src/ui/call.rs:270
 msgid "Connection lost"
 msgstr ""
 
-#: src/ui/call.rs:268
+#: src/ui/call.rs:272
 msgid "The call could not be established"
 msgstr ""
 
-#: src/ui/call.rs:272
+#: src/ui/call.rs:276
 msgid "Answered on another device"
 msgstr ""
 
-#: src/ui/call.rs:275
+#: src/ui/call.rs:279
 msgid "Declined on another device"
 msgstr ""
 
-#: src/ui/call.rs:331
+#: src/ui/call.rs:335
 msgid "No audio is arriving from this call"
 msgstr ""
 
-#: src/ui/call.rs:333
+#: src/ui/call.rs:337
 msgid "This call's audio cannot be decoded"
 msgstr ""
 
-#: src/ui/call.rs:336
+#: src/ui/call.rs:340
 msgid "This call's audio is not authenticating"
 msgstr ""
 
-#: src/ui/call.rs:340
+#: src/ui/call.rs:344
 msgid "This call's audio is arriving in an unexpected format"
 msgstr ""
 
-#: src/ui/call.rs:344
+#: src/ui/call.rs:348
 msgid "This call's audio is being rejected by the decoder"
 msgstr ""
 
-#: src/ui/call.rs:347
+#: src/ui/call.rs:351
 msgid "This call's audio format keeps changing"
 msgstr ""
 
-#: src/ui/call.rs:350
+#: src/ui/call.rs:354
 msgid "The peer's audio stopped"
-msgstr ""
-
-#: src/ui/call.rs:363
-#, rust-format
-msgid "Microphone “{name}” is not available; using the system default"
 msgstr ""
 
 #: src/ui/call.rs:367
 #, rust-format
+msgid "Microphone “{name}” is not available; using the system default"
+msgstr ""
+
+#: src/ui/call.rs:371
+#, rust-format
 msgid "Speaker “{name}” is not available; using the system default"
 msgstr ""
 
-#: src/ui/call.rs:419
+#: src/ui/call.rs:423
 #, fuzzy
 msgid "Speaker and devices"
 msgstr "Appareil connecté"
 
-#: src/ui/call.rs:509
+#: src/ui/call.rs:513
 msgid "Default device"
 msgstr ""
 
-#: src/ui/call.rs:531
+#: src/ui/call.rs:535
 msgid "Microphone"
 msgstr ""
 
-#: src/ui/call.rs:541
+#: src/ui/call.rs:545
 msgid "Speaker"
 msgstr ""
 
-#: src/ui/call.rs:643 src/app.rs:3350
+#: src/ui/call.rs:647 src/app.rs:3350
 msgid "Incoming voice call"
 msgstr ""
 
-#: src/ui/call.rs:653
+#: src/ui/call.rs:657
 msgid "Accept"
 msgstr ""
 
-#: src/ui/call.rs:667
+#: src/ui/call.rs:671
 #, fuzzy
 msgid "Decline"
 msgstr "En ligne"
@@ -1462,6 +1461,10 @@ msgstr "Enregistrer sous…"
 #: src/ui/image_preview.rs:175
 msgid "Open in another app"
 msgstr "Ouvrir dans une autre application"
+
+#, fuzzy
+#~ msgid "Back to the chat"
+#~ msgstr "Envoyer ce pack dans la discussion"
 
 #, fuzzy
 #~ msgid "Share your screen"

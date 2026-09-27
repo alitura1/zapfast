@@ -49,6 +49,14 @@ const STALLED: Duration = Duration::from_millis(500);
 /// Two seconds is far above any start-up a working device needs and far below leaving a dead one
 /// silent for the rest of the call.
 const STARTUP: Duration = Duration::from_millis(2_000);
+/// How many times a sink may be restarted without ever having played before the selected device is
+/// given up for the system default.
+///
+/// A device that takes frames and never plays one is a device that is not there any more, whatever
+/// its name says. Retrying it forever is a call that is silent for its whole length with no counter
+/// moving and nothing on screen to explain it, so the pump stops trusting the name it was given and
+/// says so.
+const UNPLAYED_RESTARTS_BEFORE_DEFAULT: usize = 3;
 /// How long a pump waits before reopening a device that would not open.
 const RETRY: Duration = Duration::from_millis(500);
 /// How long a reader waits for room in the engine's channel before looking at its stop flag again.
@@ -659,6 +667,12 @@ pub struct AudioOutput {
     pub opens: Arc<AtomicUsize>,
     /// How many times a stream that had been playing was restarted after it stopped draining.
     pub stalls: Arc<AtomicUsize>,
+    /// How many times the sink was torn down and reopened for any reason, played or not.
+    ///
+    /// Kept apart from `stalls` because the two answer different questions: `stalls` is a device
+    /// that was playing and stopped, and this is every restart, so a device that never plays at all
+    /// is visible as a run of opens rather than as no stall at all.
+    pub restarts: Arc<AtomicUsize>,
 }
 
 impl AudioOutput {
@@ -668,6 +682,7 @@ impl AudioOutput {
         let (fell, fell_back) = async_channel::bounded::<()>(1);
         let opens = Arc::new(AtomicUsize::new(0));
         let stalls = Arc::new(AtomicUsize::new(0));
+        let restarts = Arc::new(AtomicUsize::new(0));
         tokio::spawn(play_pump(
             rx,
             swaps,
@@ -675,6 +690,7 @@ impl AudioOutput {
             target.clone(),
             Arc::clone(&opens),
             Arc::clone(&stalls),
+            Arc::clone(&restarts),
         ));
         (
             Self {
@@ -682,6 +698,7 @@ impl AudioOutput {
                 fell_back,
                 opens,
                 stalls,
+                restarts,
             },
             tx,
         )
@@ -707,8 +724,12 @@ async fn play_pump(
     initial: Option<String>,
     opens: Arc<AtomicUsize>,
     stalls: Arc<AtomicUsize>,
+    restarts: Arc<AtomicUsize>,
 ) {
     let mut target = initial;
+    // Restarts in a row that never played a sample. Reset by any stream that plays one, so this
+    // counts a device that is not there rather than a busy one.
+    let mut unplayed = 0_usize;
     loop {
         let writer = match SpkWriter::start(target.as_deref()) {
             Ok(writer) => {
@@ -767,11 +788,30 @@ async fn play_pump(
             return;
         }
         if stalled && accepted {
+            restarts.fetch_add(1, Ordering::Relaxed);
             if played {
+                unplayed = 0;
                 // It had been playing, so this is a device that stopped draining rather than one
                 // that never started: counted, because that is the difference between a call whose
                 // audio went quiet on its own and one that never had any.
                 stalls.fetch_add(1, Ordering::Relaxed);
+            } else {
+                unplayed += 1;
+                log::warn!(
+                    "[CALL] speaker stream was reopened without playing anything ({unplayed} in a row)"
+                );
+            }
+            // A device that has taken frames without playing one, three streams running, is not a
+            // device that is about to start: it is a name this machine no longer answers to. Going
+            // back to the default output is the only thing left that can make the call audible, and
+            // saying so is what turns a silent call into a reportable one.
+            if unplayed >= UNPLAYED_RESTARTS_BEFORE_DEFAULT && target.is_some() {
+                log::warn!(
+                    "[CALL] speaker {target:?} has played nothing across {unplayed} streams; using the default output"
+                );
+                target = None;
+                unplayed = 0;
+                let _ = fell.try_send(());
             }
             // A stream that played frames was merely stalled, so it keeps the device the user
             // picked rather than being demoted to the system default over one bad moment. What is
@@ -780,6 +820,9 @@ async fn play_pump(
             while rx.try_recv().is_ok() {}
             tokio::time::sleep(Duration::from_millis(100)).await;
             continue;
+        }
+        if played {
+            unplayed = 0;
         }
         // A sink that accepted no audio was pointing at a device that is gone: reopen on the system
         // default instead of retrying a target that will never take a frame.
@@ -909,6 +952,7 @@ fn write_speaker(
             // Nothing has played while audio is queued. A stream that has never played gets the
             // whole start-up window; one that was playing gets the stall window, which is where
             // the peer's voice would otherwise be stuck behind a device that stopped draining.
+            //
             let limit = if played.load(Ordering::Relaxed) {
                 STALLED
             } else {
@@ -1452,6 +1496,44 @@ mod tests {
         assert!(speaker.played_count() > before, "the slow device played");
         assert_eq!(opens, 1, "and it played on the stream it started with");
         assert_eq!(stalls, 0, "a slow start is not a stall");
+    }
+
+    /// A device that takes frames and never plays one is given up for the system default.
+    ///
+    /// This is the other half of the same failure: a reopened stream that never plays leaves the
+    /// call silent for its whole length while every counter that watches the engine says audio is
+    /// arriving. After three streams that played nothing, the pump stops believing the name it was
+    /// given rather than retrying it forever.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn a_device_that_never_plays_is_given_up_for_the_default() {
+        let (_devices, speaker) = fake::install(vec![0.0; 8], 1, RATE, (RATE, 1));
+        speaker.drains.store(false, Ordering::Relaxed);
+        let (output, tx) = AudioOutput::spawn(Some("A speaker that is gone".to_owned()));
+        let frame = vec![100_i16; FRAME_SAMPLES];
+        let started = Instant::now();
+        while !speaker.opened().iter().any(Option::is_none)
+            && started.elapsed() < Duration::from_secs(20)
+        {
+            let _ = tx.try_send(frame.clone());
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        let opened = speaker.opened();
+        let restarts = output.restarts.load(Ordering::Relaxed);
+        drop(output);
+        assert_eq!(
+            opened.first().cloned(),
+            Some(Some("A speaker that is gone".to_owned())),
+            "the selected device was tried first"
+        );
+        assert_eq!(
+            opened.last().cloned(),
+            Some(None),
+            "and it was given up for the default output: {opened:?}"
+        );
+        assert!(
+            restarts >= UNPLAYED_RESTARTS_BEFORE_DEFAULT,
+            "the run of dead streams is counted: {restarts}"
+        );
     }
 
     /// A sink that was playing and then stopped is restarted on the short clock, which is what the

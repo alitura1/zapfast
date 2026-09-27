@@ -114,7 +114,10 @@ fn live(
     // over a picture rather than under it.
     ui.horizontal(|ui| {
         if call.phase.is_live() {
-            let back = gettext(app.locale, "Back to the chat").into_owned();
+            // Named for what it does rather than for where it goes: "Back to the chat" reads as
+            // ending the call to anyone who has not guessed, and this button is the one that says
+            // the call is still running behind the bar it leaves behind.
+            let back = gettext(app.locale, "Hide the call screen").into_owned();
             let response = control(
                 ui,
                 Icon::ArrowLeft,

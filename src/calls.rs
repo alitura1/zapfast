@@ -855,6 +855,32 @@ impl Call {
             stats.codec_switches,
             stats.video_sink_dropped,
         );
+        self.log_audio_path("heartbeat");
+    }
+
+    /// The call's own audio path, counted where the engine cannot see it.
+    ///
+    /// The engine's counters above say what it decoded and handed over; these say what this side
+    /// did with it. Together they are what tells a call that is carrying nothing (nothing received,
+    /// nothing decoded) from one whose audio dies after the engine handed it over, and from one
+    /// whose sink was reopened: a reader or writer open that keeps climbing during a call is a
+    /// stream being restarted rather than rebound.
+    pub fn log_audio_path(&self, marker: &str) {
+        log::info!(
+            "[CALL] audio path call_id={} at={} mic_opens={} speaker_opens={} speaker_stalls={} live={}",
+            self.call_id,
+            marker,
+            self.mic
+                .as_ref()
+                .map_or(0, |mic| mic.opens.load(Ordering::Relaxed)),
+            self.speaker
+                .as_ref()
+                .map_or(0, |speaker| speaker.opens.load(Ordering::Relaxed)),
+            self.speaker
+                .as_ref()
+                .map_or(0, |speaker| speaker.stalls.load(Ordering::Relaxed)),
+            self.phase.is_live(),
+        );
     }
 
     /// The media task is gone; whatever the phase was, the call is over.

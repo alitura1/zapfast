@@ -39,6 +39,16 @@ pub const SPEAKER_QUEUE: usize = 16;
 /// the peer is silent for the rest of the call. Half a second is far above anything a healthy sink
 /// needs for 60 ms of audio and far below the point where waiting has any value.
 const STALLED: Duration = Duration::from_millis(500);
+/// How long a stream that has not played a single sample is given to start playing one.
+///
+/// A sink that has never moved is not a sink that stopped: a suspended device, a Bluetooth headset
+/// still connecting, or a PipeWire graph that a new stream (a camera, a video player) has just
+/// relinked all take longer than half a second to play their first sample. Judging them stalled on
+/// the same clock as a dead stream tears down the very stream that was about to play, and every
+/// restart throws away the audio queued behind it, so the call loses its sound to its own recovery.
+/// Two seconds is far above any start-up a working device needs and far below leaving a dead one
+/// silent for the rest of the call.
+const STARTUP: Duration = Duration::from_millis(2_000);
 /// How long a pump waits before reopening a device that would not open.
 const RETRY: Duration = Duration::from_millis(500);
 /// How long a reader waits for room in the engine's channel before looking at its stop flag again.
@@ -641,6 +651,14 @@ pub struct AudioOutput {
     swap: Option<async_channel::Sender<Option<String>>>,
     /// Set when the pump gave up on the selected device and reopened on the system default.
     pub fell_back: async_channel::Receiver<()>,
+    /// How many writer streams this call's pump has opened.
+    ///
+    /// Nothing in a call reads it: it is how a test tells a device change, which rebinds the stream
+    /// behind the engine's channel, from a writer that was torn down and restarted, and how the
+    /// call's own diagnostics tell a sink that is being restarted from one that is simply playing.
+    pub opens: Arc<AtomicUsize>,
+    /// How many times a stream that had been playing was restarted after it stopped draining.
+    pub stalls: Arc<AtomicUsize>,
 }
 
 impl AudioOutput {
@@ -648,11 +666,22 @@ impl AudioOutput {
         let (tx, rx) = async_channel::bounded::<Vec<i16>>(SPEAKER_QUEUE);
         let (swap, swaps) = async_channel::bounded::<Option<String>>(1);
         let (fell, fell_back) = async_channel::bounded::<()>(1);
-        tokio::spawn(play_pump(rx, swaps, fell, target.clone()));
+        let opens = Arc::new(AtomicUsize::new(0));
+        let stalls = Arc::new(AtomicUsize::new(0));
+        tokio::spawn(play_pump(
+            rx,
+            swaps,
+            fell,
+            target.clone(),
+            Arc::clone(&opens),
+            Arc::clone(&stalls),
+        ));
         (
             Self {
                 swap: Some(swap),
                 fell_back,
+                opens,
+                stalls,
             },
             tx,
         )
@@ -676,11 +705,16 @@ async fn play_pump(
     swaps: async_channel::Receiver<Option<String>>,
     fell: async_channel::Sender<()>,
     initial: Option<String>,
+    opens: Arc<AtomicUsize>,
+    stalls: Arc<AtomicUsize>,
 ) {
     let mut target = initial;
     loop {
         let writer = match SpkWriter::start(target.as_deref()) {
-            Ok(writer) => writer,
+            Ok(writer) => {
+                opens.fetch_add(1, Ordering::Relaxed);
+                writer
+            }
             Err(error) => {
                 log::error!("[CALL] speaker stream failed: {error}");
                 if target.is_some() {
@@ -727,11 +761,18 @@ async fn play_pump(
         }
         let accepted = writer.accepted.load(Ordering::Relaxed);
         let stalled = writer.stalled.load(Ordering::Relaxed);
+        let played = writer.played.load(Ordering::Relaxed);
         drop(writer);
         if finished {
             return;
         }
         if stalled && accepted {
+            if played {
+                // It had been playing, so this is a device that stopped draining rather than one
+                // that never started: counted, because that is the difference between a call whose
+                // audio went quiet on its own and one that never had any.
+                stalls.fetch_add(1, Ordering::Relaxed);
+            }
             // A stream that played frames was merely stalled, so it keeps the device the user
             // picked rather than being demoted to the system default over one bad moment. What is
             // queued is already older than the restart, and playing it late would only add delay,
@@ -758,6 +799,9 @@ struct SpkWriter {
     accepted: Arc<AtomicBool>,
     /// Set when the sink stopped draining, so the pump restarts it.
     stalled: Arc<AtomicBool>,
+    /// Set once the stream has played, which is what tells a stream that never started from one
+    /// that was playing and stopped.
+    played: Arc<AtomicBool>,
     thread: Option<std::thread::JoinHandle<()>>,
 }
 
@@ -767,16 +811,26 @@ impl SpkWriter {
         let stop = Arc::new(AtomicBool::new(false));
         let accepted = Arc::new(AtomicBool::new(false));
         let stalled = Arc::new(AtomicBool::new(false));
+        let played = Arc::new(AtomicBool::new(false));
         let (ready, opened) = std::sync::mpsc::channel::<Result<(), String>>();
         let name = device.map(str::to_owned);
         let thread = {
             let stop = Arc::clone(&stop);
             let accepted = Arc::clone(&accepted);
+            let played = Arc::clone(&played);
             let stalled = Arc::clone(&stalled);
             std::thread::Builder::new()
                 .name("call-speaker".to_owned())
                 .spawn(move || {
-                    write_speaker(name.as_deref(), &rx, &stop, &accepted, &stalled, &ready)
+                    write_speaker(
+                        name.as_deref(),
+                        &rx,
+                        &stop,
+                        &accepted,
+                        &stalled,
+                        &played,
+                        &ready,
+                    )
                 })
                 .map_err(|error| format!("the speaker thread could not start: {error}"))?
         };
@@ -786,6 +840,7 @@ impl SpkWriter {
                 frames: tx,
                 accepted,
                 stalled,
+                played,
                 thread: Some(thread),
             }),
             Ok(Err(error)) => {
@@ -818,6 +873,7 @@ fn write_speaker(
     stop: &AtomicBool,
     accepted: &AtomicBool,
     stalled: &AtomicBool,
+    played: &AtomicBool,
     ready: &std::sync::mpsc::Sender<Result<(), String>>,
 ) {
     let sink = match open_sink(device) {
@@ -844,10 +900,26 @@ fn write_speaker(
         sink.append(sink.layout().convert(&frame));
         accepted.store(true, Ordering::Relaxed);
         let position = sink.position();
-        if !sink.empty() && position == last_position {
+        if position > last_position {
+            // The stream is playing, so from here anything that stops it is a stall rather than a
+            // start-up that is still in progress.
+            played.store(true, Ordering::Relaxed);
+            quiet_since = None;
+        } else if !sink.empty() {
+            // Nothing has played while audio is queued. A stream that has never played gets the
+            // whole start-up window; one that was playing gets the stall window, which is where
+            // the peer's voice would otherwise be stuck behind a device that stopped draining.
+            let limit = if played.load(Ordering::Relaxed) {
+                STALLED
+            } else {
+                STARTUP
+            };
             let since = *quiet_since.get_or_insert_with(Instant::now);
-            if since.elapsed() > STALLED {
-                log::warn!("[CALL] the speaker stopped playing; restarting the stream");
+            if since.elapsed() > limit {
+                log::warn!(
+                    "[CALL] the speaker has not played for {:?}; reopening the stream",
+                    since.elapsed()
+                );
                 stalled.store(true, Ordering::Relaxed);
                 return;
             }
@@ -1338,7 +1410,91 @@ mod tests {
         );
     }
 
-    /// A speaker that stops draining is noticed, restarted, and the call carries on.
+    /// A sink that has not played yet is given the start-up window rather than the stall window.
+    ///
+    /// A suspended device, a Bluetooth headset still connecting, or an audio graph that a new
+    /// stream has just relinked is slow, not dead. Judging it by the stall clock tore the stream
+    /// down from under the audio that was about to play and reopened it in a loop, so a call lost
+    /// its sound to its own recovery while the microphone, the video and the signaling all kept
+    /// working. This is that regression: a device that comes up after the stall window is never
+    /// restarted, and everything queued behind it plays.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn a_speaker_that_is_slow_to_start_is_not_restarted() {
+        let (_devices, speaker) = fake::install(vec![0.0; 8], 1, RATE, (RATE, 1));
+        // Nothing plays yet, which is what a device still coming up looks like.
+        speaker.drains.store(false, Ordering::Relaxed);
+        let (output, tx) = AudioOutput::spawn(None);
+        let frame = vec![100_i16; FRAME_SAMPLES];
+        // Well past the stall window that used to decide, and inside the start-up one.
+        let started = Instant::now();
+        while started.elapsed() < Duration::from_millis(900) {
+            let _ = tx.try_send(frame.clone());
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        let opens = output.opens.load(Ordering::Relaxed);
+        assert_eq!(
+            opens, 1,
+            "a stream that has not played yet must not be torn down"
+        );
+        // It comes up, and what is queued behind it plays on the stream that was already there.
+        speaker.drains.store(true, Ordering::Relaxed);
+        let before = speaker.played_count();
+        let started = Instant::now();
+        while speaker.played_count() <= before && started.elapsed() < Duration::from_secs(5) {
+            let _ = tx.try_send(frame.clone());
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        let (opens, stalls) = (
+            output.opens.load(Ordering::Relaxed),
+            output.stalls.load(Ordering::Relaxed),
+        );
+        drop(output);
+        assert!(speaker.played_count() > before, "the slow device played");
+        assert_eq!(opens, 1, "and it played on the stream it started with");
+        assert_eq!(stalls, 0, "a slow start is not a stall");
+    }
+
+    /// A sink that was playing and then stopped is restarted on the short clock, which is what the
+    /// stall window is for: a device that dies mid-call must not hold the peer's voice for seconds.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn a_speaker_that_played_and_then_stopped_is_restarted_quickly() {
+        let (_devices, speaker) = fake::install(vec![0.0; 8], 1, RATE, (RATE, 1));
+        let (output, tx) = AudioOutput::spawn(None);
+        let frame = vec![100_i16; FRAME_SAMPLES];
+        let started = Instant::now();
+        while speaker.played_count() < 2 && started.elapsed() < Duration::from_secs(5) {
+            let _ = tx.try_send(frame.clone());
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        assert!(speaker.played_count() >= 2, "the device was playing");
+        // It stops taking anything, mid-call.
+        speaker.drains.store(false, Ordering::Relaxed);
+        let stopped = Instant::now();
+        while output.opens.load(Ordering::Relaxed) < 2
+            && stopped.elapsed() < Duration::from_millis(1_500)
+        {
+            let _ = tx.try_send(frame.clone());
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        let reopened = stopped.elapsed();
+        let (opens, stalls) = (
+            output.opens.load(Ordering::Relaxed),
+            output.stalls.load(Ordering::Relaxed),
+        );
+        drop(output);
+        assert!(
+            opens >= 2,
+            "a stream that stopped playing is reopened (after {reopened:?})"
+        );
+        assert_eq!(stalls, 1, "and it is counted as a stall, not a start-up");
+        assert!(
+            reopened < Duration::from_millis(1_500),
+            "on the stall clock, not the start-up one"
+        );
+    }
+
+    /// A speaker that never plays anything is still restarted, on the start-up clock, and the call
+    /// carries on.
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn a_stuck_speaker_is_restarted_and_the_call_survives() {
         let (_devices, speaker) = fake::install(vec![0.0; 8], 1, RATE, (48_000, 2));

@@ -6,6 +6,8 @@ use std::collections::HashMap;
 
 use crate::app::{App, Conversation, Presence};
 use crate::backend::LinkStatus;
+use crate::calls::{CallPhase, CallUpdate};
+use crate::model::CallDirection;
 use crate::model::{
     Chat, Contact, Content, Delivery, Dialog, LinkPreview, Media, MentionRef, Message, Page,
     Quoted, Reaction,
@@ -1874,6 +1876,10 @@ pub fn apply_flags(app: &mut App, page: Option<&str>) {
                 app.settings_search = choice["settings-search=".len()..].to_owned();
             }
             "wallpaper" => app.page = Page::Wallpaper,
+            // The call surface itself: the incoming call waiting to be answered, and a call that
+            // has been up for a few minutes.
+            "call" => call_sample(app, true),
+            "call-active" => call_sample(app, false),
             "wallpaper-image" => wallpaper_image_sample(app),
             "omarchy" | "omarchy-light" => {
                 let mut themes: Vec<_> = crate::theme::presets().collect();
@@ -2572,6 +2578,41 @@ pub fn sample_ids() -> Vec<&'static str> {
     SAMPLES.iter().map(|sample| sample.id).collect()
 }
 
+/// Puts a synthetic call on screen, for the call previews and their layout test.
+///
+/// Demo mode has no engine and no peer, so the surface is handed the same snapshot a real call
+/// publishes, filled in by hand: an invented call id and one of the sample chats. `incoming` is the
+/// call waiting to be accepted; otherwise the call is one that has been up for a few minutes.
+pub fn call_sample(app: &mut App, incoming: bool) {
+    let chat = SAMPLES[0].id;
+    app.call = Some(CallUpdate {
+        generation: 1,
+        chat: chat.to_owned(),
+        direction: if incoming {
+            CallDirection::Incoming
+        } else {
+            CallDirection::Outgoing
+        },
+        phase: if incoming {
+            CallPhase::Incoming
+        } else {
+            CallPhase::Active
+        },
+        // A call already up for three minutes and forty-one seconds, so the previews show the
+        // duration the way a real one counts it.
+        started: (!incoming)
+            .then(|| std::time::Instant::now() - std::time::Duration::from_secs(221)),
+        muted: false,
+        outcome: None,
+        peer_audio: None,
+        lost_devices: Vec::new(),
+        microphone: None,
+        speaker: None,
+    });
+}
+
+/// Synthetic call records for the Calls view and the transcript entries.
+///
 #[allow(dead_code)]
 fn contacts_by_id(app: &App) -> HashMap<&str, &Contact> {
     app.contacts
@@ -3961,6 +4002,8 @@ mod tests {
             "react-picker-empty",
             "react-custom",
             "react-other",
+            "call",
+            "call-active",
         ] {
             let mut app = self::app();
             apply_flags(&mut app, Some(page));
@@ -9778,5 +9821,32 @@ mod picture_edge_tests {
             let shown = chat_with_picture(2, height as f32);
             assert!(!shown.is_empty(), "the chat shows its end ({height} tall)");
         }
+    }
+}
+
+/// The call surface's previews: what they hand it, and the picture they hand it with.
+#[cfg(test)]
+mod call_preview_tests {
+    use super::tests::app;
+    use super::*;
+
+    #[test]
+    fn the_call_previews_hand_the_surface_a_live_call() {
+        let mut screen = app();
+        call_sample(&mut screen, true);
+        let incoming = screen.call.clone().expect("a call is on screen");
+        assert_eq!(incoming.phase, CallPhase::Incoming);
+        assert_eq!(incoming.direction, CallDirection::Incoming);
+        assert!(incoming.phase.is_live(), "a ringing call is still a call");
+
+        let mut screen = app();
+        call_sample(&mut screen, false);
+        let live = screen.call.clone().expect("a call is on screen");
+        assert_eq!(live.phase, CallPhase::Active);
+        assert_eq!(live.direction, CallDirection::Outgoing);
+        assert!(
+            live.started.is_some(),
+            "the duration has something to count from"
+        );
     }
 }

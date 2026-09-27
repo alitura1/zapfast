@@ -418,14 +418,18 @@ mod tests {
             generation: 1,
             chat: "1@s.whatsapp.net".to_owned(),
             direction: crate::model::CallDirection::Outgoing,
+            video: false,
             phase: crate::calls::CallPhase::Active,
             started: Some(std::time::Instant::now()),
             muted: false,
+            camera_on: false,
+            remote_video: false,
             outcome: None,
             peer_audio: None,
             lost_devices: Vec::new(),
             microphone: None,
             speaker: None,
+            camera: None,
         });
         app.call_fullscreen = true;
         let ctx = egui::Context::default();

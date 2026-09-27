@@ -590,7 +590,10 @@ mute, so the outgoing audio stops without restarting the recorder or
 renegotiating the call, and the peer is told. **Back to the chat** in the
 top-left corner of the call leaves the call running in a bar at the bottom of the
 window, with the call's length and **Return to the call**; only hanging up ends
-it. A call keeps running when the window is hidden to the tray.
+it. **Full screen** beside it grows the call to the whole display, and Escape
+leaves full screen first and steps back to the chat only on a second press:
+neither one touches the call, and a call that ends puts the window back itself.
+A call keeps running when the window is hidden to the tray.
 
 The pickers list what the machine really has, and the choices are saved and
 reused by the next call. They never change your system's default devices: the

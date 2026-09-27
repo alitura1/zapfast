@@ -6,7 +6,7 @@ msgstr ""
 "Project-Id-Version: ZapFast\n"
 "Report-Msgid-Bugs-To: https://github.com/crmne/zapfast/issues/new?"
 "template=translation.yml\n"
-"POT-Creation-Date: 2026-09-27 10:33+0300\n"
+"POT-Creation-Date: 2026-09-27 12:32+0300\n"
 "PO-Revision-Date: 2026-09-25 23:00-0300\n"
 "Last-Translator: ZapFast contributors\n"
 "Language-Team: Chinese (Simplified)\n"
@@ -159,7 +159,7 @@ msgstr "已锁定"
 msgid "No favorites yet"
 msgstr "还没有收藏"
 
-#: src/ui/chats.rs:782 src/app.rs:1431
+#: src/ui/chats.rs:782 src/app.rs:1439
 msgid "Message yourself"
 msgstr "给自己发消息"
 
@@ -190,7 +190,7 @@ msgstr "标签"
 msgid "Ctrl+K to search · ? for keyboard shortcuts"
 msgstr "Ctrl+K 搜索 · ? 查看键盘快捷键"
 
-#: src/ui/conversation.rs:327 src/ui/call.rs:416
+#: src/ui/conversation.rs:327 src/ui/call.rs:441
 msgid "Hang up"
 msgstr ""
 
@@ -328,11 +328,11 @@ msgstr "暂停"
 msgid "Play"
 msgstr "播放"
 
-#: src/ui/conversation.rs:5895 src/ui/call.rs:368
+#: src/ui/conversation.rs:5895 src/ui/call.rs:397
 msgid "Unmute"
 msgstr "取消静音"
 
-#: src/ui/conversation.rs:5897 src/ui/call.rs:370
+#: src/ui/conversation.rs:5897 src/ui/call.rs:399
 msgid "Mute"
 msgstr "静音"
 
@@ -811,142 +811,150 @@ msgstr "无"
 msgid "Choose a file…"
 msgstr "选择文件…"
 
-#: src/ui/call.rs:115
+#: src/ui/call.rs:100
 #, fuzzy
 msgid "Back to the chat"
 msgstr "把这个贴图包发送到聊天"
 
-#: src/ui/call.rs:184 src/ui/call.rs:185
+#: src/ui/call.rs:118
+msgid "Exit full screen"
+msgstr ""
+
+#: src/ui/call.rs:123
+msgid "Full screen"
+msgstr ""
+
+#: src/ui/call.rs:213 src/ui/call.rs:214
 msgid "Return to the call"
 msgstr ""
 
-#: src/ui/call.rs:199
+#: src/ui/call.rs:228
 #, fuzzy
 msgid "Calling…"
 msgstr "正在保存…"
 
-#: src/ui/call.rs:201
+#: src/ui/call.rs:230
 #, fuzzy
 msgid "Ringing…"
 msgstr "正在保存…"
 
-#: src/ui/call.rs:204 src/ui/call.rs:212
+#: src/ui/call.rs:233 src/ui/call.rs:241
 msgid "Connected"
 msgstr ""
 
-#: src/ui/call.rs:206
+#: src/ui/call.rs:235
 #, fuzzy
 msgid "Connecting…"
 msgstr "加载中…"
 
-#: src/ui/call.rs:218 src/ui/call.rs:229
+#: src/ui/call.rs:247 src/ui/call.rs:258
 msgid "Call ended"
 msgstr ""
 
-#: src/ui/call.rs:219 src/ui/call.rs:606
+#: src/ui/call.rs:248 src/ui/call.rs:631
 msgid "Incoming call"
 msgstr ""
 
-#: src/ui/call.rs:230
+#: src/ui/call.rs:259
 msgid "Missed call"
 msgstr ""
 
-#: src/ui/call.rs:231
+#: src/ui/call.rs:260
 msgid "Declined"
 msgstr ""
 
-#: src/ui/call.rs:232
+#: src/ui/call.rs:261
 msgid "Busy"
 msgstr ""
 
-#: src/ui/call.rs:233
+#: src/ui/call.rs:262
 msgid "Could not connect"
 msgstr ""
 
-#: src/ui/call.rs:234
+#: src/ui/call.rs:263
 msgid "No answer"
 msgstr ""
 
-#: src/ui/call.rs:237
+#: src/ui/call.rs:266
 msgid "Connection lost"
 msgstr ""
 
-#: src/ui/call.rs:239
+#: src/ui/call.rs:268
 msgid "The call could not be established"
 msgstr ""
 
-#: src/ui/call.rs:243
+#: src/ui/call.rs:272
 msgid "Answered on another device"
 msgstr ""
 
-#: src/ui/call.rs:246
+#: src/ui/call.rs:275
 msgid "Declined on another device"
 msgstr ""
 
-#: src/ui/call.rs:302
+#: src/ui/call.rs:331
 msgid "No audio is arriving from this call"
 msgstr ""
 
-#: src/ui/call.rs:304
+#: src/ui/call.rs:333
 msgid "This call's audio cannot be decoded"
 msgstr ""
 
-#: src/ui/call.rs:307
+#: src/ui/call.rs:336
 msgid "This call's audio is not authenticating"
 msgstr ""
 
-#: src/ui/call.rs:311
+#: src/ui/call.rs:340
 msgid "This call's audio is arriving in an unexpected format"
 msgstr ""
 
-#: src/ui/call.rs:315
+#: src/ui/call.rs:344
 msgid "This call's audio is being rejected by the decoder"
 msgstr ""
 
-#: src/ui/call.rs:318
+#: src/ui/call.rs:347
 msgid "This call's audio format keeps changing"
 msgstr ""
 
-#: src/ui/call.rs:321
+#: src/ui/call.rs:350
 msgid "The peer's audio stopped"
 msgstr ""
 
-#: src/ui/call.rs:334
+#: src/ui/call.rs:363
 #, rust-format
 msgid "Microphone “{name}” is not available; using the system default"
 msgstr ""
 
-#: src/ui/call.rs:338
+#: src/ui/call.rs:367
 #, rust-format
 msgid "Speaker “{name}” is not available; using the system default"
 msgstr ""
 
-#: src/ui/call.rs:394
+#: src/ui/call.rs:419
 #, fuzzy
 msgid "Speaker and devices"
 msgstr "已关联的设备"
 
-#: src/ui/call.rs:484
+#: src/ui/call.rs:509
 msgid "Default device"
 msgstr ""
 
-#: src/ui/call.rs:506
+#: src/ui/call.rs:531
 msgid "Microphone"
 msgstr ""
 
-#: src/ui/call.rs:516
+#: src/ui/call.rs:541
 msgid "Speaker"
 msgstr ""
 
-#: src/ui/call.rs:618 src/app.rs:3320
+#: src/ui/call.rs:643 src/app.rs:3350
 msgid "Incoming voice call"
 msgstr ""
 
-#: src/ui/call.rs:628
+#: src/ui/call.rs:653
 msgid "Accept"
 msgstr ""
 
-#: src/ui/call.rs:642
+#: src/ui/call.rs:667
 #, fuzzy
 msgid "Decline"
 msgstr "在线状态"
@@ -1015,66 +1023,66 @@ msgstr[0] "剩余 {}"
 msgid "No one yet"
 msgstr "还没有人"
 
-#: src/app.rs:1352
+#: src/app.rs:1360
 #, rust-format
 msgid "A label named “{name}” already exists."
 msgstr "已存在名为“{name}”的标签。"
 
-#: src/app.rs:1412
+#: src/app.rs:1420
 #, rust-format
 msgid "{name} (You)"
 msgstr "{name}（你）"
 
-#: src/app.rs:1413 src/app.rs:1432
+#: src/app.rs:1421 src/app.rs:1440
 msgid "You"
 msgstr "你"
 
-#: src/app.rs:1488
+#: src/app.rs:1496
 #, fuzzy
 msgid "Locked chat"
 msgstr "已锁定聊天的密码"
 
-#: src/app.rs:1491
+#: src/app.rs:1499
 #, fuzzy
 msgid "Unknown caller"
 msgstr "静音未知来电"
 
-#: src/app.rs:2273
+#: src/app.rs:2303
 msgid "Could not use this image"
 msgstr "无法使用此图片"
 
-#: src/app.rs:2739
+#: src/app.rs:2769
 msgid "Not sent: ZapFast is not connected to WhatsApp."
 msgstr "未发送：ZapFast 未连接到 WhatsApp。"
 
-#: src/app.rs:2743
+#: src/app.rs:2773
 msgid ""
 "Not sent: the message you’re replying to isn’t available on this computer. "
 "Cancel the reply to send without a quote."
 msgstr "未发送：你要回复的消息不在这台电脑上。取消回复即可不带引用发送。"
 
-#: src/app.rs:4247
+#: src/app.rs:4292
 msgid "Added to favorites"
 msgstr "已添加到收藏"
 
-#: src/app.rs:4322
+#: src/app.rs:4367
 msgid "Sending the sticker pack…"
 msgstr "正在发送贴图包…"
 
-#: src/app.rs:4612 src/ui/labels.rs:237
+#: src/app.rs:4657 src/ui/labels.rs:237
 #, rust-format
 msgid "You have {limit} labels, the most ZapFast keeps."
 msgstr "你已有 {limit} 个标签，这是 ZapFast 的上限。"
 
-#: src/app.rs:5177
+#: src/app.rs:5222
 msgid "This video opens in your system player"
 msgstr "此视频将用系统播放器打开"
 
-#: src/app.rs:5668
+#: src/app.rs:5713
 msgid "Copied image"
 msgstr "已复制图片"
 
-#: src/app.rs:5671 src/app.rs:5676
+#: src/app.rs:5716 src/app.rs:5721
 msgid "Failed to copy image"
 msgstr "复制图片失败"
 

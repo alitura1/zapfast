@@ -1233,6 +1233,9 @@ pub enum Action {
     LeaveCallSurface,
     /// Opens the full call screen again.
     ReturnToCall,
+    /// Takes the call surface full screen, or leaves full screen again. The window moves; the call
+    /// does not.
+    ToggleCallFullscreen,
     /// Creates and opens a chat for a contact without one.
     StartChat {
         id: ChatId,

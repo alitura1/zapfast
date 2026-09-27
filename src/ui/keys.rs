@@ -133,6 +133,14 @@ pub fn handle(app: &mut App, ctx: &egui::Context) {
             actions.push(Action::CancelEdit);
         } else if app.reply_to.is_some() {
             actions.push(Action::CancelReply);
+        } else if app.call_fullscreen {
+            // The window shrinks back first, and only then does the next Escape put the surface
+            // aside. Neither one ends the call; only the hang-up button does that.
+            actions.push(Action::ToggleCallFullscreen);
+        } else if app.call_surface_open() {
+            // The same move the surface's own button makes: the call keeps running, and the bar at
+            // the bottom of the chat offers the way back.
+            actions.push(Action::LeaveCallSurface);
         } else if app.page == Page::Wallpaper {
             actions.push(Action::Open(Page::Settings));
         } else if app.page == Page::Settings && !app.settings_search.is_empty() {

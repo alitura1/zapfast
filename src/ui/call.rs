@@ -109,23 +109,50 @@ fn live(
         under_status(ui, app, call, palette, false);
     });
 
-    // Stepping away from the screen without ending the call, so a chat can be read while the call
-    // runs. The bar at the bottom offers the way back.
-    if call.phase.is_live() {
-        let back = gettext(app.locale, "Back to the chat").into_owned();
+    // Window-level controls: stepping back to the chat, and taking the surface full screen. Neither
+    // one ends the call. They come after whatever the surface fills itself with, so they are drawn
+    // over a picture rather than under it.
+    ui.horizontal(|ui| {
+        if call.phase.is_live() {
+            let back = gettext(app.locale, "Back to the chat").into_owned();
+            let response = control(
+                ui,
+                Icon::ArrowLeft,
+                38.0,
+                palette.surface_active,
+                palette.text,
+                &back,
+                true,
+            );
+            if response.clicked() {
+                app.actions.push(Action::LeaveCallSurface);
+            }
+            ui.add_space(8.0);
+        }
+        let (icon, tip) = if app.call_fullscreen {
+            (
+                Icon::Minimize,
+                gettext(app.locale, "Exit full screen").into_owned(),
+            )
+        } else {
+            (
+                Icon::Maximize,
+                gettext(app.locale, "Full screen").into_owned(),
+            )
+        };
         let response = control(
             ui,
-            Icon::ArrowLeft,
+            icon,
             38.0,
             palette.surface_active,
             palette.text,
-            &back,
+            &tip,
             true,
         );
         if response.clicked() {
-            app.actions.push(Action::LeaveCallSurface);
+            app.actions.push(Action::ToggleCallFullscreen);
         }
-    }
+    });
 
     ui.with_layout(Layout::bottom_up(Align::Center), |ui| {
         ui.add_space(6.0);
@@ -165,13 +192,16 @@ fn bar(app: &mut App, ctx: &egui::Context, call: &CallUpdate, peer: &str, palett
                 })
                 .show(ui, |ui| {
                     ui.horizontal(|ui| {
-                        let (dot, _) = ui.allocate_exact_size(Vec2::splat(9.0), Sense::hover());
-                        ui.painter().circle_filled(
-                            dot.center(),
-                            4.5,
+                        // A voice call, in the colour the surface uses for a call that is up. The
+                        // whole point of the bar is that the call is still there, so it says what
+                        // kind of call it is before it says who is on it.
+                        theme::icon(
+                            ui,
+                            Icon::Phone,
+                            13.0,
                             if live { palette.danger } else { palette.accent },
                         );
-                        ui.add_space(2.0);
+                        ui.add_space(4.0);
                         theme::text(ui, peer, theme::semibold(13.5), palette.text);
                         theme::text(
                             ui,

@@ -30,9 +30,11 @@ default and the call screen says so.
 
 **Back to the chat** in the top-left corner of a call puts you back in the
 conversation with the call still running in a bar at the bottom of the window,
-showing its length and a **Return to the call** button. Hanging up is the only
-thing that ends a call. If you close the window to the tray, the call keeps
-running there.
+showing its length and a **Return to the call** button. **Full screen** beside it
+fills the display with the call, and Escape leaves full screen first and steps
+back to the chat only on a second press. None of that touches the call: hanging
+up is the only thing that ends one, and a call that ends puts the window back
+itself. If you close the window to the tray, the call keeps running there.
 
 Calls go through the same audio layer the rest of ZapFast plays and records
 with, so a call talks to the platform's own audio API: PipeWire or ALSA on

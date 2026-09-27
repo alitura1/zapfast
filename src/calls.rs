@@ -1205,6 +1205,20 @@ mod tests {
         );
     }
 
+    /// Waits for something a pump does on its own task, so a test does not assert before the
+    /// rebind it asked for has had a chance to happen. Returns as soon as the answer is yes, and
+    /// leaves the last answer for the caller to assert on.
+    async fn until(mut ready: impl FnMut() -> bool) -> bool {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        while std::time::Instant::now() < deadline {
+            if ready() {
+                return true;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+        }
+        ready()
+    }
+
     /// A call that is up stays up through a mute: the engine's channel keeps carrying whole frames,
     /// and a device change made while muted rebinds the streams rather than restarting the call.
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -1254,22 +1268,27 @@ mod tests {
         );
         // Neither the mute nor the device changes moved the call.
         assert_eq!(call.phase(), CallPhase::Active, "the call is still up");
+        // A rebind is the pump's own work, on its own task, so the device it opened is waited for
+        // rather than assumed to be there the moment the reader asked for it.
         assert!(
-            speaker
+            until(|| speaker
                 .opened()
                 .iter()
-                .any(|device| device.as_deref() == Some("Second speaker")),
+                .any(|device| device.as_deref() == Some("Second speaker")))
+            .await,
             "the speaker device change was a rebind"
         );
         // The device change opened the microphone again behind the very channel above, which is
         // what a rebind is: the read moved, the engine's port did not.
-        assert_eq!(
-            call.mic
+        assert!(
+            until(|| call
+                .mic
                 .as_ref()
                 .expect("the call still has its microphone")
                 .opens
-                .load(Ordering::Relaxed),
-            2,
+                .load(Ordering::Relaxed)
+                == 2)
+            .await,
             "one open for the call and one for the device change"
         );
         call.cleanup();

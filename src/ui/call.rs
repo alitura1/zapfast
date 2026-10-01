@@ -486,10 +486,9 @@ fn controls(ui: &mut egui::Ui, app: &mut App, call: &CallUpdate, palette: &Palet
     let locale = app.locale;
     let connected = call.phase.is_connected();
     let live = call.phase.is_live();
-    // The row is centred on what is really drawn: five controls on a video call (mute, camera,
-    // screen share, devices, hang up), four on a voice call. Counting a wrong number shifts the
-    // whole row off the surface's centre. A later commit narrows this further on platforms without
-    // video support.
+    // Five controls on a video call — microphone, camera, screen share, speaker/devices, and hang
+    // up — and four on a voice call, where the screen-share button is not drawn. The row is centred
+    // on what is really rendered.
     let buttons = if call.video { 5.0 } else { 4.0 };
     ui.horizontal(|ui| {
         let spacing = 14.0;

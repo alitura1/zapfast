@@ -23,6 +23,7 @@ use whatsapp_rust::prelude::{
     Bot, BotHandle, Client, Jid, MessageBuilderExt, MessageExt, MessageField, SendOptions, wa,
 };
 use whatsapp_rust::send::RevokeType;
+use whatsapp_rust::types::call::ElsewhereOutcome;
 use whatsapp_rust::types::events as wa_events;
 use whatsapp_rust::types::message::{EncMediaType, MessageInfo, MessageSource};
 use whatsapp_rust::types::presence::{ChatPresence, ReceiptType};
@@ -2166,8 +2167,41 @@ impl Worker {
             // that decide the call this worker already owns: the peer's answer is the only thing
             // that moves a call out of dialing, never the fact that dialing started.
             E::IncomingCall(call) => self.call_signaling(call).await,
-            E::MissedCall(call) => self.call_resolved(&call.call_id),
-            E::CallEndedElsewhere(call) => self.call_resolved(&call.call_id),
+            // A missed call that a live runtime owns is resolved; one replayed from the offline
+            // queue never rang here, so it is written straight to the log instead of being dropped.
+            E::MissedCall(call) => {
+                if self.owns_call(&call.call_id) {
+                    self.call_resolved(&call.call_id, None);
+                } else {
+                    self.record_resolved_without_runtime(
+                        &call.from,
+                        &call.call_id,
+                        call.timestamp.timestamp(),
+                        crate::calls::CallOutcome::Missed,
+                    );
+                }
+            }
+            // The pinned event distinguishes an answer from a decline on another device, so the
+            // outcome is passed through rather than being flattened into a missed call.
+            E::CallEndedElsewhere(call) => {
+                // `ElsewhereOutcome` is `#[non_exhaustive]`, so a variant a future library adds
+                // falls back to the decline this app would otherwise have recorded as missed.
+                let outcome = if matches!(call.outcome, ElsewhereOutcome::Accepted) {
+                    crate::calls::CallOutcome::AnsweredElsewhere
+                } else {
+                    crate::calls::CallOutcome::DeclinedElsewhere
+                };
+                if self.owns_call(&call.call_id) {
+                    self.call_resolved(&call.call_id, Some(outcome));
+                } else {
+                    self.record_resolved_without_runtime(
+                        &call.from,
+                        &call.call_id,
+                        call.timestamp.timestamp(),
+                        outcome,
+                    );
+                }
+            }
             E::PairingQrCode(qr) => {
                 self.qr = Some(qr.code.clone());
                 let status = self.unlinked();
@@ -2580,6 +2614,10 @@ impl Worker {
 
     async fn on_logged_out(&mut self) {
         self.privacy_generation = self.privacy_generation.wrapping_add(1);
+        // The call belongs to the account being unlinked. Torn down before the archive is cleared so
+        // it stops using the old connection, and its ending is written before the rows go, not after
+        // — a record written afterwards would be the next account's.
+        self.shutdown_call().await;
         self.stop_bot().await;
         if let Err(error) = self.archive.clear() {
             log::warn!("could not clear the archive: {error}");
@@ -9665,6 +9703,61 @@ mod tests {
                 .try_iter()
                 .any(|event| matches!(event, Event::CallLog(_))),
             "the withheld read is answered once recovery completes"
+        );
+    }
+
+    /// An offer replayed from the offline queue never rang here, so it has no runtime to resolve;
+    /// its missed call is written straight to the durable log instead of being dropped.
+    #[test]
+    fn a_missed_call_replayed_offline_is_still_written_to_the_log() {
+        let (mut worker, events, _, _) = receipt_tests::worker();
+        const PEER: &str = "15551234567@s.whatsapp.net";
+        let from: Jid = PEER.parse().expect("a peer jid");
+        assert!(worker.call.is_none(), "nothing is ringing here");
+        worker.record_resolved_without_runtime(
+            &from,
+            "offline-call",
+            1_700_000_000,
+            crate::calls::CallOutcome::Missed,
+        );
+        let record = events
+            .try_iter()
+            .find_map(|event| match event {
+                Event::CallLogged(record) => Some(*record),
+                _ => None,
+            })
+            .expect("the replayed missed call reaches the log");
+        assert_eq!(record.chat, PEER);
+        assert_eq!(record.status, crate::model::CallStatus::Missed);
+        assert_eq!(record.started_at, 1_700_000_000);
+        // And it is really durable, not only published.
+        assert_eq!(
+            worker
+                .archive
+                .calls_for_chat(PEER)
+                .expect("the log reads")
+                .len(),
+            1
+        );
+    }
+
+    /// A replayed offer from a group or channel writes nothing: the ringing path keeps the same
+    /// one-to-one boundary, and the log must not grow rows the Calls view can never place.
+    #[test]
+    fn a_resolved_call_from_a_group_is_not_written_to_the_log() {
+        let (mut worker, events, _, _) = receipt_tests::worker();
+        let from: Jid = "12345-67890@g.us".parse().expect("a group jid");
+        worker.record_resolved_without_runtime(
+            &from,
+            "group-call",
+            1_700_000_000,
+            crate::calls::CallOutcome::Missed,
+        );
+        assert!(
+            !events
+                .try_iter()
+                .any(|event| matches!(event, Event::CallLogged(_))),
+            "a group offer never becomes a call-history row"
         );
     }
 

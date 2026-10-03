@@ -10,7 +10,7 @@
 //! gave. Nothing is inferred from the button that was pressed.
 
 use super::*;
-use crate::calls::{self, Call, CallUpdate, VideoTick};
+use crate::calls::{self, Call, CallOutcome, CallUpdate, VideoTick};
 use whatsapp_rust::types::call::IncomingCall;
 use whatsapp_rust::voip::{CallEvent, KeyframeUrgency};
 
@@ -176,6 +176,14 @@ impl Worker {
             return;
         }
         self.emit(Event::CallLogged(Box::new(record)));
+    }
+
+    /// Whether this worker already holds a runtime for a call id, which decides whether a terminal
+    /// event resolves a live call or describes one that never rang here.
+    pub(super) fn owns_call(&self, call_id: &str) -> bool {
+        self.call
+            .as_ref()
+            .is_some_and(|runtime| runtime.call.call_id() == call_id)
     }
 
     /// Whether a call is already up, which every entry point refuses to double.
@@ -536,14 +544,52 @@ impl Worker {
 
     /// A call we were ringing or talking on was resolved on another of the account's devices, or
     /// the caller gave up before anyone answered.
-    pub(super) fn call_resolved(&mut self, call_id: &str) {
+    ///
+    /// `outcome` is what the terminal event says became of the call; `None` is the engine's own
+    /// reading of a ringing call that nobody here picked up. It only matters when there is a live
+    /// runtime to correct — see [`Self::record_resolved_without_runtime`] for the replayed case.
+    pub(super) fn call_resolved(&mut self, call_id: &str, outcome: Option<CallOutcome>) {
         let update = match self.call.as_mut() {
-            Some(runtime) if runtime.call.call_id() == call_id => runtime.call.resolved_elsewhere(),
+            Some(runtime) if runtime.call.call_id() == call_id => {
+                runtime.call.resolved_elsewhere(outcome)
+            }
             _ => None,
         };
         if let Some(update) = update {
             self.emit_call(update);
         }
+    }
+
+    /// Writes a call that was resolved with no live runtime here.
+    ///
+    /// An offer the server replayed from the offline queue never rang on this device, so there is no
+    /// runtime to resolve; without this the call is simply dropped and the supposedly complete
+    /// durable log never learns it was missed. The record is built from the event's own `from`,
+    /// `call_id`, and timestamp, and only for a one-to-one chat — the same boundary the ringing path
+    /// keeps, so a group or channel offer replayed offline writes nothing.
+    pub(super) fn record_resolved_without_runtime(
+        &mut self,
+        from: &Jid,
+        call_id: &str,
+        at: i64,
+        outcome: CallOutcome,
+    ) {
+        let chat = self.canonical(from);
+        if !callable_chat(&chat) {
+            log::warn!("[CALL] ignoring a resolved call from a chat that is not one to one");
+            return;
+        }
+        let record = crate::model::CallRecord {
+            id: call_id.to_owned(),
+            chat,
+            started_at: at,
+            ended_at: at,
+            direction: crate::model::CallDirection::Incoming,
+            media: crate::model::CallMedia::Voice,
+            status: outcome.status(),
+            duration: 0,
+        };
+        self.log_call(record);
     }
 
     /// The whole call log, newest first.

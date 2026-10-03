@@ -2549,6 +2549,18 @@ impl App {
                 // in the Calls view until the next account happens to load its own.
                 self.call_log.clear();
                 self.call_log_loaded = false;
+                // A live call belongs to the account that was unlinked too. The backend tears its
+                // runtime down, but the snapshot it already handed over is what the interface draws:
+                // without clearing it the old account's call surface stays up, and its bar keeps
+                // offering a way back to a call that no longer exists.
+                self.call = None;
+                self.call_notified = None;
+                self.call_surface_until = None;
+                self.call_surface_hidden = false;
+                self.call_local_frame = None;
+                self.call_remote_frame = None;
+                // Full screen is left to `tick`, which puts the window back once the surface is
+                // gone rather than leaving it covering the unlinked screen.
                 // Unsent text belongs to the account that was unlinked.
                 self.drafts.clear();
                 self.draft_mentions.clear();
@@ -10224,6 +10236,26 @@ mod tests {
         assert!(
             !app.call_log_loaded,
             "and the log reads as unread until the new account's arrives"
+        );
+    }
+
+    #[test]
+    fn unlinking_takes_the_previous_accounts_live_call_off_the_screen() {
+        let mut app = app();
+        // A call is up, its surface is showing, and its frame is on screen: all of it belongs to
+        // the account being unlinked.
+        app.call = Some(active_call("1@s.whatsapp.net"));
+        app.call_remote_frame = Some(std::sync::Arc::new(egui::ColorImage::example()));
+        assert!(
+            app.call_surface_open(),
+            "the call surface is up before the unlink"
+        );
+        app.handle_link(LinkStatus::LoggedOut);
+        assert!(app.call.is_none(), "the old account's call is gone");
+        assert!(app.call_remote_frame.is_none(), "and so is its picture");
+        assert!(
+            !app.call_surface_open(),
+            "and the bar offers no way back to a call that no longer exists"
         );
     }
 

@@ -347,6 +347,26 @@ fn missing_audio_device(microphone: Option<&str>, speaker: Option<&str>) -> Opti
     crate::call_audio::unavailable(microphone, speaker)
 }
 
+/// The same check, run where it cannot stall the caller.
+///
+/// `missing_audio_device` opens every device to name it, which is a blocking enumeration. Both
+/// `Call::place` and `Call::answer` are awaited on the worker's own async loop, and the worker
+/// already moves its other device discovery to `spawn_blocking` for exactly this reason: a slow or
+/// wedged audio stack would otherwise hold up message handling and signaling while a call starts.
+/// The microphone and speaker names are cloned in, so nothing borrowed crosses the thread.
+async fn missing_audio_device_off_thread(
+    microphone: Option<String>,
+    speaker: Option<String>,
+) -> Option<&'static str> {
+    tokio::task::spawn_blocking(move || {
+        missing_audio_device(microphone.as_deref(), speaker.as_deref())
+    })
+    .await
+    // A panicked check is not a machine without devices: refusing the call over it would be a lie,
+    // so it is treated as "nothing missing" and the ordinary open path reports what it finds.
+    .unwrap_or(None)
+}
+
 // ---------------------------------------------------------------------------
 // The call
 // ---------------------------------------------------------------------------
@@ -400,7 +420,9 @@ impl Call {
         if !capabilities().voice {
             return Err(anyhow!("calling is not available on this platform yet"));
         }
-        if let Some(missing) = missing_audio_device(microphone.as_deref(), speaker.as_deref()) {
+        if let Some(missing) =
+            missing_audio_device_off_thread(microphone.clone(), speaker.clone()).await
+        {
             return Err(anyhow!("no {missing} is available; a call needs one"));
         }
         let (mic, mic_rx) = AudioInput::spawn(microphone.clone());
@@ -606,7 +628,9 @@ impl Call {
         if !capabilities().voice {
             return Err(anyhow!("calling is not available on this platform yet"));
         }
-        if let Some(missing) = missing_audio_device(microphone.as_deref(), speaker.as_deref()) {
+        if let Some(missing) =
+            missing_audio_device_off_thread(microphone.clone(), speaker.clone()).await
+        {
             return Err(anyhow!("no {missing} is available; a call needs one"));
         }
         let (mic, mic_rx) = AudioInput::spawn(microphone.clone());

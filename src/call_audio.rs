@@ -31,8 +31,13 @@ const BLOCK_MS: usize = 20;
 ///
 /// The engine writes one 20 ms slice every 20 ms and drops the frame when this channel is full, so
 /// whatever is here is the burst the speaker may absorb before the peer's voice starts breaking up.
-/// Three hundred milliseconds sits above the engine's own jitter cushion rather than under it.
-pub const SPEAKER_QUEUE: usize = 16;
+///
+/// The capacity is counted in whole engine frames, not in slices: one frame is [`FRAME_SAMPLES`],
+/// which is 60 ms at [`RATE`], so sixteen of them was about 960 ms — nearly a second of the peer's
+/// voice arriving late before the queue began shedding, not the three hundred milliseconds the
+/// comment claimed. Five frames is the 300 ms the design wants, and it still sits above the
+/// engine's own jitter cushion rather than under it.
+pub const SPEAKER_QUEUE: usize = 5;
 /// How long the sink may hold audio without playing any of it before the stream is restarted.
 ///
 /// A device that stops draining is not a slow consumer to catch up with: the queue only grows and

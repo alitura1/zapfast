@@ -93,15 +93,26 @@ fn before_showing(cancelled: &mut tokio::sync::oneshot::Receiver<Stop>) -> Optio
 /// its notification is still being delivered cannot leave a stale notification.
 #[derive(Default)]
 pub struct Notifications {
-    pending: std::collections::HashMap<String, Vec<(u64, tokio::sync::oneshot::Sender<Stop>)>>,
+    pending: std::collections::HashMap<String, Vec<Waiting>>,
     /// Order of registration, so the oldest waiting notification is released first.
     registered: u64,
 }
 
+/// One notification waiting on screen.
+struct Waiting {
+    /// Registration order, so the oldest is released first.
+    order: u64,
+    /// Whether this is an incoming-call notification, which is taken back by its own rule rather
+    /// than by the chat's: answering a call must not close an unrelated message notification that
+    /// happens to be waiting for the same chat.
+    call: bool,
+    cancel: tokio::sync::oneshot::Sender<Stop>,
+}
+
 impl Notifications {
-    fn register(&mut self, chat: &str) -> tokio::sync::oneshot::Receiver<Stop> {
+    fn register(&mut self, chat: &str, call: bool) -> tokio::sync::oneshot::Receiver<Stop> {
         self.pending.retain(|_, entries| {
-            entries.retain(|(_, entry)| !entry.is_closed());
+            entries.retain(|entry| !entry.cancel.is_closed());
             !entries.is_empty()
         });
         while self.pending.values().map(Vec::len).sum::<usize>() >= WAITING_LIMIT {
@@ -112,7 +123,11 @@ impl Notifications {
         self.pending
             .entry(chat.to_owned())
             .or_default()
-            .push((self.registered, cancel));
+            .push(Waiting {
+                order: self.registered,
+                call,
+                cancel,
+            });
         cancelled
     }
 
@@ -120,16 +135,16 @@ impl Notifications {
         let oldest = self
             .pending
             .iter()
-            .flat_map(|(chat, entries)| entries.iter().map(move |(order, _)| (*order, chat)))
+            .flat_map(|(chat, entries)| entries.iter().map(move |entry| (entry.order, chat)))
             .min()
             .map(|(order, chat)| (order, chat.clone()));
         let Some((order, chat)) = oldest else {
             return;
         };
         if let Some(entries) = self.pending.get_mut(&chat) {
-            if let Some(index) = entries.iter().position(|(entry, _)| *entry == order) {
-                let (_, cancel) = entries.remove(index);
-                let _ = cancel.send(Stop::Release);
+            if let Some(index) = entries.iter().position(|entry| entry.order == order) {
+                let entry = entries.remove(index);
+                let _ = entry.cancel.send(Stop::Release);
             }
             if entries.is_empty() {
                 self.pending.remove(&chat);
@@ -139,9 +154,38 @@ impl Notifications {
 
     pub fn clear(&mut self, chat: &str) {
         if let Some(entries) = self.pending.remove(chat) {
-            for (_, cancel) in entries {
-                let _ = cancel.send(Stop::Close);
+            for entry in entries {
+                let _ = entry.cancel.send(Stop::Close);
             }
+        }
+    }
+
+    /// Takes back only this chat's incoming-call notification, leaving its message notifications
+    /// alone.
+    ///
+    /// Answering or giving up a call is what takes its own notification down, and a message that
+    /// arrived while it was ringing is a separate thing the reader has not seen: closing the whole
+    /// chat's notifications made answering a call quietly swallow that message's notification too.
+    pub fn clear_call(&mut self, chat: &str) {
+        let Some(entries) = self.pending.get_mut(chat) else {
+            return;
+        };
+        // The call's own senders are taken out and told to close; dropping them instead would close
+        // their channels without a `Stop`, which the delivery thread reads as "already gone" rather
+        // than "take this one down".
+        let mut taken = Vec::new();
+        for entry in std::mem::take(entries) {
+            if entry.call {
+                taken.push(entry.cancel);
+            } else {
+                entries.push(entry);
+            }
+        }
+        for cancel in taken {
+            let _ = cancel.send(Stop::Close);
+        }
+        if entries.is_empty() {
+            self.pending.remove(chat);
         }
     }
 
@@ -161,7 +205,10 @@ impl Notifications {
         opened: Arc<Mutex<Vec<NotificationTarget>>>,
         wake: impl Fn() + Send + 'static,
     ) {
-        let cancelled = self.register(&target.chat);
+        // A call notification carries no message, which is what tells it apart from a message
+        // notification for the same chat when the call is answered.
+        let call = target.message.is_none();
+        let cancelled = self.register(&target.chat, call);
         let spawned = std::thread::Builder::new()
             .name("notification".into())
             .spawn(move || {
@@ -372,12 +419,41 @@ mod tests {
         )));
     }
 
+    /// Answering a call takes back its own notification and nothing else.
+    ///
+    /// A message notification registered while the call was ringing belongs to the same chat, so
+    /// `clear(chat)` — which removes every entry for the chat — swallowed it too. The reader never
+    /// saw that message, and the notification that would have shown it is gone.
+    #[test]
+    fn answering_a_call_leaves_its_message_notifications_alone() {
+        let mut notifications = Notifications::default();
+        // A message notification, then the call's own, in the same chat.
+        let mut message = notifications.register("a", false);
+        let mut call = notifications.register("a", true);
+        let mut other_call = notifications.register("b", true);
+        notifications.clear_call("a");
+        assert_eq!(call.try_recv(), Ok(Stop::Close), "the call is taken back");
+        assert_eq!(
+            message.try_recv(),
+            Err(tokio::sync::oneshot::error::TryRecvError::Empty),
+            "the message notification the reader has not seen stays"
+        );
+        assert_eq!(
+            other_call.try_recv(),
+            Err(tokio::sync::oneshot::error::TryRecvError::Empty),
+            "another chat's call is untouched"
+        );
+        // And with the call gone, the chat's ordinary clear still works on the message.
+        notifications.clear("a");
+        assert_eq!(message.try_recv(), Ok(Stop::Close));
+    }
+
     #[test]
     fn reading_cancels_delivered_and_pending_notifications_for_only_that_chat() {
         let mut notifications = Notifications::default();
-        let mut first = notifications.register("a");
-        let mut second = notifications.register("a");
-        let mut other = notifications.register("b");
+        let mut first = notifications.register("a", false);
+        let mut second = notifications.register("a", false);
+        let mut other = notifications.register("b", false);
         notifications.clear("a");
         assert_eq!(first.try_recv(), Ok(Stop::Close));
         assert_eq!(second.try_recv(), Ok(Stop::Close));
@@ -385,7 +461,7 @@ mod tests {
             other.try_recv(),
             Err(tokio::sync::oneshot::error::TryRecvError::Empty)
         );
-        let mut next = notifications.register("a");
+        let mut next = notifications.register("a", false);
         assert_eq!(
             next.try_recv(),
             Err(tokio::sync::oneshot::error::TryRecvError::Empty)
@@ -401,8 +477,8 @@ mod tests {
     #[test]
     fn expired_notifications_do_not_accumulate() {
         let mut notifications = Notifications::default();
-        drop(notifications.register("a"));
-        let _next = notifications.register("b");
+        drop(notifications.register("a", false));
+        let _next = notifications.register("b", false);
         assert!(!notifications.pending.contains_key("a"));
     }
 
@@ -411,9 +487,9 @@ mod tests {
         use tokio::sync::oneshot::error::TryRecvError;
         let mut notifications = Notifications::default();
         let mut waiting: Vec<_> = (0..WAITING_LIMIT)
-            .map(|index| notifications.register(&format!("chat {}", index % 3)))
+            .map(|index| notifications.register(&format!("chat {}", index % 3), false))
             .collect();
-        let mut newest = notifications.register("chat 0");
+        let mut newest = notifications.register("chat 0", false);
         assert_eq!(waiting[0].try_recv(), Ok(Stop::Release));
         for later in &mut waiting[1..] {
             assert_eq!(later.try_recv(), Err(TryRecvError::Empty));
@@ -434,15 +510,15 @@ mod tests {
     #[test]
     fn a_notification_released_before_it_appears_is_still_shown() {
         let mut notifications = Notifications::default();
-        let mut first = notifications.register("a");
-        let mut read = notifications.register("b");
+        let mut first = notifications.register("a", false);
+        let mut read = notifications.register("b", false);
         let _waiting: Vec<_> = (0..WAITING_LIMIT - 1)
-            .map(|index| notifications.register(&format!("chat {index}")))
+            .map(|index| notifications.register(&format!("chat {index}"), false))
             .collect();
         notifications.clear("b");
         assert_eq!(before_showing(&mut first), Some(false));
         assert_eq!(before_showing(&mut read), None);
-        let mut fresh = notifications.register("c");
+        let mut fresh = notifications.register("c", false);
         assert_eq!(before_showing(&mut fresh), Some(true));
     }
 
@@ -450,10 +526,10 @@ mod tests {
     fn finished_notifications_do_not_count_against_the_limit() {
         let mut notifications = Notifications::default();
         for index in 0..WAITING_LIMIT * 2 {
-            drop(notifications.register(&format!("chat {index}")));
+            drop(notifications.register(&format!("chat {index}"), false));
         }
         let mut waiting: Vec<_> = (0..WAITING_LIMIT)
-            .map(|index| notifications.register(&format!("chat {index}")))
+            .map(|index| notifications.register(&format!("chat {index}"), false))
             .collect();
         for receiver in &mut waiting {
             assert_eq!(

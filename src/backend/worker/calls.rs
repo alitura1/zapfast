@@ -341,6 +341,22 @@ impl Worker {
             return;
         }
         if self.call_busy() {
+            // Refuse it to the caller rather than dropping it. An offer that is only dropped leaves
+            // the other side ringing until its own protocol timeout, believing this device might
+            // still answer; a real `<reject>` ends it there and then. The call that is already up
+            // is untouched: this is the second offer's own call id being refused, not ours.
+            match self.client.as_ref() {
+                Some(client) => match client.voip().reject(incoming).await {
+                    Ok(()) => log::info!(
+                        "[CALL] refused a second offer while one is up call_id={}",
+                        action.call_id()
+                    ),
+                    Err(error) => {
+                        log::warn!("[CALL] a second offer could not be refused: {error}")
+                    }
+                },
+                None => log::warn!("[CALL] no client to refuse a second offer with"),
+            }
             return;
         }
         let chat = self.canonical(&incoming.from);

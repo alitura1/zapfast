@@ -441,6 +441,28 @@ pub fn phone(digits: &str) -> String {
     out
 }
 
+/// Whether a name is only a phone number wearing punctuation.
+///
+/// A direct chat the address book does not know is stored under the number the worker formatted it
+/// into — `+1 555 123 4567`, or `(11) 91234-5678` for a Brazilian number — so a check for "all
+/// digits" misses it: the `+`, the spaces and the brackets are exactly what a formatted number is
+/// made of. Anything with a letter in it is a name someone chose and is left alone.
+pub fn looks_like_a_phone_number(name: &str) -> bool {
+    let mut saw_digit = false;
+    for character in name.chars() {
+        if character.is_ascii_digit() {
+            saw_digit = true;
+            continue;
+        }
+        // The punctuation a formatted number carries. A letter, or anything else, means this is a
+        // name rather than a number.
+        if !matches!(character, '+' | ' ' | '-' | '(' | ')' | '.' | '/') {
+            return false;
+        }
+    }
+    saw_digit
+}
+
 /// Formats Brazil's `+55` numbers as `(DDD) XXXX-XXXX` or `(DDD) XXXXX-XXXX`.
 ///
 /// WhatsApp stores direct-chat ids in international form, while Brazilian
@@ -541,6 +563,45 @@ pub fn tray_template_rgba(size: usize) -> Vec<u8> {
 
 #[cfg(test)]
 mod tests {
+    /// A formatted number is recognised as a number, and a real name is not.
+    ///
+    /// The worker stores a stranger's direct chat under `phone(digits)`, so the guard has to see
+    /// through the punctuation that formatting adds: checking for "all digits" missed `+1 555 123
+    /// 4567`, which is exactly what the worker writes.
+    #[test]
+    fn a_formatted_number_reads_as_a_number_and_a_name_does_not() {
+        use super::{looks_like_a_phone_number, phone};
+        // What the worker actually produces for an unknown direct chat.
+        assert!(looks_like_a_phone_number(&phone("15551234567")));
+        assert!(looks_like_a_phone_number(&phone("5511912345678")));
+        // The common shapes a number arrives in.
+        for number in [
+            "+1 555 123 4567",
+            "+1 (555) 123-4567",
+            "555-123-4567",
+            "+44 20 7946 0958",
+            "(11) 91234-5678",
+            "15551234567",
+        ] {
+            assert!(looks_like_a_phone_number(number), "{number}");
+        }
+        // A name with a letter in it is a name, digits and all.
+        for name in [
+            "Ada",
+            "Ada 2",
+            "Room 12",
+            "~Ada",
+            "Ada Lovelace",
+            "2nd Floor",
+        ] {
+            assert!(!looks_like_a_phone_number(name), "{name}");
+        }
+        // Nothing that is not a digit at all is not a number.
+        assert!(!looks_like_a_phone_number(""));
+        assert!(!looks_like_a_phone_number("+"));
+        assert!(!looks_like_a_phone_number(" - ()"));
+    }
+
     #[test]
     fn a_day_filter_covers_the_local_day_across_clock_changes() {
         use jiff::civil::date;

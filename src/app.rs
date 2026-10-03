@@ -1471,9 +1471,13 @@ impl App {
         if let Some(name) = saved.or_else(|| called.map(|name| format!("~{name}"))) {
             return Some(name);
         }
+        // The chat's own name, unless it is the number the worker formatted it into. A direct chat
+        // with no saved or push name is stored under that formatted number, so "all digits" is not
+        // enough to tell a number from a name: `+1 555 123 4567` is what the worker writes, and
+        // letting it through put a stranger's number on the call surface and on a lock screen.
         if let Some(chat) = self.chat(id)
             && !chat.name.is_empty()
-            && !chat.name.chars().all(|c| c.is_ascii_digit())
+            && !crate::util::looks_like_a_phone_number(&chat.name)
         {
             return Some(chat.name.clone());
         }
@@ -3294,11 +3298,15 @@ impl App {
         }
         // A call we have already announced and that is no longer ringing has been picked up or
         // given up, so its notification goes away instead of sitting there asking for an answer.
+        //
+        // Only the call's own notification is taken back: a message that arrived while the call
+        // was ringing is a separate thing the reader has not seen, and clearing the whole chat's
+        // notifications made answering a call quietly swallow it.
         if update.phase != crate::calls::CallPhase::Incoming
             && self.call_notified == Some(update.generation)
         {
             self.call_notified = None;
-            self.notifications.clear(&update.chat);
+            self.notifications.clear_call(&update.chat);
         }
         let finished = !update.phase.is_live();
         if finished {
@@ -3351,10 +3359,17 @@ impl App {
         let now = crate::util::now();
         // The chat's own rules, read before anything is borrowed from it: a call in a chat that is
         // muted, archived, or locked stays as quiet as a message in one.
-        let Some(chat_sound) = self.chat(&call.chat).and_then(|chat| {
-            call_notification_eligible(chat, now).then(|| chat.notification_sound.clone())
-        }) else {
-            return;
+        //
+        // A caller with no chat row at all is a stranger whose offer the worker accepted without
+        // ever creating a chat — an unknown number, or one this device has never seen. Treating a
+        // missing chat as ineligible left that call ringing silently with no notification and no
+        // other way to reach a hidden window, so it uses the ordinary sound instead. A chat that
+        // does exist still gets its own muted, archived, and locked checks, which is what keeps a
+        // locked chat quiet; the call's name and picture are redacted separately either way.
+        let chat_sound = match self.chat(&call.chat) {
+            Some(chat) if !call_notification_eligible(chat, now) => return,
+            Some(chat) => chat.notification_sound.clone(),
+            None => None,
         };
         // The call's own name, not the chat's title: a stranger who calls is an unknown caller here,
         // never a phone number on a lock screen.
@@ -5967,6 +5982,44 @@ mod tests {
             },
         );
         assert_eq!(app.call_name(id), "Ada");
+    }
+
+    /// The name the worker actually stores for a stranger is the *formatted* number.
+    ///
+    /// The test above used an empty chat name, which is not what the worker writes: `chat_name`
+    /// falls back to `util::phone(digits)`, so a direct chat the address book does not know is
+    /// stored as `+1 555 123 4567`. The old guard rejected only names made entirely of ASCII
+    /// digits, and `+`, spaces and brackets are not digits — so the formatted number went straight
+    /// through to the call surface and to a lock-screen notification. The regression input is the
+    /// real one the worker produces.
+    #[test]
+    fn a_formatted_number_is_not_a_name_on_a_call() {
+        for (digits, formatted) in [
+            ("15551234567", crate::util::phone("15551234567")),
+            ("5511912345678", crate::util::phone("5511912345678")),
+        ] {
+            let mut app = app();
+            let id = format!("{digits}@s.whatsapp.net");
+            // Exactly what `Worker::chat_name` stores when there is no saved or push name.
+            app.chats.push(Chat::new(id.clone(), formatted.clone()));
+            assert!(
+                formatted != digits,
+                "the worker's fallback is formatted, not bare digits: {formatted}"
+            );
+            assert_eq!(
+                app.call_name(&id),
+                "Unknown caller",
+                "a formatted number is not a name: {formatted}"
+            );
+        }
+        // A real name that merely contains digits is still a name.
+        let mut app = app();
+        let id = "15551234567@s.whatsapp.net";
+        app.chats.push(Chat::new(id.into(), "Ada 2".into()));
+        assert_eq!(app.call_name(id), "Ada 2");
+        let id2 = "15559999999@s.whatsapp.net";
+        app.chats.push(Chat::new(id2.into(), "Room 12".into()));
+        assert_eq!(app.call_name(id2), "Room 12");
     }
 
     #[test]

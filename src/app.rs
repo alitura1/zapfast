@@ -3333,6 +3333,18 @@ impl App {
             self.call_notified = None;
             self.notifications.clear_call(&update.chat);
         }
+        // A peer who stopped sending video leaves no picture to show, and the last decoded frame
+        // is not a picture of a live stream: it is dropped here so the surface falls back to the
+        // waiting state instead of painting a frozen face as if it were live.
+        if update.video
+            && !update.remote_video
+            && self
+                .call
+                .as_ref()
+                .is_some_and(|current| current.remote_video)
+        {
+            self.call_remote_frame = None;
+        }
         let finished = !update.phase.is_live();
         if finished {
             if self.call.is_none() {

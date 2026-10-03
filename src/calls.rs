@@ -1894,7 +1894,11 @@ impl Call {
     ///
     /// A call we were ringing for that was answered or declined elsewhere is not the same thing as
     /// an unanswered one, so the two cases get their own words while both release the media.
-    pub fn resolved_elsewhere(&mut self) -> Option<CallUpdate> {
+    /// `elsewhere` is what the terminal event said became of the call — answered or declined on
+    /// another device — and `None` is the caller simply giving up. It is what decides a ringing
+    /// call's outcome: without it, an `accepted_elsewhere` and a `rejected_elsewhere` both read as
+    /// an ordinary missed call, and the record can no longer say which happened.
+    pub fn resolved_elsewhere(&mut self, elsewhere: Option<CallOutcome>) -> Option<CallUpdate> {
         if !self.phase.is_live() {
             return None;
         }
@@ -1916,7 +1920,7 @@ impl Call {
         self.outcome = Some(if live {
             CallOutcome::AnsweredElsewhere
         } else if ringing {
-            CallOutcome::Missed
+            elsewhere.unwrap_or(CallOutcome::Missed)
         } else {
             CallOutcome::NoAnswer
         });
@@ -3273,7 +3277,7 @@ mod tests {
         // and it was not a call nobody answered either.
         let mut call = dialing();
         let update = call
-            .resolved_elsewhere()
+            .resolved_elsewhere(None)
             .expect("the other device took the call");
         assert_eq!(update.phase, CallPhase::Failed);
         assert_eq!(update.outcome, Some(CallOutcome::NoAnswer));
@@ -3282,15 +3286,45 @@ mod tests {
         let mut incoming = dialing();
         incoming.direction = CallDirection::Incoming;
         incoming.phase = CallPhase::Incoming;
-        let update = incoming.resolved_elsewhere().expect("resolved elsewhere");
+        let update = incoming
+            .resolved_elsewhere(None)
+            .expect("resolved elsewhere");
         assert_eq!(update.phase, CallPhase::Failed);
         assert_eq!(update.outcome, Some(CallOutcome::Missed));
+
+        // A ringing incoming call answered on another device: this device never picked it up, but
+        // "missed" is not what happened. The event's own outcome is what is recorded.
+        let mut answered_elsewhere = dialing();
+        answered_elsewhere.direction = CallDirection::Incoming;
+        answered_elsewhere.phase = CallPhase::Incoming;
+        let update = answered_elsewhere
+            .resolved_elsewhere(Some(CallOutcome::AnsweredElsewhere))
+            .expect("resolved elsewhere");
+        assert_eq!(update.phase, CallPhase::Failed);
+        assert_eq!(update.outcome, Some(CallOutcome::AnsweredElsewhere));
+        assert_eq!(
+            answered_elsewhere.record().expect("a record").status,
+            CallStatus::AnsweredElsewhere
+        );
+
+        // And declined on another device keeps its own status too, rather than reading as missed.
+        let mut declined_elsewhere = dialing();
+        declined_elsewhere.direction = CallDirection::Incoming;
+        declined_elsewhere.phase = CallPhase::Incoming;
+        let update = declined_elsewhere
+            .resolved_elsewhere(Some(CallOutcome::DeclinedElsewhere))
+            .expect("resolved elsewhere");
+        assert_eq!(update.outcome, Some(CallOutcome::DeclinedElsewhere));
+        assert_eq!(
+            declined_elsewhere.record().expect("a record").status,
+            CallStatus::DeclinedElsewhere
+        );
 
         // A call that was up and then resolved elsewhere was answered, just not here.
         let mut live = dialing();
         live.media(&CallEvent::RelayAllocated);
         live.signaling(&accept()).expect("the peer answered");
-        let update = live.resolved_elsewhere().expect("resolved elsewhere");
+        let update = live.resolved_elsewhere(None).expect("resolved elsewhere");
         assert_eq!(update.phase, CallPhase::Ended);
         assert_eq!(update.outcome, Some(CallOutcome::AnsweredElsewhere));
         // The other device answered, so this device's record is not an answered call with no
@@ -3310,7 +3344,7 @@ mod tests {
         let mut call = dialing();
         call.signaling(&accept()).expect("the peer answered");
         assert_eq!(call.phase(), CallPhase::Connecting);
-        let update = call.resolved_elsewhere().expect("resolved elsewhere");
+        let update = call.resolved_elsewhere(None).expect("resolved elsewhere");
         assert_eq!(update.phase, CallPhase::Failed);
         assert_eq!(update.outcome, Some(CallOutcome::NoAnswer));
         assert!(

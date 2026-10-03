@@ -305,7 +305,9 @@ fn live(
 /// back, floating above the page rather than covering it.
 fn bar(app: &mut App, ctx: &egui::Context, call: &CallUpdate, peer: &str, palette: &Palette) {
     let locale = app.locale;
-    let live = call.phase == CallPhase::Active;
+    // Whether the call is still going, not just whether it is talking: a dialing, ringing, or
+    // connecting call the reader hid is still a call, and the ended-call icon would say otherwise.
+    let live = call.phase.is_live();
     egui::Area::new(egui::Id::new(MINIBAR))
         .order(egui::Order::Foreground)
         .anchor(egui::Align2::CENTER_BOTTOM, vec2(0.0, -18.0))

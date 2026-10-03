@@ -27,6 +27,9 @@ const SENDER_AVATAR: f32 = 28.0;
 /// How much room one call entry takes in the transcript, spacing included. Fixed, so an entry far
 /// from the viewport can be skipped by exactly the space it would have taken.
 const CALL_ENTRY_HEIGHT: f32 = 30.0;
+/// The room a date chip takes above the entry that opens a new day, matching the estimate the
+/// message rows use for the same chip.
+const DAY_CHIP_HEIGHT: f32 = 36.0;
 const BODY_SIZE: f32 = 14.5;
 /// Extra space above the first message of a run from one side.
 const RUN_GAP: f32 = 5.0;
@@ -1987,6 +1990,10 @@ fn messages(app: &mut App, ui: &mut egui::Ui, chat: &Chat) {
                     ui.spacing_mut().item_spacing.y = 3.0;
                     top_of_history(ui, &palette, &conversation, chat, &mut actions);
                     let mut previous: Option<&Message> = None;
+                    // The timestamp of whichever entry was drawn last, calls and messages alike, so a
+                    // day boundary is computed across both. Tracking only messages let a call on a
+                    // new day fall under the previous message's chip, with the next chip below it.
+                    let mut previous_at: Option<i64> = None;
                     // This chat's calls take their place among its messages by time. The list is
                     // newest first, so it is walked from the end and each call is drawn just before
                     // the first message that came after it. An entry is one fixed height, which is
@@ -1997,18 +2004,15 @@ fn messages(app: &mut App, ui: &mut egui::Ui, chat: &Chat) {
                     // When the archive has no earlier messages, a call older than the oldest loaded
                     // one would be drawn as if it belonged immediately before it, jumping the
                     // messages still on the phone and breaking the order. It stays out until older
-                    // pages load, which is when it really belongs there.
+                    // pages load, which is when it really belongs there. The phone's own history
+                    // has to be exhausted too: while it is still being fetched, an older call is
+                    // not yet out of place, it is simply older than what has loaded so far.
                     let oldest_loaded = conversation.messages.first().map(|m| m.timestamp);
-                    let history_complete = conversation.complete;
+                    let history_complete = conversation.complete && conversation.phone_exhausted;
                     // Rows within a few viewports of the screen are laid out
                     // and their height remembered, so scrolling finds them
                     // measured before they show.
                     let margin = (viewport.height() * 3.0).max(600.0);
-                    let call_near = |at: f32| {
-                        lay_out_all
-                            || (at + CALL_ENTRY_HEIGHT >= viewport.top() - margin
-                                && at <= viewport.bottom() + margin)
-                    };
                     for message in &conversation.messages {
                         while next_call > 0 && calls[next_call - 1].started_at <= message.timestamp
                         {
@@ -2019,16 +2023,40 @@ fn messages(app: &mut App, ui: &mut egui::Ui, chat: &Chat) {
                             {
                                 continue;
                             }
-                            if call_near(ui.cursor().top()) {
-                                call_entry(app, ui, &palette, &calls[next_call]);
+                            let call = &calls[next_call];
+                            // A call that enters a new day carries that day's chip itself, the way a
+                            // message does; the chip belongs before whichever entry crosses the
+                            // boundary first.
+                            let call_new_day = previous_at.is_none_or(|at| {
+                                crate::util::day_key(at) != crate::util::day_key(call.started_at)
+                            });
+                            let call_height = CALL_ENTRY_HEIGHT
+                                + if call_new_day { DAY_CHIP_HEIGHT } else { 0.0 };
+                            let at = ui.cursor().top();
+                            let near = lay_out_all
+                                || (at + call_height >= viewport.top() - margin
+                                    && at <= viewport.bottom() + margin);
+                            if near {
+                                if call_new_day {
+                                    ui.add_space(8.0);
+                                    ui.vertical_centered(|ui| {
+                                        widgets::chip(
+                                            ui,
+                                            &palette,
+                                            &crate::util::day_label(app.locale, call.started_at),
+                                        );
+                                    });
+                                    ui.add_space(4.0);
+                                }
+                                call_entry(app, ui, &palette, call);
                             } else {
-                                ui.add_space(CALL_ENTRY_HEIGHT);
+                                ui.add_space(call_height);
                             }
+                            previous_at = Some(call.started_at);
                         }
                         let before = ui.cursor().top();
-                        let new_day = previous.is_none_or(|previous| {
-                            crate::util::day_key(previous.timestamp)
-                                != crate::util::day_key(message.timestamp)
+                        let new_day = previous_at.is_none_or(|at| {
+                            crate::util::day_key(at) != crate::util::day_key(message.timestamp)
                         });
                         let known = rows.get(&message.id).copied();
                         let height = known.map_or_else(
@@ -2056,6 +2084,7 @@ fn messages(app: &mut App, ui: &mut egui::Ui, chat: &Chat) {
                                 rows.insert(message.id.clone(), RowHeight { height, pass: None });
                             }
                             previous = Some(message);
+                            previous_at = Some(message.timestamp);
                             continue;
                         }
                         // A row laid out again after a skip still has the
@@ -2189,14 +2218,43 @@ fn messages(app: &mut App, ui: &mut egui::Ui, chat: &Chat) {
                             },
                         );
                         previous = Some(message);
+                        previous_at = Some(message.timestamp);
                     }
-                    // Calls newer than the last message belong at the end of the transcript.
-                    while next_call > 0 {
-                        next_call -= 1;
-                        if call_near(ui.cursor().top()) {
-                            call_entry(app, ui, &palette, &calls[next_call]);
-                        } else {
-                            ui.add_space(CALL_ENTRY_HEIGHT);
+                    // Calls newer than the last message belong at the end of the transcript. A
+                    // conversation with no messages yet has no boundary to place them against, and a
+                    // bare chat asks the phone for its history immediately: drawing them now would
+                    // make them jump once messages arrive, so they wait for the first message or for
+                    // both local and phone history to run out.
+                    if !conversation.messages.is_empty() || history_complete {
+                        while next_call > 0 {
+                            next_call -= 1;
+                            let call = &calls[next_call];
+                            let call_new_day = previous_at.is_none_or(|at| {
+                                crate::util::day_key(at) != crate::util::day_key(call.started_at)
+                            });
+                            let call_height = CALL_ENTRY_HEIGHT
+                                + if call_new_day { DAY_CHIP_HEIGHT } else { 0.0 };
+                            let at = ui.cursor().top();
+                            let near = lay_out_all
+                                || (at + call_height >= viewport.top() - margin
+                                    && at <= viewport.bottom() + margin);
+                            if near {
+                                if call_new_day {
+                                    ui.add_space(8.0);
+                                    ui.vertical_centered(|ui| {
+                                        widgets::chip(
+                                            ui,
+                                            &palette,
+                                            &crate::util::day_label(app.locale, call.started_at),
+                                        );
+                                    });
+                                    ui.add_space(4.0);
+                                }
+                                call_entry(app, ui, &palette, call);
+                            } else {
+                                ui.add_space(call_height);
+                            }
+                            previous_at = Some(call.started_at);
                         }
                     }
                     if !typing.is_empty() {

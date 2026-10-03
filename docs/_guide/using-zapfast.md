@@ -14,7 +14,11 @@ really answered. The camera icon starts a video call instead. A call you are
 receiving takes over the window by itself, whoever you were writing to, with the
 caller's name and picture, a line saying whether it is a voice or a video call,
 and **Accept** and **Decline**. Names come from your address
-book or the public profile name, exactly as they do in the chat list. A desktop
+book or the public profile name, as they do in the chat list, with one
+difference kept on purpose: an unknown peer is shown as **Unknown caller**
+here, where the chat list may fall back to the phone number. A call's name is
+what a lock screen and a desktop notification put on display, and a number is
+not something to announce to whoever is standing near the computer. A desktop
 notification with the caller's name goes out as well, so a window hidden in the
 tray or behind another program does not hide the call; clicking it brings
 ZapFast up with the call waiting. A chat you have muted, archived, or locked

@@ -1313,6 +1313,7 @@ impl Call {
             peer_audio: None,
             incoming: None,
             handle: None,
+            began: std::time::SystemTime::now(),
             media_ready: false,
             mic: None,
             speaker: None,

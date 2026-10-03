@@ -294,8 +294,16 @@ impl Worker {
             Some(runtime) => {
                 if on && !runtime.call.is_video() {
                     // A voice call: ask the peer for video and start draining the frames it brings,
-                    // from the camera the settings remember.
-                    let camera = self.call_defaults.camera.clone();
+                    // from the camera the settings remember. A camera has no system default, so the
+                    // stored `None` — the picker's "Default device" — is read here as the first
+                    // camera the machine reports, exactly as a call's startup reads it. Passing it
+                    // through unresolved made the upgrade fail on a fresh install even with a
+                    // working camera attached. The list is already in hand, so nothing is enumerated
+                    // here: the list is cached by `reconcile_call` and `call_devices`.
+                    let camera = calls::default_camera(
+                        &self.call_devices,
+                        self.call_defaults.camera.clone(),
+                    );
                     match runtime.call.upgrade_to_video(camera).await {
                         Ok(frames) => {
                             if frames.is_some() {
@@ -345,6 +353,11 @@ impl Worker {
 
     pub(super) fn set_call_camera_device(&mut self, device: Option<String>) {
         self.call_defaults.camera = device.clone();
+        // `None` is the picker's "Default device". A camera has no system default, so it is read
+        // as the first camera the machine reports — the same reading a call's startup applies.
+        // Passing the bare `None` through stopped the running camera and then had no node to open,
+        // so choosing the default left the call with no picture until the next call.
+        let device = calls::default_camera(&self.call_devices, device);
         let outcome = self
             .call
             .as_mut()
@@ -400,10 +413,19 @@ impl Worker {
                     .call
                     .as_mut()
                     .is_some_and(|runtime| runtime.call.saw_remote_video());
-                self.emit(Event::CallVideo {
-                    local: None,
-                    remote: Some(image),
-                });
+                // The flag is what the UI gates the picture on, so a frame that arrives after the
+                // peer said their video stopped is not drawn: it is a picture of a stream that has
+                // ended, and showing it would contradict the state the peer just sent.
+                let still_sending = self
+                    .call
+                    .as_ref()
+                    .is_none_or(|runtime| runtime.call.peer_video_visible());
+                if still_sending {
+                    self.emit(Event::CallVideo {
+                        local: None,
+                        remote: Some(image),
+                    });
+                }
                 if first && let Some(runtime) = self.call.as_ref() {
                     let update = runtime.call.update();
                     self.emit(Event::Call(Box::new(update)));

@@ -876,6 +876,12 @@ mod v4l2 {
     /// aligned and padded like one, and it is modelled here as a single `u64`, which the compiler
     /// places exactly where the kernel does. The ioctl number is built from this type's own size,
     /// so the request sent to the kernel can never disagree with the struct it points at.
+    ///
+    /// The total size alone cannot prove this mirror is right: `v4l2_timecode` is a union sixteen
+    /// bytes long, and a twelve-byte stand-in is swallowed by the padding before `offset`'s
+    /// eight-byte alignment, leaving the size at 88 while every field past it sits four bytes early.
+    /// `sequence` and `memory` are what the driver reads, so their offsets are asserted too — see
+    /// `the_kernel_layouts_are_reproduced`.
     #[repr(C)]
     #[derive(Clone, Copy, Default)]
     pub(super) struct Buffer {
@@ -885,7 +891,9 @@ mod v4l2 {
         flags: u32,
         field: u32,
         timestamp: [u64; 2],
-        timecode: [u8; 12],
+        /// `v4l2_timecode`: a four-byte `type`, two `flags` bytes, two `frames` bytes, eight
+        /// `userbits` bytes, then a four-byte union. Sixteen bytes, and the union is the widest arm.
+        timecode: [u8; 16],
         sequence: u32,
         memory: u32,
         offset: u64,
@@ -893,6 +901,39 @@ mod v4l2 {
         reserved2: u32,
         request_fd: u32,
     }
+
+    /// The byte offset of `sequence` in `v4l2_buffer`, as `videodev2.h` lays it out on 64-bit
+    /// Linux. The compile-time assertion below is the guard; this names it for the test that
+    /// demonstrates the bug it catches.
+    #[cfg(test)]
+    pub(super) const BUFFER_SEQUENCE: usize = std::mem::offset_of!(Buffer, sequence);
+    /// The byte offset of `memory`, which is the field the driver reads to tell which buffer model
+    /// was asked for: four bytes early it reads zero instead of `V4L2_MEMORY_MMAP`.
+    #[cfg(test)]
+    pub(super) const BUFFER_MEMORY: usize = std::mem::offset_of!(Buffer, memory);
+
+    /// The offsets `videodev2.h` gives, proved at compile time rather than in a test that a build
+    /// could skip.
+    ///
+    /// The total size alone cannot catch a short `v4l2_timecode`: the padding before `offset`'s
+    /// eight-byte alignment absorbs the four missing bytes, so the struct stays at eighty-eight
+    /// while `sequence` and `memory` move four bytes early. `VIDIOC_QUERYBUF` reads `memory` to
+    /// learn which buffer model was asked for, and zero instead of `V4L2_MEMORY_MMAP` fails the
+    /// request before any buffer is mapped — so a size-only check would have shipped a native
+    /// capture path that could never work.
+    #[cfg(all(target_os = "linux", target_pointer_width = "64"))]
+    const _: () = {
+        assert!(std::mem::size_of::<Buffer>() == 88);
+        assert!(std::mem::offset_of!(Buffer, timestamp) == 24);
+        // A `v4l2_timecode` is sixteen bytes, not twelve.
+        assert!(std::mem::offset_of!(Buffer, timecode) == 40);
+        assert!(std::mem::offset_of!(Buffer, sequence) == 56);
+        assert!(std::mem::offset_of!(Buffer, memory) == 60);
+        assert!(std::mem::offset_of!(Buffer, offset) == 64);
+        assert!(std::mem::offset_of!(Buffer, length) == 72);
+        assert!(std::mem::offset_of!(Buffer, reserved2) == 76);
+        assert!(std::mem::offset_of!(Buffer, request_fd) == 80);
+    };
 
     /// The size of one `Buffer`, which is what the ioctl number is built from.
     const BUFFER_LEN: usize = std::mem::size_of::<Buffer>();
@@ -1293,6 +1334,38 @@ mod tests {
             8,
             "the union starts past four bytes of padding"
         );
+    }
+
+    /// A timecode one union short is the bug the compile-time assertion guards against, and the
+    /// size check above would not have caught it: the padding before `offset` absorbs the four
+    /// missing bytes, so the total stays at eighty-eight while the words the driver reads move.
+    #[cfg(all(target_os = "linux", target_pointer_width = "64"))]
+    #[test]
+    fn a_short_timecode_would_move_the_words_the_driver_reads() {
+        #[repr(C)]
+        #[derive(Clone, Copy, Default)]
+        struct Short {
+            index: u32,
+            kind: u32,
+            bytesused: u32,
+            flags: u32,
+            field: u32,
+            timestamp: [u64; 2],
+            timecode: [u8; 12],
+            sequence: u32,
+            memory: u32,
+            offset: u64,
+            length: u32,
+            reserved2: u32,
+            request_fd: u32,
+        }
+        // Same total size, four bytes early where it matters: this is why offsets are checked.
+        assert_eq!(std::mem::size_of::<Short>(), 88);
+        assert_eq!(std::mem::offset_of!(Short, sequence), 52);
+        assert_eq!(std::mem::offset_of!(Short, memory), 56);
+        // The real mirror does not have that mistake.
+        assert_eq!(super::v4l2::BUFFER_SEQUENCE, 56);
+        assert_eq!(super::v4l2::BUFFER_MEMORY, 60);
     }
 
     /// The size inside one `VIDIOC_ENUM_FRAMESIZES` answer is read from the right words.

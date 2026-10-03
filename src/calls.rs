@@ -322,13 +322,34 @@ pub fn resolve_devices(
     // in-call picker to choose a node. A named camera the machine no longer has falls back the same
     // way, and the fallback is reported, so the screen can say the old one is gone.
     let camera = checked(DeviceKind::Camera, camera, &cameras, &mut lost)
-        .or_else(|| list.cameras.first().map(|camera| camera.id.clone()));
+        .or_else(|| default_camera(list, None));
 
     ResolvedDevices {
         microphone,
         speaker,
         camera,
         lost_devices: lost,
+    }
+}
+
+/// Reads the picker's "Default device" for a camera as a node that exists.
+///
+/// A camera has no system default the way a sound card does, so `None` means the first camera the
+/// machine reports — the same reading [`resolve_devices`] applies when a call starts. A camera the
+/// machine no longer has falls back the same way. `None` comes back only when nothing is named and
+/// nothing is listed, and then the caller's own failure path says so rather than this inventing one.
+///
+/// Split out of [`resolve_devices`] so the two paths that change a camera mid-call — upgrading a
+/// voice call to video, and picking a device while one is running — read the default exactly as a
+/// call's startup does, and so that reading is testable without a machine.
+pub fn default_camera(list: &DeviceList, camera: Option<String>) -> Option<String> {
+    let named = camera.filter(|id| !id.is_empty());
+    match named {
+        // A camera the machine still reports is kept, even when the list is empty: an empty list
+        // means discovery could not run, not that nothing is plugged in.
+        Some(id) if list.cameras.is_empty() || list.cameras.iter().any(|c| c.id == id) => Some(id),
+        // A camera the machine no longer has, or no choice at all: the first one it does have.
+        _ => list.cameras.first().map(|camera| camera.id.clone()),
     }
 }
 
@@ -1733,6 +1754,18 @@ impl Call {
                 );
                 None
             }
+            // The peer's own video state, which is the only thing that says their picture stopped.
+            // Without this the flag only ever went true, so a peer who turned their camera off was
+            // still reported as sending video and the decoder's last frame stayed on screen as if
+            // it were live.
+            CallEvent::VideoStateChanged { state, .. }
+            | CallEvent::PeerVideoStateChanged { state, .. } => {
+                if state.is_inactive_for_call_mode() && self.remote_video_stopped() {
+                    Some(self.update())
+                } else {
+                    None
+                }
+            }
             _ => None,
         }
     }
@@ -1972,27 +2005,42 @@ impl Call {
             let Some(pipe) = self.video_pipe.as_mut() else {
                 return Err(anyhow!("this call has no video"));
             };
+            // The local capture comes up before the engine is asked to carry it. If the engine
+            // refuses, the capture that was just started is rolled back: leaving it running would
+            // be a camera holding the device and frames going to nobody, while the screen still
+            // reads the call as video-off.
             pipe.resume_camera(self.camera.clone())?;
             let (source, sink) = (pipe.source(), pipe.sink());
             // The camera stream exists now, so the graph has relinked around it.
             if let Some(speaker) = &self.speaker {
                 speaker.relink();
             }
-            handle
-                .resume_video(source, sink)
-                .await
-                .map_err(|error| anyhow!("the camera could not be enabled: {error}"))?;
+            if let Err(error) = handle.resume_video(source, sink).await {
+                if let Some(pipe) = self.video_pipe.as_mut() {
+                    pipe.pause_camera();
+                }
+                self.camera_wanted = false;
+                self.media_stream_changed();
+                self.note_transition("camera on rolled back");
+                return Err(anyhow!("the camera could not be enabled: {error}"));
+            }
             self.camera_wanted = true;
         } else {
-            handle
-                .stop_video()
-                .await
-                .map_err(|error| anyhow!("the camera could not be stopped: {error}"))?;
+            // The local capture is what must not outlive the press, so it is stopped whatever the
+            // engine says. A failure to tell the peer is still surfaced, but it cannot be allowed
+            // to leave the camera capturing and sending: the request was to turn it off.
+            let notified = handle.stop_video().await;
             if let Some(pipe) = self.video_pipe.as_mut() {
                 pipe.pause_camera();
             }
             self.camera_wanted = false;
             self.media_stream_changed();
+            if let Err(error) = notified {
+                self.note_transition("camera off, peer not told");
+                return Err(anyhow!(
+                    "the camera was stopped, but the peer was not told: {error}"
+                ));
+            }
         }
         log::info!("[CALL] camera enabled={on}");
         self.note_transition(if on {
@@ -2009,6 +2057,10 @@ impl Call {
     /// The upgrade is the real one: `CallHandle::start_video` attaches the endpoints, enables the
     /// media plane and sends `<video state=11>`, and the peer's answer arrives as video state
     /// signaling. Returns the frame channel the UI should start draining.
+    ///
+    /// The camera arrives already resolved, the same way a call's startup resolves it: upgrading a
+    /// voice call on a fresh install opens the machine's own camera instead of failing on a `None`
+    /// that only ever meant "default device".
     pub async fn upgrade_to_video(
         &mut self,
         camera: Option<String>,
@@ -2081,6 +2133,11 @@ impl Call {
     }
 
     /// Switches the camera. A running camera is restarted on the new node.
+    ///
+    /// The device arrives already resolved: `None` is the picker's "Default device", and a camera
+    /// has no system default, so the caller reads it as the first node the machine reports — exactly
+    /// as [`resolve_devices`] reads it when a call starts. Resolving it here instead would enumerate
+    /// devices on whatever thread is driving the call, which is the worker's async loop.
     pub fn set_camera_device(&mut self, device: Option<String>) -> Result<CallUpdate> {
         self.camera = device.clone();
         self.lost_devices.clear();
@@ -2103,6 +2160,14 @@ impl Call {
         Ok(self.update())
     }
 
+    /// Whether the peer's picture is the one to show right now.
+    ///
+    /// The flag itself is private so it can only be set by a frame arriving and cleared by the
+    /// peer's own signaling; this is how the frame path asks before handing a picture to the UI.
+    pub fn peer_video_visible(&self) -> bool {
+        self.remote_video
+    }
+
     /// Notes that the peer's picture arrived, so the UI can stop saying it is waiting.
     pub fn saw_remote_video(&mut self) -> bool {
         if self.remote_video {
@@ -2110,6 +2175,21 @@ impl Call {
         }
         self.remote_video = true;
         log::info!("[CALL] remote video received call_id={}", self.call_id);
+        true
+    }
+
+    /// Notes that the peer's picture stopped, so the UI stops showing the last frame it had.
+    ///
+    /// `remote_video` only ever became true, and nothing turned it back: a peer who turned their
+    /// camera off left the call reported as sending video and the decoder's last frame on screen as
+    /// if it were live. The state that says otherwise is the peer's own `<video state=N>` signaling.
+    /// Returns whether this was a change, so only a change is published.
+    pub fn remote_video_stopped(&mut self) -> bool {
+        if !self.remote_video {
+            return false;
+        }
+        self.remote_video = false;
+        log::info!("[CALL] remote video stopped call_id={}", self.call_id);
         true
     }
 }
@@ -2605,6 +2685,90 @@ mod tests {
         // video pipeline refuse the call rather than offer the peer an empty stream.
         let none = resolve_devices(&DeviceList::default(), None, None, None);
         assert_eq!(none.camera, None);
+    }
+
+    /// Turning video on mid-call reads the default the same way a call's startup does.
+    ///
+    /// The two paths that change a camera while a call is up — upgrading a voice call to video and
+    /// picking a device in the call screen — used to pass the stored `None` straight to
+    /// `VideoPipeline::start`, which rejects it. A fresh install could then not turn its camera on
+    /// at all, even with a working camera attached, while starting a video call worked fine. Both
+    /// now go through `default_camera`, so the reading is the same one `resolve_devices` applies.
+    #[test]
+    fn a_camera_turned_on_mid_call_opens_the_machines_own() {
+        let machine = machine();
+        assert_eq!(
+            default_camera(&machine, None).as_deref(),
+            Some("/dev/video0"),
+            "the picker's default means the first camera the machine reports"
+        );
+        // A camera that is still there is kept.
+        assert_eq!(
+            default_camera(&machine, Some("/dev/video0".to_owned())).as_deref(),
+            Some("/dev/video0")
+        );
+        // One the machine no longer has falls back rather than failing the switch.
+        assert_eq!(
+            default_camera(&machine, Some("/dev/video7".to_owned())).as_deref(),
+            Some("/dev/video0")
+        );
+        // No camera named and none reported stays none, so the caller refuses rather than invents.
+        assert_eq!(default_camera(&DeviceList::default(), None), None);
+        // An empty list means discovery could not run, not that nothing is plugged in: the choice
+        // stands rather than being silently swapped for nothing.
+        assert_eq!(
+            default_camera(&DeviceList::default(), Some("/dev/video3".to_owned())).as_deref(),
+            Some("/dev/video3")
+        );
+    }
+
+    /// A peer who turns their camera off stops being reported as sending video.
+    ///
+    /// `remote_video` only ever became true, and nothing turned it back, so a peer who stopped
+    /// their camera left the call reported as carrying video and the decoder's last frame on screen
+    /// as if it were live. The peer's own `<video state=N>` signaling is what says otherwise.
+    #[test]
+    fn a_peer_that_stops_its_camera_stops_being_reported_as_sending_video() {
+        use whatsapp_rust::voip::VideoState;
+        let mut call = dialing();
+        call.video = true;
+        assert!(!call.remote_video);
+        assert!(!call.remote_video_stopped(), "nothing to stop");
+        assert!(call.saw_remote_video());
+        assert!(call.remote_video);
+        // The peer's own state saying video is inactive is what clears the flag.
+        let update = call.media(&CallEvent::VideoStateChanged {
+            state: VideoState::Stopped,
+            orientation: None,
+            upgrade_token: None,
+        });
+        assert!(update.is_some(), "the screen is told the picture stopped");
+        assert!(
+            !call.remote_video,
+            "a stopped peer camera is not a live picture"
+        );
+        // A repeated inactive state publishes nothing further.
+        assert!(
+            call.media(&CallEvent::VideoStateChanged {
+                state: VideoState::Disabled,
+                orientation: None,
+                upgrade_token: None,
+            })
+            .is_none(),
+            "only a change is published"
+        );
+        // A state that is still active leaves it alone.
+        call.saw_remote_video();
+        assert!(
+            call.media(&CallEvent::VideoStateChanged {
+                state: VideoState::Enabled,
+                orientation: None,
+                upgrade_token: None,
+            })
+            .is_none(),
+            "an active state is not a stop"
+        );
+        assert!(call.remote_video, "the picture is still there");
     }
 
     #[test]

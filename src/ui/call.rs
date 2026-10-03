@@ -125,7 +125,13 @@ fn live(
     }
     // Our own camera sits in the top corner, where a call app puts it, at its own shape: a camera
     // held upright previews upright rather than being stretched into a landscape box.
+    //
+    // Gated on `camera_on`, not on `video`: turning the camera off stops new frames but leaves the
+    // last one in `call_local_frame`, so a preview drawn on `video` alone would keep showing the
+    // last captured image as a frozen self-view of a camera that is off. The frame is kept rather
+    // than dropped, so turning the camera back on has something to draw until the next frame lands.
     if call.video
+        && call.camera_on
         && let Some(image) = app.call_local_frame.clone()
     {
         let size = fit_inside(

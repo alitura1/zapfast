@@ -5,7 +5,7 @@ msgstr ""
 "Project-Id-Version: ZapFast\n"
 "Report-Msgid-Bugs-To: https://github.com/crmne/zapfast/issues/new?"
 "template=translation.yml\n"
-"POT-Creation-Date: 2026-10-04 16:12+0300\n"
+"POT-Creation-Date: 2026-10-04 16:44+0300\n"
 "PO-Revision-Date: 2026-10-02 03:00+0300\n"
 "Last-Translator: Barış Berke Çetin <brsberkectn@gmail.com>\n"
 "Language-Team: Turkish\n"
@@ -194,7 +194,7 @@ msgstr "Etiketler"
 msgid "Ctrl+K to search · ? for keyboard shortcuts"
 msgstr "Aramak için Ctrl+K · Klavye kısayolları için ?"
 
-#: src/ui/conversation.rs:337 src/ui/call.rs:848
+#: src/ui/conversation.rs:337 src/ui/call.rs:884
 msgid "Hang up"
 msgstr "Kapat"
 
@@ -366,11 +366,11 @@ msgstr "Duraklat"
 msgid "Play"
 msgstr "Oynat"
 
-#: src/ui/conversation.rs:6080 src/ui/call.rs:734
+#: src/ui/conversation.rs:6080 src/ui/call.rs:770
 msgid "Unmute"
 msgstr "Sesi aç"
 
-#: src/ui/conversation.rs:6082 src/ui/call.rs:736
+#: src/ui/conversation.rs:6082 src/ui/call.rs:772
 msgid "Mute"
 msgstr "Sessize al"
 
@@ -687,7 +687,7 @@ msgstr "Hesap gizliliğiniz yükleniyor…"
 msgid "Change who is excluded on your phone."
 msgstr "Kimin hariç tutulacağını telefonunuzdan değiştirin."
 
-#: src/ui/settings.rs:503 src/ui/call.rs:944
+#: src/ui/settings.rs:503 src/ui/call.rs:980
 msgid "Microphone"
 msgstr "Mikrofon"
 
@@ -695,7 +695,7 @@ msgstr "Mikrofon"
 msgid "The microphone every call opens with. Default follows the system."
 msgstr "Her aramanın başladığı mikrofon. Varsayılan, sistemi izler."
 
-#: src/ui/settings.rs:511 src/ui/call.rs:954
+#: src/ui/settings.rs:511 src/ui/call.rs:990
 msgid "Speaker"
 msgstr "Hoparlör"
 
@@ -715,13 +715,14 @@ msgstr "Seçili hoparlörden kısa bir test sesi çalar."
 msgid "Play a test tone"
 msgstr "Test sesi çal"
 
-#: src/ui/settings.rs:529 src/ui/call.rs:965
+#: src/ui/settings.rs:529 src/ui/call.rs:1001
 msgid "Camera"
 msgstr "Kamera"
 
 #: src/ui/settings.rs:532
 msgid "The camera every video call opens with. Default uses the first camera."
-msgstr "Her görüntülü aramanın başladığı kamera. Varsayılan, ilk kamerayı kullanır."
+msgstr ""
+"Her görüntülü aramanın başladığı kamera. Varsayılan, ilk kamerayı kullanır."
 
 #: src/ui/settings.rs:537
 msgid "Call animations"
@@ -803,7 +804,7 @@ msgstr ""
 "GIF araması içindir. developers.giphy.com adresinden ücretsiz bir anahtar "
 "alabilirsiniz."
 
-#: src/ui/settings.rs:657 src/ui/settings.rs:1732 src/ui/settings.rs:1738
+#: src/ui/settings.rs:657 src/ui/settings.rs:1754 src/ui/settings.rs:1760
 msgid "Account"
 msgstr "Hesap"
 
@@ -820,7 +821,7 @@ msgstr "Hakkımda"
 msgid "Change profile picture"
 msgstr "Profil fotoğrafını değiştir"
 
-#: src/ui/settings.rs:663 src/ui/settings.rs:1323 src/ui/settings.rs:1734
+#: src/ui/settings.rs:663 src/ui/settings.rs:1323 src/ui/settings.rs:1756
 msgid "Unlink this computer"
 msgstr "Bu bilgisayarın bağlantısını kaldır"
 
@@ -897,7 +898,7 @@ msgctxt "wallpaper colour"
 msgid "Theme"
 msgstr "Tema"
 
-#: src/ui/settings.rs:1142 src/ui/call.rs:916
+#: src/ui/settings.rs:1142 src/ui/call.rs:952
 msgid "Default device"
 msgstr "Varsayılan cihaz"
 
@@ -977,130 +978,130 @@ msgstr "Tam ekran"
 msgid "Return to the call"
 msgstr "Aramaya dön"
 
-#: src/ui/call.rs:534
+#: src/ui/call.rs:570
 msgid "Calling…"
 msgstr "Aranıyor…"
 
-#: src/ui/call.rs:536
+#: src/ui/call.rs:572
 msgid "Ringing…"
 msgstr "Çalıyor…"
 
-#: src/ui/call.rs:539 src/ui/call.rs:547
+#: src/ui/call.rs:575 src/ui/call.rs:583
 msgid "Connected"
 msgstr "Bağlandı"
 
-#: src/ui/call.rs:541
+#: src/ui/call.rs:577
 msgid "Connecting…"
 msgstr "Bağlanıyor…"
 
-#: src/ui/call.rs:553 src/ui/call.rs:564
+#: src/ui/call.rs:589 src/ui/call.rs:600
 msgid "Call ended"
 msgstr "Arama bitti"
 
-#: src/ui/call.rs:554
+#: src/ui/call.rs:590
 msgid "Incoming call"
 msgstr "Gelen arama"
 
-#: src/ui/call.rs:565
+#: src/ui/call.rs:601
 msgid "Missed call"
 msgstr "Cevapsız arama"
 
-#: src/ui/call.rs:566 src/ui/calls.rs:301
+#: src/ui/call.rs:602 src/ui/calls.rs:301
 msgid "Declined"
 msgstr "Reddedildi"
 
-#: src/ui/call.rs:567 src/ui/calls.rs:303
+#: src/ui/call.rs:603 src/ui/calls.rs:303
 msgid "Busy"
 msgstr "Meşgul"
 
-#: src/ui/call.rs:568 src/ui/calls.rs:304
+#: src/ui/call.rs:604 src/ui/calls.rs:304
 msgid "Could not connect"
 msgstr "Bağlanılamadı"
 
-#: src/ui/call.rs:569 src/ui/calls.rs:305
+#: src/ui/call.rs:605 src/ui/calls.rs:305
 msgid "No answer"
 msgstr "Yanıt yok"
 
-#: src/ui/call.rs:572 src/ui/calls.rs:306
+#: src/ui/call.rs:608 src/ui/calls.rs:306
 msgid "Connection lost"
 msgstr "Bağlantı kesildi"
 
-#: src/ui/call.rs:574
+#: src/ui/call.rs:610
 msgid "The call could not be established"
 msgstr "Arama kurulamadı"
 
-#: src/ui/call.rs:578
+#: src/ui/call.rs:614
 msgid "Answered on another device"
 msgstr "Başka bir cihazda yanıtlandı"
 
-#: src/ui/call.rs:581
+#: src/ui/call.rs:617
 msgid "Declined on another device"
 msgstr "Başka bir cihazda reddedildi"
 
-#: src/ui/call.rs:614
+#: src/ui/call.rs:650
 msgid "Waiting for video…"
 msgstr "Video bekleniyor…"
 
-#: src/ui/call.rs:651
+#: src/ui/call.rs:687
 msgid "No audio is arriving from this call"
 msgstr "Bu aramadan ses gelmiyor"
 
-#: src/ui/call.rs:653
+#: src/ui/call.rs:689
 msgid "This call's audio cannot be decoded"
 msgstr "Bu aramanın sesi çözülemiyor"
 
-#: src/ui/call.rs:656
+#: src/ui/call.rs:692
 msgid "This call's audio is not authenticating"
 msgstr "Bu aramanın sesi doğrulanmıyor"
 
-#: src/ui/call.rs:660
+#: src/ui/call.rs:696
 msgid "This call's audio is arriving in an unexpected format"
 msgstr "Bu aramanın sesi beklenmeyen bir biçimde geliyor"
 
-#: src/ui/call.rs:664
+#: src/ui/call.rs:700
 msgid "This call's audio is being rejected by the decoder"
 msgstr "Bu aramanın sesi çözücü tarafından reddediliyor"
 
-#: src/ui/call.rs:667
+#: src/ui/call.rs:703
 msgid "This call's audio format keeps changing"
 msgstr "Bu aramanın ses biçimi sürekli değişiyor"
 
-#: src/ui/call.rs:670
+#: src/ui/call.rs:706
 msgid "The peer's audio stopped"
 msgstr "Karşı tarafın sesi durdu"
 
-#: src/ui/call.rs:683
+#: src/ui/call.rs:719
 #, rust-format
 msgid "Microphone “{name}” is not available; using the system default"
 msgstr "“{name}” mikrofonu kullanılamıyor; sistem varsayılanı kullanılıyor"
 
-#: src/ui/call.rs:687
+#: src/ui/call.rs:723
 #, rust-format
 msgid "Speaker “{name}” is not available; using the system default"
 msgstr "“{name}” hoparlörü kullanılamıyor; sistem varsayılanı kullanılıyor"
 
-#: src/ui/call.rs:689
+#: src/ui/call.rs:725
 #, rust-format
 msgid "Camera “{name}” is not available"
 msgstr "“{name}” kamerası kullanılamıyor"
 
-#: src/ui/call.rs:760
+#: src/ui/call.rs:796
 msgid "Start video"
 msgstr "Videoyu başlat"
 
-#: src/ui/call.rs:762
+#: src/ui/call.rs:798
 msgid "Turn the camera off"
 msgstr "Kamerayı kapat"
 
-#: src/ui/call.rs:764
+#: src/ui/call.rs:800
 msgid "Turn the camera on"
 msgstr "Kamerayı aç"
 
-#: src/ui/call.rs:798
+#: src/ui/call.rs:834
 msgid "Share your screen"
 msgstr "Ekranını paylaş"
 
-#: src/ui/call.rs:805
+#: src/ui/call.rs:841
 msgid ""
 "1:1 screen sharing is not available in the whatsapp-rust revision this app "
 "uses; an OBS virtual camera can be selected as a camera instead"
@@ -1108,23 +1109,23 @@ msgstr ""
 "Bu uygulamanın kullandığı whatsapp-rust sürümünde bire bir ekran paylaşımı "
 "yok; kamera olarak bunun yerine bir OBS sanal kamerası seçilebilir"
 
-#: src/ui/call.rs:821
+#: src/ui/call.rs:857
 msgid "Speaker and devices"
 msgstr "Hoparlör ve cihazlar"
 
-#: src/ui/call.rs:1101 src/ui/calls.rs:287 src/app.rs:3555
+#: src/ui/call.rs:1137 src/ui/calls.rs:287 src/app.rs:3555
 msgid "Incoming video call"
 msgstr "Gelen görüntülü arama"
 
-#: src/ui/call.rs:1103 src/ui/calls.rs:281 src/app.rs:3557
+#: src/ui/call.rs:1139 src/ui/calls.rs:281 src/app.rs:3557
 msgid "Incoming voice call"
 msgstr "Gelen sesli arama"
 
-#: src/ui/call.rs:1117
+#: src/ui/call.rs:1153
 msgid "Accept"
 msgstr "Yanıtla"
 
-#: src/ui/call.rs:1132
+#: src/ui/call.rs:1168
 msgid "Decline"
 msgstr "Reddet"
 

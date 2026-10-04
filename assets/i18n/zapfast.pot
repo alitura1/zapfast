@@ -9,7 +9,7 @@ msgstr ""
 "Project-Id-Version: ZapFast\n"
 "Report-Msgid-Bugs-To: https://github.com/crmne/zapfast/issues/new?"
 "template=translation.yml\n"
-"POT-Creation-Date: 2026-10-04 16:12+0300\n"
+"POT-Creation-Date: 2026-10-04 16:44+0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -198,7 +198,7 @@ msgstr ""
 msgid "Ctrl+K to search · ? for keyboard shortcuts"
 msgstr ""
 
-#: src/ui/conversation.rs:337 src/ui/call.rs:848
+#: src/ui/conversation.rs:337 src/ui/call.rs:884
 msgid "Hang up"
 msgstr ""
 
@@ -366,11 +366,11 @@ msgstr ""
 msgid "Play"
 msgstr ""
 
-#: src/ui/conversation.rs:6080 src/ui/call.rs:734
+#: src/ui/conversation.rs:6080 src/ui/call.rs:770
 msgid "Unmute"
 msgstr ""
 
-#: src/ui/conversation.rs:6082 src/ui/call.rs:736
+#: src/ui/conversation.rs:6082 src/ui/call.rs:772
 msgid "Mute"
 msgstr ""
 
@@ -682,7 +682,7 @@ msgstr ""
 msgid "Change who is excluded on your phone."
 msgstr ""
 
-#: src/ui/settings.rs:503 src/ui/call.rs:944
+#: src/ui/settings.rs:503 src/ui/call.rs:980
 msgid "Microphone"
 msgstr ""
 
@@ -690,7 +690,7 @@ msgstr ""
 msgid "The microphone every call opens with. Default follows the system."
 msgstr ""
 
-#: src/ui/settings.rs:511 src/ui/call.rs:954
+#: src/ui/settings.rs:511 src/ui/call.rs:990
 msgid "Speaker"
 msgstr ""
 
@@ -710,7 +710,7 @@ msgstr ""
 msgid "Play a test tone"
 msgstr ""
 
-#: src/ui/settings.rs:529 src/ui/call.rs:965
+#: src/ui/settings.rs:529 src/ui/call.rs:1001
 msgid "Camera"
 msgstr ""
 
@@ -789,7 +789,7 @@ msgstr ""
 msgid "For GIF search. Get a free key at developers.giphy.com."
 msgstr ""
 
-#: src/ui/settings.rs:657 src/ui/settings.rs:1732 src/ui/settings.rs:1738
+#: src/ui/settings.rs:657 src/ui/settings.rs:1754 src/ui/settings.rs:1760
 msgid "Account"
 msgstr ""
 
@@ -806,7 +806,7 @@ msgstr ""
 msgid "Change profile picture"
 msgstr ""
 
-#: src/ui/settings.rs:663 src/ui/settings.rs:1323 src/ui/settings.rs:1734
+#: src/ui/settings.rs:663 src/ui/settings.rs:1323 src/ui/settings.rs:1756
 msgid "Unlink this computer"
 msgstr ""
 
@@ -883,7 +883,7 @@ msgctxt "wallpaper colour"
 msgid "Theme"
 msgstr ""
 
-#: src/ui/settings.rs:1142 src/ui/call.rs:916
+#: src/ui/settings.rs:1142 src/ui/call.rs:952
 msgid "Default device"
 msgstr ""
 
@@ -962,152 +962,152 @@ msgstr ""
 msgid "Return to the call"
 msgstr ""
 
-#: src/ui/call.rs:534
+#: src/ui/call.rs:570
 msgid "Calling…"
 msgstr ""
 
-#: src/ui/call.rs:536
+#: src/ui/call.rs:572
 msgid "Ringing…"
 msgstr ""
 
-#: src/ui/call.rs:539 src/ui/call.rs:547
+#: src/ui/call.rs:575 src/ui/call.rs:583
 msgid "Connected"
 msgstr ""
 
-#: src/ui/call.rs:541
+#: src/ui/call.rs:577
 msgid "Connecting…"
 msgstr ""
 
-#: src/ui/call.rs:553 src/ui/call.rs:564
+#: src/ui/call.rs:589 src/ui/call.rs:600
 msgid "Call ended"
 msgstr ""
 
-#: src/ui/call.rs:554
+#: src/ui/call.rs:590
 msgid "Incoming call"
 msgstr ""
 
-#: src/ui/call.rs:565
+#: src/ui/call.rs:601
 msgid "Missed call"
 msgstr ""
 
-#: src/ui/call.rs:566 src/ui/calls.rs:301
+#: src/ui/call.rs:602 src/ui/calls.rs:301
 msgid "Declined"
 msgstr ""
 
-#: src/ui/call.rs:567 src/ui/calls.rs:303
+#: src/ui/call.rs:603 src/ui/calls.rs:303
 msgid "Busy"
 msgstr ""
 
-#: src/ui/call.rs:568 src/ui/calls.rs:304
+#: src/ui/call.rs:604 src/ui/calls.rs:304
 msgid "Could not connect"
 msgstr ""
 
-#: src/ui/call.rs:569 src/ui/calls.rs:305
+#: src/ui/call.rs:605 src/ui/calls.rs:305
 msgid "No answer"
 msgstr ""
 
-#: src/ui/call.rs:572 src/ui/calls.rs:306
+#: src/ui/call.rs:608 src/ui/calls.rs:306
 msgid "Connection lost"
 msgstr ""
 
-#: src/ui/call.rs:574
+#: src/ui/call.rs:610
 msgid "The call could not be established"
 msgstr ""
 
-#: src/ui/call.rs:578
+#: src/ui/call.rs:614
 msgid "Answered on another device"
 msgstr ""
 
-#: src/ui/call.rs:581
+#: src/ui/call.rs:617
 msgid "Declined on another device"
 msgstr ""
 
-#: src/ui/call.rs:614
+#: src/ui/call.rs:650
 msgid "Waiting for video…"
 msgstr ""
 
-#: src/ui/call.rs:651
+#: src/ui/call.rs:687
 msgid "No audio is arriving from this call"
 msgstr ""
 
-#: src/ui/call.rs:653
+#: src/ui/call.rs:689
 msgid "This call's audio cannot be decoded"
 msgstr ""
 
-#: src/ui/call.rs:656
+#: src/ui/call.rs:692
 msgid "This call's audio is not authenticating"
 msgstr ""
 
-#: src/ui/call.rs:660
+#: src/ui/call.rs:696
 msgid "This call's audio is arriving in an unexpected format"
 msgstr ""
 
-#: src/ui/call.rs:664
+#: src/ui/call.rs:700
 msgid "This call's audio is being rejected by the decoder"
 msgstr ""
 
-#: src/ui/call.rs:667
+#: src/ui/call.rs:703
 msgid "This call's audio format keeps changing"
 msgstr ""
 
-#: src/ui/call.rs:670
+#: src/ui/call.rs:706
 msgid "The peer's audio stopped"
 msgstr ""
 
-#: src/ui/call.rs:683
+#: src/ui/call.rs:719
 #, rust-format
 msgid "Microphone “{name}” is not available; using the system default"
 msgstr ""
 
-#: src/ui/call.rs:687
+#: src/ui/call.rs:723
 #, rust-format
 msgid "Speaker “{name}” is not available; using the system default"
 msgstr ""
 
-#: src/ui/call.rs:689
+#: src/ui/call.rs:725
 #, rust-format
 msgid "Camera “{name}” is not available"
 msgstr ""
 
-#: src/ui/call.rs:760
+#: src/ui/call.rs:796
 msgid "Start video"
 msgstr ""
 
-#: src/ui/call.rs:762
+#: src/ui/call.rs:798
 msgid "Turn the camera off"
 msgstr ""
 
-#: src/ui/call.rs:764
+#: src/ui/call.rs:800
 msgid "Turn the camera on"
 msgstr ""
 
-#: src/ui/call.rs:798
+#: src/ui/call.rs:834
 msgid "Share your screen"
 msgstr ""
 
-#: src/ui/call.rs:805
+#: src/ui/call.rs:841
 msgid ""
 "1:1 screen sharing is not available in the whatsapp-rust revision this app "
 "uses; an OBS virtual camera can be selected as a camera instead"
 msgstr ""
 
-#: src/ui/call.rs:821
+#: src/ui/call.rs:857
 msgid "Speaker and devices"
 msgstr ""
 
-#: src/ui/call.rs:1101 src/ui/calls.rs:287 src/app.rs:3555
+#: src/ui/call.rs:1137 src/ui/calls.rs:287 src/app.rs:3555
 msgid "Incoming video call"
 msgstr ""
 
-#: src/ui/call.rs:1103 src/ui/calls.rs:281 src/app.rs:3557
+#: src/ui/call.rs:1139 src/ui/calls.rs:281 src/app.rs:3557
 msgid "Incoming voice call"
 msgstr ""
 
-#: src/ui/call.rs:1117
+#: src/ui/call.rs:1153
 msgid "Accept"
 msgstr ""
 
-#: src/ui/call.rs:1132
+#: src/ui/call.rs:1168
 msgid "Decline"
 msgstr ""
 

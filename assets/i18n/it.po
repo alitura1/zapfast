@@ -6,7 +6,7 @@ msgstr ""
 "Project-Id-Version: ZapFast\n"
 "Report-Msgid-Bugs-To: https://github.com/crmne/zapfast/issues/new?"
 "template=translation.yml\n"
-"POT-Creation-Date: 2026-10-04 16:12+0300\n"
+"POT-Creation-Date: 2026-10-04 16:44+0300\n"
 "PO-Revision-Date: 2026-09-22 00:00-0300\n"
 "Last-Translator: ZapFast contributors\n"
 "Language-Team: Italian\n"
@@ -195,7 +195,7 @@ msgstr "Etichette"
 msgid "Ctrl+K to search · ? for keyboard shortcuts"
 msgstr "Ctrl+K per cercare · ? per le scorciatoie da tastiera"
 
-#: src/ui/conversation.rs:337 src/ui/call.rs:848
+#: src/ui/conversation.rs:337 src/ui/call.rs:884
 msgid "Hang up"
 msgstr "Riaggancia"
 
@@ -369,11 +369,11 @@ msgstr "Pausa"
 msgid "Play"
 msgstr "Riproduci"
 
-#: src/ui/conversation.rs:6080 src/ui/call.rs:734
+#: src/ui/conversation.rs:6080 src/ui/call.rs:770
 msgid "Unmute"
 msgstr "Riattiva audio"
 
-#: src/ui/conversation.rs:6082 src/ui/call.rs:736
+#: src/ui/conversation.rs:6082 src/ui/call.rs:772
 msgid "Mute"
 msgstr "Disattiva audio"
 
@@ -689,21 +689,23 @@ msgstr "Caricamento della privacy del tuo account…"
 msgid "Change who is excluded on your phone."
 msgstr "Cambia chi è escluso dal tuo telefono."
 
-#: src/ui/settings.rs:503 src/ui/call.rs:944
+#: src/ui/settings.rs:503 src/ui/call.rs:980
 msgid "Microphone"
 msgstr "Microfono"
 
 #: src/ui/settings.rs:506
 msgid "The microphone every call opens with. Default follows the system."
-msgstr "Il microfono con cui inizia ogni chiamata. «Predefinito» segue il sistema."
+msgstr ""
+"Il microfono con cui inizia ogni chiamata. «Predefinito» segue il sistema."
 
-#: src/ui/settings.rs:511 src/ui/call.rs:954
+#: src/ui/settings.rs:511 src/ui/call.rs:990
 msgid "Speaker"
 msgstr "Altoparlante"
 
 #: src/ui/settings.rs:514
 msgid "The speaker every call opens with. Default follows the system."
-msgstr "L'altoparlante con cui inizia ogni chiamata. «Predefinito» segue il sistema."
+msgstr ""
+"L'altoparlante con cui inizia ogni chiamata. «Predefinito» segue il sistema."
 
 #: src/ui/settings.rs:519
 msgid "Test speaker"
@@ -717,13 +719,14 @@ msgstr "Riproduce un breve tono sull'altoparlante scelto."
 msgid "Play a test tone"
 msgstr "Riproduci un tono"
 
-#: src/ui/settings.rs:529 src/ui/call.rs:965
+#: src/ui/settings.rs:529 src/ui/call.rs:1001
 msgid "Camera"
 msgstr "Fotocamera"
 
 #: src/ui/settings.rs:532
 msgid "The camera every video call opens with. Default uses the first camera."
-msgstr "La fotocamera con cui inizia ogni videochiamata. «Predefinito» usa la prima."
+msgstr ""
+"La fotocamera con cui inizia ogni videochiamata. «Predefinito» usa la prima."
 
 #: src/ui/settings.rs:537
 msgid "Call animations"
@@ -803,7 +806,7 @@ msgid "For GIF search. Get a free key at developers.giphy.com."
 msgstr ""
 "Per la ricerca di GIF. Ottieni una chiave gratuita su developers.giphy.com."
 
-#: src/ui/settings.rs:657 src/ui/settings.rs:1732 src/ui/settings.rs:1738
+#: src/ui/settings.rs:657 src/ui/settings.rs:1754 src/ui/settings.rs:1760
 msgid "Account"
 msgstr "Account"
 
@@ -820,7 +823,7 @@ msgstr "Informazioni"
 msgid "Change profile picture"
 msgstr "Cambia immagine del profilo"
 
-#: src/ui/settings.rs:663 src/ui/settings.rs:1323 src/ui/settings.rs:1734
+#: src/ui/settings.rs:663 src/ui/settings.rs:1323 src/ui/settings.rs:1756
 msgid "Unlink this computer"
 msgstr "Scollega questo computer"
 
@@ -897,7 +900,7 @@ msgctxt "wallpaper colour"
 msgid "Theme"
 msgstr "Tema"
 
-#: src/ui/settings.rs:1142 src/ui/call.rs:916
+#: src/ui/settings.rs:1142 src/ui/call.rs:952
 msgid "Default device"
 msgstr "Dispositivo predefinito"
 
@@ -976,134 +979,134 @@ msgstr "Schermo intero"
 msgid "Return to the call"
 msgstr "Torna alla chiamata"
 
-#: src/ui/call.rs:534
+#: src/ui/call.rs:570
 msgid "Calling…"
 msgstr "Chiamata in corso…"
 
-#: src/ui/call.rs:536
+#: src/ui/call.rs:572
 msgid "Ringing…"
 msgstr "Squilla…"
 
-#: src/ui/call.rs:539 src/ui/call.rs:547
+#: src/ui/call.rs:575 src/ui/call.rs:583
 msgid "Connected"
 msgstr "Connesso"
 
-#: src/ui/call.rs:541
+#: src/ui/call.rs:577
 msgid "Connecting…"
 msgstr "Connessione…"
 
-#: src/ui/call.rs:553 src/ui/call.rs:564
+#: src/ui/call.rs:589 src/ui/call.rs:600
 msgid "Call ended"
 msgstr "Chiamata terminata"
 
-#: src/ui/call.rs:554
+#: src/ui/call.rs:590
 msgid "Incoming call"
 msgstr "Chiamata in arrivo"
 
-#: src/ui/call.rs:565
+#: src/ui/call.rs:601
 msgid "Missed call"
 msgstr "Chiamata persa"
 
-#: src/ui/call.rs:566 src/ui/calls.rs:301
+#: src/ui/call.rs:602 src/ui/calls.rs:301
 msgid "Declined"
 msgstr "Rifiutata"
 
-#: src/ui/call.rs:567 src/ui/calls.rs:303
+#: src/ui/call.rs:603 src/ui/calls.rs:303
 msgid "Busy"
 msgstr "Occupato"
 
-#: src/ui/call.rs:568 src/ui/calls.rs:304
+#: src/ui/call.rs:604 src/ui/calls.rs:304
 msgid "Could not connect"
 msgstr "Impossibile connettersi"
 
-#: src/ui/call.rs:569 src/ui/calls.rs:305
+#: src/ui/call.rs:605 src/ui/calls.rs:305
 msgid "No answer"
 msgstr "Nessuna risposta"
 
-#: src/ui/call.rs:572 src/ui/calls.rs:306
+#: src/ui/call.rs:608 src/ui/calls.rs:306
 msgid "Connection lost"
 msgstr "Connessione persa"
 
-#: src/ui/call.rs:574
+#: src/ui/call.rs:610
 msgid "The call could not be established"
 msgstr "Impossibile stabilire la chiamata"
 
-#: src/ui/call.rs:578
+#: src/ui/call.rs:614
 msgid "Answered on another device"
 msgstr "Risposta su un altro dispositivo"
 
-#: src/ui/call.rs:581
+#: src/ui/call.rs:617
 msgid "Declined on another device"
 msgstr "Rifiutata su un altro dispositivo"
 
-#: src/ui/call.rs:614
+#: src/ui/call.rs:650
 msgid "Waiting for video…"
 msgstr "In attesa del video…"
 
-#: src/ui/call.rs:651
+#: src/ui/call.rs:687
 msgid "No audio is arriving from this call"
 msgstr "Non arriva audio da questa chiamata"
 
-#: src/ui/call.rs:653
+#: src/ui/call.rs:689
 msgid "This call's audio cannot be decoded"
 msgstr "L'audio di questa chiamata non può essere decodificato"
 
-#: src/ui/call.rs:656
+#: src/ui/call.rs:692
 msgid "This call's audio is not authenticating"
 msgstr "L'audio di questa chiamata non si autentica"
 
-#: src/ui/call.rs:660
+#: src/ui/call.rs:696
 msgid "This call's audio is arriving in an unexpected format"
 msgstr "L'audio di questa chiamata arriva in un formato imprevisto"
 
-#: src/ui/call.rs:664
+#: src/ui/call.rs:700
 msgid "This call's audio is being rejected by the decoder"
 msgstr "Il decoder rifiuta l'audio di questa chiamata"
 
-#: src/ui/call.rs:667
+#: src/ui/call.rs:703
 msgid "This call's audio format keeps changing"
 msgstr "Il formato audio di questa chiamata continua a cambiare"
 
-#: src/ui/call.rs:670
+#: src/ui/call.rs:706
 msgid "The peer's audio stopped"
 msgstr "L'audio dell'altra persona si è fermato"
 
-#: src/ui/call.rs:683
+#: src/ui/call.rs:719
 #, rust-format
 msgid "Microphone “{name}” is not available; using the system default"
 msgstr ""
 "Il microfono «{name}» non è disponibile; viene usato quello predefinito di "
 "sistema"
 
-#: src/ui/call.rs:687
+#: src/ui/call.rs:723
 #, rust-format
 msgid "Speaker “{name}” is not available; using the system default"
 msgstr ""
 "L'altoparlante «{name}» non è disponibile; viene usato quello predefinito di "
 "sistema"
 
-#: src/ui/call.rs:689
+#: src/ui/call.rs:725
 #, rust-format
 msgid "Camera “{name}” is not available"
 msgstr "La fotocamera «{name}» non è disponibile"
 
-#: src/ui/call.rs:760
+#: src/ui/call.rs:796
 msgid "Start video"
 msgstr "Avvia video"
 
-#: src/ui/call.rs:762
+#: src/ui/call.rs:798
 msgid "Turn the camera off"
 msgstr "Spegni la fotocamera"
 
-#: src/ui/call.rs:764
+#: src/ui/call.rs:800
 msgid "Turn the camera on"
 msgstr "Accendi la fotocamera"
 
-#: src/ui/call.rs:798
+#: src/ui/call.rs:834
 msgid "Share your screen"
 msgstr "Condividi schermo"
 
-#: src/ui/call.rs:805
+#: src/ui/call.rs:841
 msgid ""
 "1:1 screen sharing is not available in the whatsapp-rust revision this app "
 "uses; an OBS virtual camera can be selected as a camera instead"
@@ -1112,23 +1115,23 @@ msgstr ""
 "whatsapp-rust usata da questa app; al suo posto si può scegliere una "
 "fotocamera virtuale OBS"
 
-#: src/ui/call.rs:821
+#: src/ui/call.rs:857
 msgid "Speaker and devices"
 msgstr "Altoparlante e dispositivi"
 
-#: src/ui/call.rs:1101 src/ui/calls.rs:287 src/app.rs:3555
+#: src/ui/call.rs:1137 src/ui/calls.rs:287 src/app.rs:3555
 msgid "Incoming video call"
 msgstr "Videochiamata in arrivo"
 
-#: src/ui/call.rs:1103 src/ui/calls.rs:281 src/app.rs:3557
+#: src/ui/call.rs:1139 src/ui/calls.rs:281 src/app.rs:3557
 msgid "Incoming voice call"
 msgstr "Chiamata vocale in arrivo"
 
-#: src/ui/call.rs:1117
+#: src/ui/call.rs:1153
 msgid "Accept"
 msgstr "Accetta"
 
-#: src/ui/call.rs:1132
+#: src/ui/call.rs:1168
 msgid "Decline"
 msgstr "Rifiuta"
 

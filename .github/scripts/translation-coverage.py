@@ -68,8 +68,10 @@ def main() -> int:
             # toward coverage; it is reported separately as `fuzzy`.
             seen[key] = translated and not is_fuzzy
             fuzzy += is_fuzzy
-        translated = sum(1 for state in seen.values() if state)
-        untranslated = sum(1 for state in seen.values() if not state)
+        # Only keys the template still defines count toward coverage: a translated entry the
+        # template no longer has must not offset a missing one and let `--min` pass.
+        translated = sum(1 for key, state in seen.items() if state and key in defined)
+        untranslated = sum(1 for key, state in seen.items() if not state and key in defined)
         missing = len(defined - seen.keys())
         coverage = 100.0 * translated / len(defined) if defined else 100.0
         print(

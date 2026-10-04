@@ -2556,6 +2556,10 @@ impl Worker {
 
     async fn on_logged_out(&mut self) {
         self.privacy_generation = self.privacy_generation.wrapping_add(1);
+        // End any call the old account was on before its data is cleared. A runtime left standing
+        // would keep running for an account that is gone, hold the next account's calls off, and
+        // later write its record into the archive this logout is about to clear.
+        self.shutdown_call().await;
         self.stop_bot().await;
         if let Err(error) = self.archive.clear() {
             log::warn!("could not clear the archive: {error}");

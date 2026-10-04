@@ -561,6 +561,12 @@ async fn mic_pump(
                     target = None;
                     let _ = fell.try_send(());
                 }
+                // The engine dropped its port: the call is over, so stop retrying an open that no
+                // one is waiting for rather than spinning on a dead device for the rest of the
+                // process' life.
+                if out.is_closed() {
+                    return;
+                }
                 tokio::time::sleep(RETRY).await;
                 continue;
             }
@@ -803,6 +809,12 @@ async fn play_pump(
                     );
                     target = None;
                     let _ = fell.try_send(());
+                }
+                // The engine dropped its port: the call is over, so stop retrying an open that no
+                // one is waiting for rather than spinning on a dead device for the rest of the
+                // process' life.
+                if rx.is_closed() {
+                    return;
                 }
                 tokio::time::sleep(RETRY).await;
                 continue;

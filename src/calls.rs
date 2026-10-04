@@ -1032,6 +1032,13 @@ impl Call {
     /// Ends the call because its media went away, telling a call that was up from one that never
     /// came up: the phase says which, and the outcome names the cause either way.
     fn ended_by(&mut self, outcome: CallOutcome) -> Option<CallUpdate> {
+        // A media event that arrives after the call is already over must not reopen it or rewrite
+        // the outcome it ended with. The relay's `Closed` can land after a hang-up has ended the
+        // call, and recording that as `ConnectionLost` would replace the real reason with a false
+        // one and publish a second end for a call the screen has already dropped.
+        if matches!(self.phase, CallPhase::Ended | CallPhase::Failed) {
+            return None;
+        }
         self.phase = if self.started.is_some() {
             CallPhase::Ended
         } else {

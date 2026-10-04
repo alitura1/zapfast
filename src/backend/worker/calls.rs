@@ -363,8 +363,23 @@ impl Worker {
         // A group, broadcast or newsletter offer never reaches the 1:1 call surface. The interface
         // hides the buttons for those chats, but the worker is the boundary: a non-direct offer is
         // refused here rather than rung, so no call is created and no history entry is written.
+        //
+        // Refuse it to the caller instead of only dropping it: a dropped offer leaves the other
+        // side ringing until its own protocol timeout, believing this device might still answer,
+        // while a real `<reject>` ends it there and then. Only a 1:1 offer rings, so an offer that
+        // reaches here is one the caller is told we will not take.
         if !callable_chat(&chat) {
-            log::warn!("[CALL] refusing an incoming offer from a chat that is not one to one");
+            match self.client.as_ref() {
+                Some(client) => match client.voip().reject(incoming).await {
+                    Ok(()) => log::warn!(
+                        "[CALL] refused an incoming offer from a chat that is not one to one"
+                    ),
+                    Err(error) => {
+                        log::warn!("[CALL] a non-direct offer could not be refused: {error}")
+                    }
+                },
+                None => log::warn!("[CALL] no client to refuse a non-direct offer with"),
+            }
             return;
         }
         // The remembered devices are pre-selected on the prompt, so answering picks up right where

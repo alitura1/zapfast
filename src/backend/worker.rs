@@ -2219,7 +2219,19 @@ impl Worker {
                         log::warn!("[CALL-TRACE] ack {metadata}");
                     }
                     if call_trace::is_call_control(node) {
-                        log::warn!("[CALL-TRACE]\n{}", call_trace::describe(node, 0));
+                        // This account's own identities, so a roster entry the server rejected can
+                        // be told apart from a remote one without a jid being written.
+                        let own = self
+                            .client
+                            .as_ref()
+                            .map(|client| call_trace::OwnIdentities {
+                                lid: client.lid(),
+                                pn: client.pn(),
+                            });
+                        log::warn!(
+                            "[CALL-TRACE]\n{}",
+                            call_trace::describe(node, 0, own.as_ref())
+                        );
                     }
                 }
             }

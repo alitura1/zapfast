@@ -8,8 +8,10 @@
 //! stanza's *shape*: tags, attribute names, child counts and byte lengths.
 //!
 //! It never writes a value. No JID, no call id, no key material, no message content — an attribute
-//! is printed by name and a value only by whether it is present, its byte length, or its string
-//! length. That is enough to answer "which integer is missing" and nothing else.
+//! is printed by name and a value only by whether it is present, its byte length, its string
+//! length, or, for an `error`, the code itself. A roster `<user>` is additionally marked `self`
+//! when its jid is one of this account's own identities, which names the rejected participant
+//! without printing the jid.
 //!
 //! Off unless `ZAPFAST_CALL_TRACE` is set, and narrowed to stanzas that carry `group_info` or are a
 //! `<call>`, so an ordinary session's acks do not flood the log.
@@ -102,18 +104,47 @@ fn safe_token(value: &str) -> bool {
             .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_' || b == b'-')
 }
 
+/// This account's own addressable identities, so a roster entry can be marked `self` without any
+/// jid being written. Empty before pairing completes.
+pub(super) struct OwnIdentities {
+    pub lid: Option<whatsapp_rust::Jid>,
+    pub pn: Option<whatsapp_rust::Jid>,
+}
+
+impl OwnIdentities {
+    /// Whether a node's `jid` is this account's LID or phone number, ignoring the device suffix.
+    fn is_self(&self, node: &NodeRef<'_>) -> bool {
+        let Some(jid) = node.get_attr("jid").and_then(|value| value.to_jid()) else {
+            return false;
+        };
+        let jid = jid.to_non_ad();
+        [self.lid.as_ref(), self.pn.as_ref()]
+            .into_iter()
+            .flatten()
+            .map(|own| own.to_non_ad())
+            .any(|own| own == jid)
+    }
+}
+
 /// The node's structure as text: tag, attribute names, child tags with their own names, and the
 /// size of any content. No value is rendered except an `error` attribute that is a short opaque
 /// code — the one value needed to tell a server refusal apart from a malformed stanza, and one that
-/// cannot carry a JID, a name or a call id.
-pub(super) fn describe(node: &NodeRef<'_>, depth: usize) -> String {
+/// cannot carry a JID, a name or a call id. A `<user>` whose jid is the account's own is marked
+/// `self`.
+pub(super) fn describe(node: &NodeRef<'_>, depth: usize, own: Option<&OwnIdentities>) -> String {
     let mut out = String::new();
     let mut budget = MAX_NODES;
-    write_node(node, depth, &mut budget, &mut out);
+    write_node(node, depth, &mut budget, &mut out, own);
     out
 }
 
-fn write_node(node: &NodeRef<'_>, depth: usize, budget: &mut usize, out: &mut String) {
+fn write_node(
+    node: &NodeRef<'_>,
+    depth: usize,
+    budget: &mut usize,
+    out: &mut String,
+    own: Option<&OwnIdentities>,
+) {
     if depth > MAX_DEPTH || *budget == 0 {
         let _ = writeln!(out, "{}…", "  ".repeat(depth));
         return;
@@ -130,6 +161,9 @@ fn write_node(node: &NodeRef<'_>, depth: usize, budget: &mut usize, out: &mut St
         let _ = write!(out, " {rendered}");
     }
     out.push('>');
+    if node.tag == "user" && own.is_some_and(|own| own.is_self(node)) {
+        out.push_str(" self");
+    }
     match &node.content {
         Some(NodeContentRef::Nodes(children)) => {
             let _ = write!(out, " children={}", children.len());
@@ -140,7 +174,7 @@ fn write_node(node: &NodeRef<'_>, depth: usize, budget: &mut usize, out: &mut St
                     continue;
                 }
                 out.push('\n');
-                write_node(child, depth + 1, budget, out);
+                write_node(child, depth + 1, budget, out, own);
             }
             if skipped > 0 {
                 let _ = write!(
@@ -163,7 +197,7 @@ fn write_node(node: &NodeRef<'_>, depth: usize, budget: &mut usize, out: &mut St
 #[cfg(test)]
 mod tests {
     use super::*;
-    use whatsapp_rust::{NodeBuilder, wacore_binary::Node};
+    use whatsapp_rust::{Jid, NodeBuilder, Server, wacore_binary::Node};
 
     fn group_ack(with_limit: bool) -> Node {
         let mut group_info = NodeBuilder::new("group_info")
@@ -195,7 +229,7 @@ mod tests {
     #[test]
     fn the_description_names_attributes_and_never_a_value() {
         let ack = group_ack(false);
-        let text = describe(&ack.as_node_ref(), 0);
+        let text = describe(&ack.as_node_ref(), 0, None);
         assert!(text.contains("<ack"), "{text}");
         assert!(text.contains("<group_info"), "{text}");
         for name in ["call-id", "media", "transaction-id"] {
@@ -213,7 +247,7 @@ mod tests {
         }
 
         let with_limit = group_ack(true);
-        let text = describe(&with_limit.as_node_ref(), 0);
+        let text = describe(&with_limit.as_node_ref(), 0, None);
         assert!(
             text.contains("connected-limit=?"),
             "a present integer is visible by name: {text}"
@@ -250,8 +284,12 @@ mod tests {
         let jid_error = NodeBuilder::new("ack")
             .attr("error", "100001@s.whatsapp.net")
             .build();
-        assert_eq!(ack_metadata(&jid_error.as_node_ref()), None);        // Not an ack envelope: no metadata at all.
-        let group_info = NodeBuilder::new("group_info").attr("media", "audio").build();
+        assert_eq!(ack_metadata(&jid_error.as_node_ref()), None);
+
+        // Not an ack envelope: no metadata at all.
+        let group_info = NodeBuilder::new("group_info")
+            .attr("media", "audio")
+            .build();
         assert_eq!(ack_metadata(&group_info.as_node_ref()), None);
     }
 
@@ -270,7 +308,7 @@ mod tests {
                     .build()])
                 .build()])
             .build();
-        let text = describe(&ack.as_node_ref(), 0);
+        let text = describe(&ack.as_node_ref(), 0, None);
         assert!(text.contains("error=427"), "{text}");
         assert!(text.contains("type=?"), "{text}");
         assert!(text.contains("jid=?"), "{text}");
@@ -278,7 +316,40 @@ mod tests {
         assert_eq!(text.matches("error=427").count(), 2, "{text}");
 
         let text_error = NodeBuilder::new("ack").attr("error", "Bad Reason").build();
-        assert!(describe(&text_error.as_node_ref(), 0).contains("error=?"));
+        assert!(describe(&text_error.as_node_ref(), 0, None).contains("error=?"));
+    }
+
+    /// A roster entry that is this account is marked `self`, and no jid is written for it or for
+    /// anyone else.
+    #[test]
+    fn a_roster_entry_matching_this_account_is_marked_self() {
+        let own = OwnIdentities {
+            lid: Some(Jid::new("555", Server::Lid)),
+            pn: Some(Jid::new("15550000001", Server::Pn)),
+        };
+        let ack = NodeBuilder::new("ack")
+            .children([NodeBuilder::new("group_info")
+                .attr("media", "audio")
+                .children([
+                    NodeBuilder::new("user")
+                        .attr("jid", Jid::new("555", Server::Lid).with_device(3))
+                        .attr("error", "427")
+                        .build(),
+                    NodeBuilder::new("user")
+                        .attr("jid", Jid::new("999", Server::Lid))
+                        .build(),
+                ])
+                .build()])
+            .build();
+        let text = describe(&ack.as_node_ref(), 0, Some(&own));
+        assert_eq!(
+            text.matches(" self").count(),
+            1,
+            "only the own entry: {text}"
+        );
+        for jid in ["555", "999"] {
+            assert!(!text.contains(jid), "a jid leaked: {text}");
+        }
     }
 
     /// A wide stanza is collapsed once the node budget is spent, so a hostile or merely large
@@ -293,7 +364,7 @@ mod tests {
             })
             .collect();
         let ack = NodeBuilder::new("ack").children(wide).build();
-        let text = describe(&ack.as_node_ref(), 0);
+        let text = describe(&ack.as_node_ref(), 0, None);
         assert!(text.contains("more not shown"), "{text}");
         assert!(
             text.matches("<user").count() < MAX_NODES + 1,

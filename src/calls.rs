@@ -3983,9 +3983,10 @@ mod hardware_tests {
 /// Group-call signaling at the protocol level.
 ///
 /// These exercise the pinned library's own group-call builders and parsers with in-memory
-/// fixtures, so what a live server accepts or rejects is pinned without a network. The live
-/// failure this pins is `call service response failed: missing group-call integer attribute`:
-/// the initial-offer ACK the server sent did not carry an integer the parser insists on.
+/// fixtures, so what a live server accepts or rejects is pinned without a network. They pin the
+/// live shape that used to fail with `call service response failed: missing group-call integer
+/// attribute`: the initial-offer ACK carries identity, media and the roster but not the
+/// update-plane integers, which arrive on the first `group_update`.
 #[cfg(test)]
 mod group_signaling_tests {
     use whatsapp_rust::wacore::stanza::group_call::{
@@ -3998,15 +3999,20 @@ mod group_signaling_tests {
         Jid::new("111111111111111", Server::Lid)
     }
 
-    /// The ACK shape the library expects, minus or plus `connected-limit` to show which
-    /// attribute the live failure was missing.
-    fn ack(connected_limit: Option<&str>) -> whatsapp_rust::wacore_binary::Node {
+    /// The ACK shape: identity and media always, the update-plane integers only when given. The
+    /// live server's initial-offer ACK omitted both.
+    fn ack(
+        transaction_id: Option<&str>,
+        connected_limit: Option<&str>,
+    ) -> whatsapp_rust::wacore_binary::Node {
         let creator = creator();
         let mut group_info = NodeBuilder::new("group_info")
             .attr("call-id", "00aabbccddeeff001122334455667788")
             .attr("call-creator", &creator)
-            .attr("media", "audio")
-            .attr("transaction-id", "1");
+            .attr("media", "audio");
+        if let Some(transaction) = transaction_id {
+            group_info = group_info.attr("transaction-id", transaction);
+        }
         if let Some(limit) = connected_limit {
             group_info = group_info.attr("connected-limit", limit);
         }
@@ -4015,21 +4021,25 @@ mod group_signaling_tests {
             .build()
     }
 
-    /// The exact live failure, reproduced: an ACK whose `group_info` has no `connected-limit` is
-    /// rejected as a missing integer attribute.
+    /// The exact live ACK, now accepted: the update-plane integers are optional on an ACK, so a
+    /// snapshot without them parses — no ordering transaction has been applied yet and zero means
+    /// no connected limit. This is the failure that used to be `missing group-call integer`.
     #[test]
-    fn an_ack_without_connected_limit_is_a_missing_integer_attribute() {
-        let node = ack(None);
-        let error = parse_initial_group_call_ack(&node.as_node_ref())
-            .expect_err("the live ACK was missing an integer the parser requires");
-        assert_eq!(error.to_string(), "missing group-call integer attribute");
+    fn an_ack_without_the_update_plane_integers_parses() {
+        let node = ack(None, None);
+        let update = parse_initial_group_call_ack(&node.as_node_ref())
+            .expect("the partial ACK the live server sends parses")
+            .expect("a group snapshot");
+        assert_eq!(update.media, "audio");
+        assert_eq!(update.transaction_id, 0, "no ordering transaction yet");
+        assert_eq!(update.connected_limit, 0, "zero means no connected limit");
     }
 
     /// With every attribute the parser wants, the same envelope parses and keeps the roster's
     /// media, limits and identity.
     #[test]
     fn an_ack_with_every_attribute_parses() {
-        let node = ack(Some("32"));
+        let node = ack(Some("1"), Some("32"));
         let update = parse_initial_group_call_ack(&node.as_node_ref())
             .expect("a complete ACK parses")
             .expect("a group snapshot");

@@ -6,7 +6,7 @@ msgstr ""
 "Project-Id-Version: ZapFast\n"
 "Report-Msgid-Bugs-To: https://github.com/crmne/zapfast/issues/new?"
 "template=translation.yml\n"
-"POT-Creation-Date: 2026-10-04 18:35+0300\n"
+"POT-Creation-Date: 2026-10-04 20:55+0300\n"
 "PO-Revision-Date: 2026-09-22 00:00-0300\n"
 "Last-Translator: ZapFast contributors\n"
 "Language-Team: Russian\n"
@@ -1759,203 +1759,203 @@ msgstr "Обновить ZapFast"
 msgid "Ready to install"
 msgstr "Готово к установке"
 
-#: src/backend/worker.rs:1902 src/backend/worker.rs:4816
-#: src/backend/worker.rs:4866 src/backend/worker.rs:5955
-#: src/backend/worker.rs:5962 src/backend/worker.rs:6921
-#: src/backend/worker.rs:6952 src/backend/worker.rs:7305
-#: src/backend/worker.rs:7335 src/backend/worker.rs:8852
-#: src/backend/worker.rs:8856 src/backend/worker/stickers.rs:998
+#: src/backend/worker.rs:1902 src/backend/worker.rs:4828
+#: src/backend/worker.rs:4878 src/backend/worker.rs:5967
+#: src/backend/worker.rs:5974 src/backend/worker.rs:6933
+#: src/backend/worker.rs:6964 src/backend/worker.rs:7317
+#: src/backend/worker.rs:7347 src/backend/worker.rs:8864
+#: src/backend/worker.rs:8868 src/backend/worker/stickers.rs:998
 #: src/backend/worker/interactive/replies.rs:233
 msgid "Not connected to WhatsApp"
 msgstr "Нет подключения к WhatsApp"
 
-#: src/backend/worker.rs:2275 src/backend/worker.rs:5439
+#: src/backend/worker.rs:2287 src/backend/worker.rs:5451
 #, rust-format
 msgid "Could not link by phone number: {error}"
 msgstr "Не удалось привязать по номеру телефона: {error}"
 
-#: src/backend/worker.rs:2379
+#: src/backend/worker.rs:2391
 msgid "WhatsApp connection failed"
 msgstr "Не удалось подключиться к WhatsApp"
 
-#: src/backend/worker.rs:2387
+#: src/backend/worker.rs:2399
 msgid "Another WhatsApp Web session replaced this one"
 msgstr "Другой сеанс WhatsApp Web заменил этот"
 
-#: src/backend/worker.rs:2612
+#: src/backend/worker.rs:2624
 msgid "Connect to WhatsApp to change your profile."
 msgstr "Подключитесь к WhatsApp, чтобы изменить профиль."
 
-#: src/backend/worker.rs:2628
+#: src/backend/worker.rs:2640
 #, rust-format
 msgid "Could not change your name: {error}"
 msgstr "Не удалось изменить ваше имя: {error}"
 
-#: src/backend/worker.rs:2640
+#: src/backend/worker.rs:2652
 #, rust-format
 msgid "Could not change your About: {error}"
 msgstr "Не удалось изменить описание: {error}"
 
-#: src/backend/worker.rs:3778
+#: src/backend/worker.rs:3790
 #, rust-format
 msgid "Could not read part of the chat history: {error}"
 msgstr "Не удалось прочитать часть истории чата: {error}"
 
-#: src/backend/worker.rs:4140
+#: src/backend/worker.rs:4152
 msgid "Your phone did not send older messages. Check that it is online"
 msgstr "Телефон не отправил старые сообщения. Проверьте, что он в сети"
 
-#: src/backend/worker.rs:4563 src/backend/worker.rs:4628
+#: src/backend/worker.rs:4575 src/backend/worker.rs:4640
 #, rust-format
 msgid "Could not use this picture: {error}"
 msgstr "Не удалось использовать это изображение: {error}"
 
-#: src/backend/worker.rs:4575
+#: src/backend/worker.rs:4587
 msgid "Connect to WhatsApp to change your profile picture."
 msgstr "Подключитесь к WhatsApp, чтобы изменить фото профиля."
 
-#: src/backend/worker.rs:4594
+#: src/backend/worker.rs:4606
 #, rust-format
 msgid "Could not change your profile picture: {error}"
 msgstr "Не удалось изменить фото профиля: {error}"
 
-#: src/backend/worker.rs:4700
+#: src/backend/worker.rs:4712
 #, rust-format
 msgid "Could not save the attachment: {error}"
 msgstr "Не удалось сохранить вложение: {error}"
 
-#: src/backend/worker.rs:4787
+#: src/backend/worker.rs:4799
 #, rust-format
 msgid "Could not make the sticker: {error}"
 msgstr "Не удалось создать стикер: {error}"
 
-#: src/backend/worker.rs:4838 src/backend/worker.rs:8862
+#: src/backend/worker.rs:4850 src/backend/worker.rs:8874
 #, rust-format
 msgid "Could not save contact: {error}"
 msgstr "Не удалось сохранить контакт: {error}"
 
-#: src/backend/worker.rs:4899
+#: src/backend/worker.rs:4911
 #, rust-format
 msgid "{} is not on WhatsApp"
 msgstr "{} нет в WhatsApp"
 
-#: src/backend/worker.rs:4925 src/backend/worker/stickers.rs:987
+#: src/backend/worker.rs:4937 src/backend/worker/stickers.rs:987
 #, rust-format
 msgid "Could not add sticker pack: {error}"
 msgstr "Не удалось добавить набор стикеров: {error}"
 
-#: src/backend/worker.rs:4981
+#: src/backend/worker.rs:4993
 msgid "Could not update privacy settings."
 msgstr "Не удалось обновить настройки конфиденциальности."
 
-#: src/backend/worker.rs:5128
+#: src/backend/worker.rs:5140
 #, rust-format
 msgid "Could not create the pack: {error}"
 msgstr "Не удалось создать набор: {error}"
 
-#: src/backend/worker.rs:5207
+#: src/backend/worker.rs:5219
 msgid "Connect to WhatsApp to delete this chat"
 msgstr "Подключитесь к WhatsApp, чтобы удалить этот чат"
 
-#: src/backend/worker.rs:5246
+#: src/backend/worker.rs:5258
 msgid "The phone did not delete this chat. Try again when connected"
 msgstr "Телефон не удалил этот чат. Повторите попытку при подключении"
 
-#: src/backend/worker.rs:5258
+#: src/backend/worker.rs:5270
 msgid "Connect to WhatsApp to clear this chat"
 msgstr "Подключитесь к WhatsApp, чтобы очистить этот чат"
 
-#: src/backend/worker.rs:5270
+#: src/backend/worker.rs:5282
 msgid "Could not read this chat's messages. Try again"
 msgstr "Не удалось прочитать сообщения этого чата. Повторите попытку"
 
-#: src/backend/worker.rs:5304
+#: src/backend/worker.rs:5316
 msgid "The phone cleared this chat, but ZapFast could not clear it here"
 msgstr "Телефон очистил этот чат, но ZapFast не смог очистить его здесь"
 
-#: src/backend/worker.rs:5311
+#: src/backend/worker.rs:5323
 msgid "The phone did not clear this chat. Try again when connected"
 msgstr "Телефон не очистил этот чат. Повторите попытку при подключении"
 
-#: src/backend/worker.rs:5410
+#: src/backend/worker.rs:5422
 msgid "Not connected to WhatsApp yet"
 msgstr "Ещё нет подключения к WhatsApp"
 
-#: src/backend/worker.rs:5503
+#: src/backend/worker.rs:5515
 #, rust-format
 msgid "Message not sent: {error}"
 msgstr "Сообщение не отправлено: {error}"
 
-#: src/backend/worker.rs:5594 src/backend/worker.rs:5712
+#: src/backend/worker.rs:5606 src/backend/worker.rs:5724
 msgid "Only admins can change this group's name and photo."
 msgstr "Только администраторы могут менять название и фото этой группы."
 
-#: src/backend/worker.rs:5621
+#: src/backend/worker.rs:5633
 #, rust-format
 msgid "A group name can have at most {} characters."
 msgstr "Название группы может содержать не более {} символов."
 
-#: src/backend/worker.rs:5629
+#: src/backend/worker.rs:5641
 msgid "Connect to WhatsApp to change the group's name."
 msgstr "Подключитесь к WhatsApp, чтобы изменить название группы."
 
-#: src/backend/worker.rs:5662
+#: src/backend/worker.rs:5674
 msgid "Connect to WhatsApp to change the group's photo."
 msgstr "Подключитесь к WhatsApp, чтобы изменить фото группы."
 
-#: src/backend/worker.rs:5716
+#: src/backend/worker.rs:5728
 msgid "Could not rename the group."
 msgstr "Не удалось переименовать группу."
 
-#: src/backend/worker.rs:5718
+#: src/backend/worker.rs:5730
 msgid "Could not change the group's photo."
 msgstr "Не удалось изменить фото группы."
 
-#: src/backend/worker.rs:5721
+#: src/backend/worker.rs:5733
 msgid "Could not remove the group's photo."
 msgstr "Не удалось удалить фото группы."
 
-#: src/backend/worker.rs:5749 src/backend/worker.rs:5776
+#: src/backend/worker.rs:5761 src/backend/worker.rs:5788
 msgid "Could not leave the channel."
 msgstr "Не удалось покинуть канал."
 
-#: src/backend/worker.rs:5751 src/backend/worker.rs:5778
+#: src/backend/worker.rs:5763 src/backend/worker.rs:5790
 msgid "Could not leave the group."
 msgstr "Не удалось покинуть группу."
 
-#: src/backend/worker.rs:6076
+#: src/backend/worker.rs:6088
 msgid ""
 "Not connected to WhatsApp: the rest of the forwarded messages were not sent"
 msgstr ""
 "Нет подключения к WhatsApp: остальные пересланные сообщения не отправлены"
 
-#: src/backend/worker.rs:6091 src/backend/worker.rs:6891
+#: src/backend/worker.rs:6103 src/backend/worker.rs:6903
 msgid "This message is not stored on this computer"
 msgstr "Это сообщение не сохранено на этом компьютере"
 
-#: src/backend/worker.rs:6105
+#: src/backend/worker.rs:6117
 msgid "This message cannot be forwarded"
 msgstr "Это сообщение нельзя переслать"
 
-#: src/backend/worker.rs:6112
+#: src/backend/worker.rs:6124
 msgid "The original message data is not available to forward"
 msgstr "Исходное сообщение недоступно для пересылки"
 
-#: src/backend/worker.rs:6119
+#: src/backend/worker.rs:6131
 msgid "The original message data could not be read"
 msgstr "Не удалось прочитать данные исходного сообщения"
 
-#: src/backend/worker.rs:6806 src/backend/worker.rs:6822
+#: src/backend/worker.rs:6818 src/backend/worker.rs:6834
 #, rust-format
 msgid "Could not search: {error}"
 msgstr "Не удалось найти: {error}"
 
-#: src/backend/worker.rs:6854 src/backend/worker.rs:6911
+#: src/backend/worker.rs:6866 src/backend/worker.rs:6923
 #, rust-format
 msgid "Could not read the chat: {error}"
 msgstr "Не удалось прочитать чат: {error}"
 
-#: src/backend/worker.rs:7312
+#: src/backend/worker.rs:7324
 msgid "Could not encode the attachment"
 msgstr "Не удалось закодировать вложение"
 

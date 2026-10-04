@@ -4050,6 +4050,34 @@ mod group_signaling_tests {
         assert_eq!(update.connected_limit, 32);
     }
 
+    /// The live refusal: the call service answers the group offer with an ack that names error 427
+    /// on the envelope and on the creator's own roster entry. It must surface as a refusal with
+    /// that code, never be read as a snapshot.
+    #[test]
+    fn an_ack_that_names_error_427_is_a_refusal() {
+        let creator = creator();
+        let ack = NodeBuilder::new("ack")
+            .attr("class", "call")
+            .attr("type", "offer")
+            .attr("error", "427")
+            .children([NodeBuilder::new("group_info")
+                .attr("call-id", "00aabbccddeeff001122334455667788")
+                .attr("call-creator", &creator)
+                .attr("media", "audio")
+                .children([NodeBuilder::new("user")
+                    .attr("jid", &creator)
+                    .attr("error", "427")
+                    .build()])
+                .build()])
+            .build();
+        let error = parse_initial_group_call_ack(&ack.as_node_ref())
+            .expect_err("a refusal is not a snapshot");
+        assert!(
+            error.to_string().contains("rejected with error 427"),
+            "unexpected parse error: {error:#}"
+        );
+    }
+
     /// A missing string attribute and a malformed integer are told apart from a missing integer,
     /// so a reader-facing message can say which is wrong.
     #[test]

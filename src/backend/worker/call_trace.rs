@@ -153,7 +153,7 @@ fn write_node(
     let _ = write!(out, "{}<{}", "  ".repeat(depth), node.tag);
     let mut names: Vec<(&str, String)> = node
         .attrs_iter()
-        .map(|(name, value)| (&**name, render_attr(&**name, &value)))
+        .map(|(name, value)| (&**name, render_attr(name, value)))
         .collect();
     // Sorted, so two stanzas compare by reading rather than by remembering the wire order.
     names.sort_unstable_by_key(|(name, _)| *name);

@@ -21,10 +21,18 @@ ENTRY = re.compile(r"(?m)^(?:msgctxt .*\n)?(?:#.*\n)*msgid ")
 
 
 def entries(text: str):
-    """Yields (msgid_block, has_translation, fuzzy) for each real entry."""
+    """Yields ((msgctxt, msgid), has_translation, fuzzy) for each real entry.
+
+    The key is the context together with the id, because the catalogs carry entries that differ
+    only by context (`Calls` as a page and as a noun, and the label-colour names). Keying on the
+    id alone collapsed those pairs, so an untranslated contextual entry hid behind its plain twin
+    and the template looked smaller than it is.
+    """
     for block in re.split(r"\n\n+", text):
         if not block.strip() or block.startswith("#~"):
             continue
+        ctxts = re.findall(r'(?m)^msgctxt (".*"(?:\n".*")*)', block)
+        ctxt = ctxts[0] if ctxts else ""
         ids = re.findall(r'(?m)^msgid (".*"(?:\n".*")*)', block)
         if not ids or ids[0] == '""':
             continue
@@ -37,7 +45,7 @@ def entries(text: str):
         else:
             values = re.findall(r'(?m)^msgstr (".*"(?:\n".*")*)', block)
             translated = bool(values) and values[0].strip() != '""'
-        yield ids[0], translated, bool(re.search(r"(?m)^#, .*fuzzy", block))
+        yield (ctxt, ids[0]), translated, bool(re.search(r"(?m)^#, .*fuzzy", block))
 
 
 def main() -> int:
@@ -46,7 +54,7 @@ def main() -> int:
         minimum = float(sys.argv[sys.argv.index("--min") + 1])
 
     template = (I18N / "zapfast.pot").read_text(encoding="utf-8")
-    defined = {msgid for msgid, _, _ in entries(template)}
+    defined = {key for key, _, _ in entries(template)}
     print(f"template: {len(defined)} messages")
 
     failed = False
@@ -55,8 +63,8 @@ def main() -> int:
         seen = {}
         fuzzy = 0
         obsolete = len(re.findall(r"(?m)^#~ msgid ", text))
-        for msgid, translated, is_fuzzy in entries(text):
-            seen[msgid] = translated
+        for key, translated, is_fuzzy in entries(text):
+            seen[key] = translated
             fuzzy += is_fuzzy
         translated = sum(1 for state in seen.values() if state)
         untranslated = sum(1 for state in seen.values() if not state)

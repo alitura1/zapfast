@@ -8,7 +8,7 @@
 use egui::{Align, CornerRadius, Frame, Layout, Margin, Sense};
 
 use crate::app::App;
-use crate::i18n::{Locale, gettext};
+use crate::i18n::{Locale, gettext, ngettext};
 use crate::model::{Action, CallMedia, CallRecord, CallStatus, Page};
 use crate::theme::{self, Icon};
 use crate::ui::widgets;
@@ -313,15 +313,15 @@ pub(crate) fn outcome(locale: Locale, record: &CallRecord) -> String {
         crate::model::ChatKind::Group
     ) && record.participants >= 1
     {
-        let others = if record.participants == 1 {
-            gettext(locale, "1 other on the call").into_owned()
-        } else {
-            format!(
-                "{} {}",
-                record.participants,
-                gettext(locale, "others on the call")
-            )
-        };
+        // The same plural entry the live call screen uses, so a locale with several forms reads
+        // right at two, three and five rather than falling back to one fixed noun.
+        let others = ngettext(
+            locale,
+            "{} other on the call",
+            "{} others on the call",
+            record.participants,
+        )
+        .replace("{}", &record.participants.to_string());
         return format!("{base} · {others}");
     }
     base

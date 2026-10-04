@@ -205,14 +205,16 @@ fn live(
             if call.group.is_some() && !call.participants.is_empty() {
                 ui.add_space(4.0);
                 let others = call.participants.len();
-                let text = if others == 1 {
-                    crate::i18n::gettext(app.locale, "1 other on the call").into_owned()
-                } else {
-                    format!(
-                        "{others} {}",
-                        crate::i18n::gettext(app.locale, "others on the call")
-                    )
-                };
+                // A plural entry rather than a fixed word: locales with several plural forms pick a
+                // different one at two, three and five, and a single translated noun would be wrong
+                // for most counts.
+                let text = crate::i18n::ngettext(
+                    app.locale,
+                    "{} other on the call",
+                    "{} others on the call",
+                    others as u32,
+                )
+                .replace("{}", &others.to_string());
                 theme::text(ui, &text, theme::medium(14.0), palette.text);
             }
             ui.add_space(6.0);

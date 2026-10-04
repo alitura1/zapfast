@@ -6,7 +6,7 @@ msgstr ""
 "Project-Id-Version: ZapFast\n"
 "Report-Msgid-Bugs-To: https://github.com/crmne/zapfast/issues/new?"
 "template=translation.yml\n"
-"POT-Creation-Date: 2026-10-04 16:44+0300\n"
+"POT-Creation-Date: 2026-10-04 16:52+0300\n"
 "PO-Revision-Date: 2026-09-25 23:00-0300\n"
 "Last-Translator: ZapFast contributors\n"
 "Language-Team: Chinese (Simplified)\n"
@@ -195,7 +195,7 @@ msgstr "标签"
 msgid "Ctrl+K to search · ? for keyboard shortcuts"
 msgstr "Ctrl+K 搜索 · ? 查看键盘快捷键"
 
-#: src/ui/conversation.rs:337 src/ui/call.rs:884
+#: src/ui/conversation.rs:337 src/ui/call.rs:886
 msgid "Hang up"
 msgstr "挂断"
 
@@ -361,11 +361,11 @@ msgstr "暂停"
 msgid "Play"
 msgstr "播放"
 
-#: src/ui/conversation.rs:6080 src/ui/call.rs:770
+#: src/ui/conversation.rs:6080 src/ui/call.rs:772
 msgid "Unmute"
 msgstr "取消静音"
 
-#: src/ui/conversation.rs:6082 src/ui/call.rs:772
+#: src/ui/conversation.rs:6082 src/ui/call.rs:774
 msgid "Mute"
 msgstr "静音"
 
@@ -676,7 +676,7 @@ msgstr "正在加载账号隐私…"
 msgid "Change who is excluded on your phone."
 msgstr "请在手机上更改排除的联系人。"
 
-#: src/ui/settings.rs:503 src/ui/call.rs:980
+#: src/ui/settings.rs:503 src/ui/call.rs:982
 msgid "Microphone"
 msgstr "麦克风"
 
@@ -684,7 +684,7 @@ msgstr "麦克风"
 msgid "The microphone every call opens with. Default follows the system."
 msgstr "每次通话使用的麦克风。默认跟随系统。"
 
-#: src/ui/settings.rs:511 src/ui/call.rs:990
+#: src/ui/settings.rs:511 src/ui/call.rs:992
 msgid "Speaker"
 msgstr "扬声器"
 
@@ -704,7 +704,7 @@ msgstr "通过所选外放播放一段短音。"
 msgid "Play a test tone"
 msgstr "播放测试音"
 
-#: src/ui/settings.rs:529 src/ui/call.rs:1001
+#: src/ui/settings.rs:529 src/ui/call.rs:1003
 msgid "Camera"
 msgstr "摄像头"
 
@@ -877,7 +877,7 @@ msgctxt "wallpaper colour"
 msgid "Theme"
 msgstr "主题"
 
-#: src/ui/settings.rs:1142 src/ui/call.rs:952
+#: src/ui/settings.rs:1142 src/ui/call.rs:954
 msgid "Default device"
 msgstr "默认设备"
 
@@ -932,154 +932,151 @@ msgstr "无"
 msgid "Choose a file…"
 msgstr "选择文件…"
 
-#: src/ui/call.rs:209 src/ui/calls.rs:317
-msgid "1 other on the call"
-msgstr "通话中还有 1 人"
+#: src/ui/call.rs:213 src/ui/calls.rs:320
+msgid "{} other on the call"
+msgid_plural "{} others on the call"
+msgstr[0] "通话中还有 {} 人"
 
-#: src/ui/call.rs:213 src/ui/calls.rs:322
-msgid "others on the call"
-msgstr "人在通话中"
-
-#: src/ui/call.rs:279
+#: src/ui/call.rs:281
 msgid "Hide the call screen"
 msgstr "隐藏通话界面"
 
-#: src/ui/call.rs:297
+#: src/ui/call.rs:299
 msgid "Exit full screen"
 msgstr "退出全屏"
 
-#: src/ui/call.rs:302
+#: src/ui/call.rs:304
 msgid "Full screen"
 msgstr "全屏"
 
-#: src/ui/call.rs:396 src/ui/call.rs:397
+#: src/ui/call.rs:398 src/ui/call.rs:399
 msgid "Return to the call"
 msgstr "返回通话"
 
-#: src/ui/call.rs:570
+#: src/ui/call.rs:572
 msgid "Calling…"
 msgstr "正在呼叫…"
 
-#: src/ui/call.rs:572
+#: src/ui/call.rs:574
 msgid "Ringing…"
 msgstr "正在响铃…"
 
-#: src/ui/call.rs:575 src/ui/call.rs:583
+#: src/ui/call.rs:577 src/ui/call.rs:585
 msgid "Connected"
 msgstr "已连接"
 
-#: src/ui/call.rs:577
+#: src/ui/call.rs:579
 msgid "Connecting…"
 msgstr "正在连接…"
 
-#: src/ui/call.rs:589 src/ui/call.rs:600
+#: src/ui/call.rs:591 src/ui/call.rs:602
 msgid "Call ended"
 msgstr "通话结束"
 
-#: src/ui/call.rs:590
+#: src/ui/call.rs:592
 msgid "Incoming call"
 msgstr "来电"
 
-#: src/ui/call.rs:601
+#: src/ui/call.rs:603
 msgid "Missed call"
 msgstr "未接来电"
 
-#: src/ui/call.rs:602 src/ui/calls.rs:301
+#: src/ui/call.rs:604 src/ui/calls.rs:301
 msgid "Declined"
 msgstr "已拒绝"
 
-#: src/ui/call.rs:603 src/ui/calls.rs:303
+#: src/ui/call.rs:605 src/ui/calls.rs:303
 msgid "Busy"
 msgstr "忙线"
 
-#: src/ui/call.rs:604 src/ui/calls.rs:304
+#: src/ui/call.rs:606 src/ui/calls.rs:304
 msgid "Could not connect"
 msgstr "无法连接"
 
-#: src/ui/call.rs:605 src/ui/calls.rs:305
+#: src/ui/call.rs:607 src/ui/calls.rs:305
 msgid "No answer"
 msgstr "无人接听"
 
-#: src/ui/call.rs:608 src/ui/calls.rs:306
+#: src/ui/call.rs:610 src/ui/calls.rs:306
 msgid "Connection lost"
 msgstr "连接已断开"
 
-#: src/ui/call.rs:610
+#: src/ui/call.rs:612
 msgid "The call could not be established"
 msgstr "无法建立通话"
 
-#: src/ui/call.rs:614
+#: src/ui/call.rs:616
 msgid "Answered on another device"
 msgstr "已在其他设备接听"
 
-#: src/ui/call.rs:617
+#: src/ui/call.rs:619
 msgid "Declined on another device"
 msgstr "已在其他设备拒绝"
 
-#: src/ui/call.rs:650
+#: src/ui/call.rs:652
 msgid "Waiting for video…"
 msgstr "正在等待视频…"
 
-#: src/ui/call.rs:687
+#: src/ui/call.rs:689
 msgid "No audio is arriving from this call"
 msgstr "此通话没有音频传入"
 
-#: src/ui/call.rs:689
+#: src/ui/call.rs:691
 msgid "This call's audio cannot be decoded"
 msgstr "无法解码此通话的音频"
 
-#: src/ui/call.rs:692
+#: src/ui/call.rs:694
 msgid "This call's audio is not authenticating"
 msgstr "此通话的音频无法通过验证"
 
-#: src/ui/call.rs:696
+#: src/ui/call.rs:698
 msgid "This call's audio is arriving in an unexpected format"
 msgstr "此通话的音频以意外的格式传入"
 
-#: src/ui/call.rs:700
+#: src/ui/call.rs:702
 msgid "This call's audio is being rejected by the decoder"
 msgstr "解码器拒绝了此通话的音频"
 
-#: src/ui/call.rs:703
+#: src/ui/call.rs:705
 msgid "This call's audio format keeps changing"
 msgstr "此通话的音频格式不断变化"
 
-#: src/ui/call.rs:706
+#: src/ui/call.rs:708
 msgid "The peer's audio stopped"
 msgstr "对方的音频已停止"
 
-#: src/ui/call.rs:719
+#: src/ui/call.rs:721
 #, rust-format
 msgid "Microphone “{name}” is not available; using the system default"
 msgstr "麦克风“{name}”不可用；改用系统默认设备"
 
-#: src/ui/call.rs:723
+#: src/ui/call.rs:725
 #, rust-format
 msgid "Speaker “{name}” is not available; using the system default"
 msgstr "扬声器“{name}”不可用；改用系统默认设备"
 
-#: src/ui/call.rs:725
+#: src/ui/call.rs:727
 #, rust-format
 msgid "Camera “{name}” is not available"
 msgstr "摄像头“{name}”不可用"
 
-#: src/ui/call.rs:796
+#: src/ui/call.rs:798
 msgid "Start video"
 msgstr "开启视频"
 
-#: src/ui/call.rs:798
+#: src/ui/call.rs:800
 msgid "Turn the camera off"
 msgstr "关闭摄像头"
 
-#: src/ui/call.rs:800
+#: src/ui/call.rs:802
 msgid "Turn the camera on"
 msgstr "开启摄像头"
 
-#: src/ui/call.rs:834
+#: src/ui/call.rs:836
 msgid "Share your screen"
 msgstr "共享屏幕"
 
-#: src/ui/call.rs:841
+#: src/ui/call.rs:843
 msgid ""
 "1:1 screen sharing is not available in the whatsapp-rust revision this app "
 "uses; an OBS virtual camera can be selected as a camera instead"
@@ -1087,23 +1084,23 @@ msgstr ""
 "此应用所用的 whatsapp-rust 版本不支持一对一屏幕共享；可以改选 OBS 虚拟摄像头"
 "作为摄像头"
 
-#: src/ui/call.rs:857
+#: src/ui/call.rs:859
 msgid "Speaker and devices"
 msgstr "扬声器与设备"
 
-#: src/ui/call.rs:1137 src/ui/calls.rs:287 src/app.rs:3555
+#: src/ui/call.rs:1139 src/ui/calls.rs:287 src/app.rs:3555
 msgid "Incoming video call"
 msgstr "视频来电"
 
-#: src/ui/call.rs:1139 src/ui/calls.rs:281 src/app.rs:3557
+#: src/ui/call.rs:1141 src/ui/calls.rs:281 src/app.rs:3557
 msgid "Incoming voice call"
 msgstr "语音来电"
 
-#: src/ui/call.rs:1153
+#: src/ui/call.rs:1155
 msgid "Accept"
 msgstr "接听"
 
-#: src/ui/call.rs:1168
+#: src/ui/call.rs:1170
 msgid "Decline"
 msgstr "拒绝"
 
@@ -1925,3 +1922,4 @@ msgid ""
 "This option is unavailable in ZapFast. Open the message in WhatsApp Web or "
 "on your phone."
 msgstr "此选项在 ZapFast 中不可用。请在 WhatsApp Web 或手机上打开该消息。"
+

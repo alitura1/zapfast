@@ -6,7 +6,7 @@ msgstr ""
 "Project-Id-Version: ZapFast\n"
 "Report-Msgid-Bugs-To: https://github.com/crmne/zapfast/issues/new?"
 "template=translation.yml\n"
-"POT-Creation-Date: 2026-10-04 16:44+0300\n"
+"POT-Creation-Date: 2026-10-04 16:52+0300\n"
 "PO-Revision-Date: 2026-09-22 00:00-0300\n"
 "Last-Translator: ZapFast contributors\n"
 "Language-Team: German\n"
@@ -195,7 +195,7 @@ msgstr "Labels"
 msgid "Ctrl+K to search · ? for keyboard shortcuts"
 msgstr "Strg+K zum Suchen · ? für Tastenkürzel"
 
-#: src/ui/conversation.rs:337 src/ui/call.rs:884
+#: src/ui/conversation.rs:337 src/ui/call.rs:886
 msgid "Hang up"
 msgstr "Auflegen"
 
@@ -368,11 +368,11 @@ msgstr "Pause"
 msgid "Play"
 msgstr "Abspielen"
 
-#: src/ui/conversation.rs:6080 src/ui/call.rs:770
+#: src/ui/conversation.rs:6080 src/ui/call.rs:772
 msgid "Unmute"
 msgstr "Ton an"
 
-#: src/ui/conversation.rs:6082 src/ui/call.rs:772
+#: src/ui/conversation.rs:6082 src/ui/call.rs:774
 msgid "Mute"
 msgstr "Stumm"
 
@@ -694,7 +694,7 @@ msgstr "Datenschutzeinstellungen deines Kontos werden geladen…"
 msgid "Change who is excluded on your phone."
 msgstr "Wer ausgenommen ist, änderst du auf deinem Telefon."
 
-#: src/ui/settings.rs:503 src/ui/call.rs:980
+#: src/ui/settings.rs:503 src/ui/call.rs:982
 msgid "Microphone"
 msgstr "Mikrofon"
 
@@ -703,7 +703,7 @@ msgid "The microphone every call opens with. Default follows the system."
 msgstr ""
 "Das Mikrofon, mit dem jeder Anruf beginnt. „Standard“ folgt dem System."
 
-#: src/ui/settings.rs:511 src/ui/call.rs:990
+#: src/ui/settings.rs:511 src/ui/call.rs:992
 msgid "Speaker"
 msgstr "Lautsprecher"
 
@@ -724,7 +724,7 @@ msgstr "Spielt einen kurzen Ton über den gewählten Lautsprecher."
 msgid "Play a test tone"
 msgstr "Testton abspielen"
 
-#: src/ui/settings.rs:529 src/ui/call.rs:1001
+#: src/ui/settings.rs:529 src/ui/call.rs:1003
 msgid "Camera"
 msgstr "Kamera"
 
@@ -907,7 +907,7 @@ msgctxt "wallpaper colour"
 msgid "Theme"
 msgstr "Design"
 
-#: src/ui/settings.rs:1142 src/ui/call.rs:952
+#: src/ui/settings.rs:1142 src/ui/call.rs:954
 msgid "Default device"
 msgstr "Standardgerät"
 
@@ -962,156 +962,154 @@ msgstr "Kein Ton"
 msgid "Choose a file…"
 msgstr "Datei auswählen…"
 
-#: src/ui/call.rs:209 src/ui/calls.rs:317
-msgid "1 other on the call"
-msgstr "1 weiterer im Anruf"
+#: src/ui/call.rs:213 src/ui/calls.rs:320
+msgid "{} other on the call"
+msgid_plural "{} others on the call"
+msgstr[0] "{} weiterer im Anruf"
+msgstr[1] "{} weitere im Anruf"
 
-#: src/ui/call.rs:213 src/ui/calls.rs:322
-msgid "others on the call"
-msgstr "weitere im Anruf"
-
-#: src/ui/call.rs:279
+#: src/ui/call.rs:281
 msgid "Hide the call screen"
 msgstr "Anrufbildschirm ausblenden"
 
-#: src/ui/call.rs:297
+#: src/ui/call.rs:299
 msgid "Exit full screen"
 msgstr "Vollbild verlassen"
 
-#: src/ui/call.rs:302
+#: src/ui/call.rs:304
 msgid "Full screen"
 msgstr "Vollbild"
 
-#: src/ui/call.rs:396 src/ui/call.rs:397
+#: src/ui/call.rs:398 src/ui/call.rs:399
 msgid "Return to the call"
 msgstr "Zurück zum Anruf"
 
-#: src/ui/call.rs:570
+#: src/ui/call.rs:572
 msgid "Calling…"
 msgstr "Anrufen…"
 
-#: src/ui/call.rs:572
+#: src/ui/call.rs:574
 msgid "Ringing…"
 msgstr "Klingelt…"
 
-#: src/ui/call.rs:575 src/ui/call.rs:583
+#: src/ui/call.rs:577 src/ui/call.rs:585
 msgid "Connected"
 msgstr "Verbunden"
 
-#: src/ui/call.rs:577
+#: src/ui/call.rs:579
 msgid "Connecting…"
 msgstr "Verbindet…"
 
-#: src/ui/call.rs:589 src/ui/call.rs:600
+#: src/ui/call.rs:591 src/ui/call.rs:602
 msgid "Call ended"
 msgstr "Anruf beendet"
 
-#: src/ui/call.rs:590
+#: src/ui/call.rs:592
 msgid "Incoming call"
 msgstr "Eingehender Anruf"
 
-#: src/ui/call.rs:601
+#: src/ui/call.rs:603
 msgid "Missed call"
 msgstr "Verpasster Anruf"
 
-#: src/ui/call.rs:602 src/ui/calls.rs:301
+#: src/ui/call.rs:604 src/ui/calls.rs:301
 msgid "Declined"
 msgstr "Abgelehnt"
 
-#: src/ui/call.rs:603 src/ui/calls.rs:303
+#: src/ui/call.rs:605 src/ui/calls.rs:303
 msgid "Busy"
 msgstr "Besetzt"
 
-#: src/ui/call.rs:604 src/ui/calls.rs:304
+#: src/ui/call.rs:606 src/ui/calls.rs:304
 msgid "Could not connect"
 msgstr "Verbindung fehlgeschlagen"
 
-#: src/ui/call.rs:605 src/ui/calls.rs:305
+#: src/ui/call.rs:607 src/ui/calls.rs:305
 msgid "No answer"
 msgstr "Keine Antwort"
 
-#: src/ui/call.rs:608 src/ui/calls.rs:306
+#: src/ui/call.rs:610 src/ui/calls.rs:306
 msgid "Connection lost"
 msgstr "Verbindung verloren"
 
-#: src/ui/call.rs:610
+#: src/ui/call.rs:612
 msgid "The call could not be established"
 msgstr "Der Anruf konnte nicht aufgebaut werden"
 
-#: src/ui/call.rs:614
+#: src/ui/call.rs:616
 msgid "Answered on another device"
 msgstr "Auf einem anderen Gerät angenommen"
 
-#: src/ui/call.rs:617
+#: src/ui/call.rs:619
 msgid "Declined on another device"
 msgstr "Auf einem anderen Gerät abgelehnt"
 
-#: src/ui/call.rs:650
+#: src/ui/call.rs:652
 msgid "Waiting for video…"
 msgstr "Warte auf Video…"
 
-#: src/ui/call.rs:687
+#: src/ui/call.rs:689
 msgid "No audio is arriving from this call"
 msgstr "Aus diesem Anruf kommt kein Ton an"
 
-#: src/ui/call.rs:689
+#: src/ui/call.rs:691
 msgid "This call's audio cannot be decoded"
 msgstr "Der Ton dieses Anrufs kann nicht dekodiert werden"
 
-#: src/ui/call.rs:692
+#: src/ui/call.rs:694
 msgid "This call's audio is not authenticating"
 msgstr "Der Ton dieses Anrufs wird nicht authentifiziert"
 
-#: src/ui/call.rs:696
+#: src/ui/call.rs:698
 msgid "This call's audio is arriving in an unexpected format"
 msgstr "Der Ton dieses Anrufs kommt in einem unerwarteten Format an"
 
-#: src/ui/call.rs:700
+#: src/ui/call.rs:702
 msgid "This call's audio is being rejected by the decoder"
 msgstr "Der Ton dieses Anrufs wird vom Dekoder abgelehnt"
 
-#: src/ui/call.rs:703
+#: src/ui/call.rs:705
 msgid "This call's audio format keeps changing"
 msgstr "Das Tonformat dieses Anrufs ändert sich ständig"
 
-#: src/ui/call.rs:706
+#: src/ui/call.rs:708
 msgid "The peer's audio stopped"
 msgstr "Der Ton des Gegenübers ist verstummt"
 
-#: src/ui/call.rs:719
+#: src/ui/call.rs:721
 #, rust-format
 msgid "Microphone “{name}” is not available; using the system default"
 msgstr ""
 "Mikrofon „{name}“ ist nicht verfügbar; verwendet wird die Systemvorgabe"
 
-#: src/ui/call.rs:723
+#: src/ui/call.rs:725
 #, rust-format
 msgid "Speaker “{name}” is not available; using the system default"
 msgstr ""
 "Lautsprecher „{name}“ ist nicht verfügbar; verwendet wird die Systemvorgabe"
 
-#: src/ui/call.rs:725
+#: src/ui/call.rs:727
 #, rust-format
 msgid "Camera “{name}” is not available"
 msgstr "Kamera „{name}“ ist nicht verfügbar"
 
-#: src/ui/call.rs:796
+#: src/ui/call.rs:798
 msgid "Start video"
 msgstr "Video starten"
 
-#: src/ui/call.rs:798
+#: src/ui/call.rs:800
 msgid "Turn the camera off"
 msgstr "Kamera ausschalten"
 
-#: src/ui/call.rs:800
+#: src/ui/call.rs:802
 msgid "Turn the camera on"
 msgstr "Kamera einschalten"
 
-#: src/ui/call.rs:834
+#: src/ui/call.rs:836
 msgid "Share your screen"
 msgstr "Bildschirm teilen"
 
-#: src/ui/call.rs:841
+#: src/ui/call.rs:843
 msgid ""
 "1:1 screen sharing is not available in the whatsapp-rust revision this app "
 "uses; an OBS virtual camera can be selected as a camera instead"
@@ -1120,23 +1118,23 @@ msgstr ""
 "rust-Version nicht verfügbar; stattdessen kann eine virtuelle OBS-Kamera als "
 "Kamera gewählt werden"
 
-#: src/ui/call.rs:857
+#: src/ui/call.rs:859
 msgid "Speaker and devices"
 msgstr "Lautsprecher und Geräte"
 
-#: src/ui/call.rs:1137 src/ui/calls.rs:287 src/app.rs:3555
+#: src/ui/call.rs:1139 src/ui/calls.rs:287 src/app.rs:3555
 msgid "Incoming video call"
 msgstr "Eingehender Videoanruf"
 
-#: src/ui/call.rs:1139 src/ui/calls.rs:281 src/app.rs:3557
+#: src/ui/call.rs:1141 src/ui/calls.rs:281 src/app.rs:3557
 msgid "Incoming voice call"
 msgstr "Eingehender Sprachanruf"
 
-#: src/ui/call.rs:1153
+#: src/ui/call.rs:1155
 msgid "Accept"
 msgstr "Annehmen"
 
-#: src/ui/call.rs:1168
+#: src/ui/call.rs:1170
 msgid "Decline"
 msgstr "Ablehnen"
 
@@ -1993,3 +1991,4 @@ msgid ""
 msgstr ""
 "Diese Option ist in ZapFast nicht verfügbar. Öffne die Nachricht in WhatsApp "
 "Web oder auf deinem Telefon."
+

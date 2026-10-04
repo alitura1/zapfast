@@ -97,9 +97,15 @@ impl Worker {
     /// Hands the call screen the microphones, speakers and cameras it can offer, and keeps them:
     /// they are how a device that goes away is named by the description the user saw.
     pub(super) async fn emit_call_devices(&mut self) -> calls::DeviceList {
-        let devices = discover_devices().await;
-        self.publish_call_devices(devices.clone());
-        devices
+        match scan_devices().await {
+            Some(devices) => {
+                self.publish_call_devices(devices.clone());
+                devices
+            }
+            // The scan did not finish in time: the list the pickers already show is the honest
+            // one, and publishing nothing would leave a call with no device to open.
+            None => self.call_devices.clone(),
+        }
     }
 
     /// Stores and publishes a device list, so the pickers and the fallback naming share one
@@ -271,14 +277,19 @@ impl Worker {
         let Some(client) = self.client.clone() else {
             return;
         };
+        // Scanned before the runtime is borrowed, and bounded, so a stuck driver cannot hold the
+        // worker inside the answer while signaling waits behind it.
+        let devices = match scan_devices().await {
+            Some(devices) => devices,
+            None => self.call_devices.clone(),
+        };
         let update = match self.call.as_mut() {
             Some(runtime) => {
                 // Whatever the user picked while the phone was ringing is what the media binds to,
                 // checked against the machine so one that vanished falls back rather than opening a
                 // stream that can never deliver.
                 let (microphone, speaker, camera) = runtime.call.selections();
-                let resolved =
-                    calls::resolve_devices(&discover_devices().await, microphone, speaker, camera);
+                let resolved = calls::resolve_devices(&devices, microphone, speaker, camera);
                 let answered = runtime
                     .call
                     .answer(
@@ -746,7 +757,12 @@ impl Worker {
         // Discovery opens every audio device to name it and runs `v4l2-ctl` with a format probe per
         // camera node, so it runs on a blocking thread rather than on the worker's async loop: a
         // slow device or a stuck helper must not hold up message handling or the call's own events.
-        let devices = discover_devices().await;
+        // The wait is bounded, so even a driver that never answers cannot stop the loop for good.
+        let devices = match scan_devices().await {
+            Some(devices) => devices,
+            // Keep the list the pickers already show rather than publish an empty one.
+            None => self.call_devices.clone(),
+        };
         // Read before the fresh list replaces it: a device that just went away is still named in
         // here by the description the user saw.
         let known = self.call_devices.clone();
@@ -799,6 +815,27 @@ async fn discover_devices() -> calls::DeviceList {
     tokio::task::spawn_blocking(calls::devices)
         .await
         .unwrap_or_default()
+}
+
+/// Longest the worker waits for a device scan before falling back to the list it already has.
+///
+/// The blocking thread keeps a slow device off the runtime's own threads, but the worker still
+/// awaits the result, so the wait itself has to be bounded: a driver or helper that never answers
+/// would otherwise park signaling and every other command behind it.
+const DEVICE_DISCOVERY_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
+
+/// A device scan that cannot hold the worker longer than [`DEVICE_DISCOVERY_TIMEOUT`]. `None`
+/// means it did not finish, and the caller keeps the snapshot it already published.
+async fn scan_devices() -> Option<calls::DeviceList> {
+    match tokio::time::timeout(DEVICE_DISCOVERY_TIMEOUT, discover_devices()).await {
+        Ok(devices) => Some(devices),
+        Err(_) => {
+            log::warn!(
+                "[CALL] device discovery did not finish within {DEVICE_DISCOVERY_TIMEOUT:?}; keeping the last known devices"
+            );
+            None
+        }
+    }
 }
 
 /// Whether a chat can be called at all.

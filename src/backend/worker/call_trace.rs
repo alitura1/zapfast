@@ -9,9 +9,14 @@
 //!
 //! It never writes a value. No JID, no call id, no key material, no message content — an attribute
 //! is printed by name and a value only by whether it is present, its byte length, its string
-//! length, or, for an `error`, the code itself. A roster `<user>` is additionally marked `self`
-//! when its jid is one of this account's own identities, which names the rejected participant
-//! without printing the jid.
+//! length, or, for an `error`, the code itself. A `jid` is printed only as its address family and
+//! whether it names a specific device, so a `self` entry that lost its device can be told apart
+//! from one that never had it. A roster `<user>` is additionally marked `self` when its jid is one
+//! of this account's own identities, which names the rejected participant without printing the jid.
+//!
+//! Both directions are read: `Event::RawNode` for what the server sends, and `Event::SentFrame`
+//! for the offer this app builds. A rejection names a request whose shape is only observable on
+//! the way out.
 //!
 //! Off unless `ZAPFAST_CALL_TRACE` is set, and narrowed to stanzas that carry `group_info` or are a
 //! `<call>`, so an ordinary session's acks do not flood the log.
@@ -42,8 +47,9 @@ pub(super) fn is_call_control(node: &NodeRef<'_>) -> bool {
     node.tag == "call" || carries(node, "group_info", 0)
 }
 
-/// One attribute rendered for the trace: an `error` code when it is safe to show, otherwise just
-/// the name. Every other attribute stays a name, so a JID or a call id can never be written.
+/// One attribute rendered for the trace: an `error` code when it is safe to show, a `jid`'s family
+/// and device presence, otherwise just the name. Every other attribute stays a name, so a JID user,
+/// a call id, or free text can never be written.
 fn render_attr(name: &str, value: &whatsapp_rust::wacore_binary::node::ValueRef<'_>) -> String {
     if name == "error" {
         let value = value.as_str();
@@ -51,7 +57,25 @@ fn render_attr(name: &str, value: &whatsapp_rust::wacore_binary::node::ValueRef<
             return format!("error={value}");
         }
     }
+    if name == "jid" {
+        return render_jid(value);
+    }
     format!("{name}=?")
+}
+
+/// A `jid` rendered by address family and device presence only: `jid=?@lid` for a bare user jid and
+/// `jid=?@lid:dev` for one that names a specific device. The family comes from the parsed enum, so
+/// nothing the server controls reaches the log, and the user is never written — but a creator or
+/// roster device that the server expects to be device-specific is now visible as such.
+fn render_jid(value: &whatsapp_rust::wacore_binary::node::ValueRef<'_>) -> String {
+    let Some(jid) = value.to_jid() else {
+        return "jid=?".to_string();
+    };
+    if jid.device == 0 {
+        format!("jid=?@{}", jid.server.as_str())
+    } else {
+        format!("jid=?@{}:dev", jid.server.as_str())
+    }
 }
 
 fn carries(node: &NodeRef<'_>, tag: &str, depth: usize) -> bool {
@@ -94,6 +118,18 @@ pub(super) fn ack_metadata(node: &NodeRef<'_>) -> Option<String> {
     (!out.is_empty()).then_some(out)
 }
 
+/// The address family and device presence of one of this account's own identities, for the
+/// startup line. A group offer's creator entry is addressed by this account's LID, so whether that
+/// LID carries the linked device's suffix — or is bare, i.e. device zero — is the one fact the
+/// creator entry depends on and no other log states. The user is not written.
+pub(super) fn identity_shape(jid: Option<&whatsapp_rust::Jid>) -> String {
+    match jid {
+        Some(jid) if jid.device != 0 => format!("@{}:dev", jid.server.as_str()),
+        Some(jid) => format!("@{}", jid.server.as_str()),
+        None => "none".to_string(),
+    }
+}
+
 /// Whether a protocol value is safe to render: a short run of lowercase letters, digits, `_` or `-`.
 /// `@`, spaces and any longer or mixed string (names, JIDs, reason text) are refused.
 fn safe_token(value: &str) -> bool {
@@ -126,11 +162,22 @@ impl OwnIdentities {
     }
 }
 
+/// Decode one outgoing marshaled stanza and describe it when it is call-plane control.
+///
+/// The offer this app builds is the request a rejection names, and [`describe`] alone only sees
+/// what arrives. `Event::SentFrame` hands over the plaintext of every frame the transport accepted
+/// — the outbound counterpart of `Event::RawNode` — so the device the server refuses can be
+/// compared against the roster it echoes back.
+pub(super) fn describe_sent_frame(plaintext: &[u8], own: Option<&OwnIdentities>) -> Option<String> {
+    let node = whatsapp_rust::wacore_binary::marshal::unmarshal_packed_ref(plaintext).ok()?;
+    is_call_control(&node).then(|| describe(&node, 0, own))
+}
+
 /// The node's structure as text: tag, attribute names, child tags with their own names, and the
 /// size of any content. No value is rendered except an `error` attribute that is a short opaque
 /// code — the one value needed to tell a server refusal apart from a malformed stanza, and one that
-/// cannot carry a JID, a name or a call id. A `<user>` whose jid is the account's own is marked
-/// `self`.
+/// cannot carry a JID, a name or a call id — and a `jid`, which is rendered as family and device
+/// presence only. A `<user>` whose jid is the account's own is marked `self`.
 pub(super) fn describe(node: &NodeRef<'_>, depth: usize, own: Option<&OwnIdentities>) -> String {
     let mut out = String::new();
     let mut budget = MAX_NODES;
@@ -350,6 +397,84 @@ mod tests {
         for jid in ["555", "999"] {
             assert!(!text.contains(jid), "a jid leaked: {text}");
         }
+    }
+
+    /// A jid is named by its address family and whether it carries a device, never by its user, so
+    /// a self device that the server refuses for lacking a device suffix is distinguishable.
+    #[test]
+    fn a_jid_is_rendered_by_family_and_device_presence_only() {
+        let ack = NodeBuilder::new("ack")
+            .children([
+                NodeBuilder::new("user")
+                    .attr("jid", Jid::lid_device("555", 3))
+                    .build(),
+                NodeBuilder::new("user")
+                    .attr("jid", Jid::lid("555"))
+                    .build(),
+                NodeBuilder::new("user")
+                    .attr("jid", Jid::pn("15550000001"))
+                    .build(),
+                NodeBuilder::new("user")
+                    .attr("jid", Jid::new("1234", Server::Group))
+                    .build(),
+            ])
+            .build();
+        let text = describe(&ack.as_node_ref(), 0, None);
+        assert!(text.contains("jid=?@lid:dev"), "{text}");
+        assert_eq!(text.matches("jid=?@lid>").count(), 1, "{text}");
+        assert!(text.contains("jid=?@s.whatsapp.net"), "{text}");
+        assert!(text.contains("jid=?@g.us"), "{text}");
+        for user in ["555", "15550000001", "1234"] {
+            assert!(!text.contains(user), "a jid user leaked: {text}");
+        }
+    }
+
+    /// The outbound offer is decoded and described when it is call-plane control, and a sent
+    /// stanza that is not is dropped — the send side is otherwise invisible.
+    #[test]
+    fn a_sent_offer_is_described_and_a_sent_non_call_is_not() {
+        let offer = NodeBuilder::new("call")
+            .attr("to", "x@call")
+            .children([NodeBuilder::new("offer")
+                .attr("call-id", "x")
+                .attr("call-creator", "555@lid")
+                .children([NodeBuilder::new("group_info")
+                    .attr("media", "audio")
+                    .children([NodeBuilder::new("user")
+                        .attr("jid", Jid::lid("555"))
+                        .children([NodeBuilder::new("device")
+                            .attr("jid", Jid::lid("555"))
+                            .build()])
+                        .build()])
+                    .build()])
+                .build()])
+            .build();
+        let packed = whatsapp_rust::wacore_binary::marshal::marshal(&offer).expect("marshal offer");
+        let text = describe_sent_frame(&packed, None).expect("a sent offer is traced");
+        assert!(text.contains("<call"), "{text}");
+        assert!(text.contains("<device"), "{text}");
+
+        let plain = NodeBuilder::new("message").attr("id", "1").build();
+        let packed =
+            whatsapp_rust::wacore_binary::marshal::marshal(&plain).expect("marshal message");
+        assert_eq!(describe_sent_frame(&packed, None), None);
+    }
+
+    /// The startup line names the family and device presence of an own identity — bare versus
+    /// device-suffixed — and says `none` before pairing.
+    #[test]
+    fn identity_shape_names_family_and_device_presence() {
+        assert_eq!(identity_shape(None), "none");
+        assert_eq!(
+            identity_shape(Some(&Jid::lid("555"))),
+            "@lid",
+            "a bare LID must be visible as such"
+        );
+        assert_eq!(identity_shape(Some(&Jid::lid_device("555", 3))), "@lid:dev");
+        assert_eq!(
+            identity_shape(Some(&Jid::pn("15550000001"))),
+            "@s.whatsapp.net"
+        );
     }
 
     /// A wide stanza is collapsed once the node budget is spent, so a hostile or merely large

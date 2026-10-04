@@ -4139,7 +4139,7 @@ mod group_signaling_tests {
             call_creator: &creator,
             group_jid: Some(&group),
             participants: &too_few,
-            audio_rate: 16_000,
+            audio_rates: &["8000", "16000"],
             video: false,
         })
         .expect_err("a group offer with too few participants is refused");
@@ -4159,7 +4159,7 @@ mod group_signaling_tests {
             call_creator: &creator,
             group_jid: Some(&group),
             participants: &enough,
-            audio_rate: 16_000,
+            audio_rates: &["8000", "16000"],
             video: false,
         })
         .expect("a full roster builds an offer");

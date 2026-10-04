@@ -490,6 +490,7 @@ pub async fn run(
         call_devices: crate::calls::DeviceList::default(),
         call_defaults: crate::calls::CallDevices::default(),
         call_trace: None,
+        call_trace_sent: None,
         wa_sender,
         me_pn: None,
         me_lid: None,
@@ -839,6 +840,9 @@ struct Worker {
     /// Holds `Event::RawNode` forwarding open while the call trace is on. `None` when it is not,
     /// which is also what keeps the library from dispatching a single raw stanza.
     call_trace: Option<whatsapp_rust::RawNodeLease>,
+    /// Holds `Event::SentFrame` forwarding open alongside it, so the offer this app builds — the
+    /// request a rejection names — is observable on the way out.
+    call_trace_sent: Option<whatsapp_rust::SentFrameLease>,
 }
 
 /// A queued forward: where it goes, the protobuf, and its disappearing timer.
@@ -1541,14 +1545,23 @@ impl Worker {
             Ok(bot) => {
                 let handle = bot.spawn();
                 self.client = Some(handle.client());
-                // The lease has to outlive every stanza the trace is meant to see, so it is held
-                // for as long as the client is: dropping it silences `Event::RawNode` again.
-                self.call_trace = call_trace::enabled().then(|| {
+                // The leases have to outlive every stanza the trace is meant to see, so they are
+                // held for as long as the client is: dropping them silences the events again.
+                if call_trace::enabled() {
                     log::warn!(
                         "[CALL-TRACE] on: group-call control stanzas are logged by structure only"
                     );
-                    handle.client().acquire_raw_node_forwarding()
-                });
+                    self.call_trace = Some(handle.client().acquire_raw_node_forwarding());
+                    self.call_trace_sent = Some(handle.client().acquire_sent_frame_forwarding());
+                    let client = handle.client();
+                    let lid = client.lid();
+                    let pn = client.pn();
+                    log::warn!(
+                        "[CALL-TRACE] own lid{} pn{}",
+                        call_trace::identity_shape(lid.as_ref()),
+                        call_trace::identity_shape(pn.as_ref()),
+                    );
+                }
                 self.handle = Some(handle);
                 self.set_status(LinkStatus::Connecting);
             }
@@ -2229,9 +2242,28 @@ impl Worker {
                                 pn: client.pn(),
                             });
                         log::warn!(
-                            "[CALL-TRACE]\n{}",
+                            "[CALL-TRACE] recv\n{}",
                             call_trace::describe(node, 0, own.as_ref())
                         );
+                    }
+                }
+            }
+            // The outbound counterpart: the offer this app builds, so the device the server refuses
+            // is comparable against the roster it echoes back. Decoding and describing run only
+            // while the trace is on and every frame is gated by the lease being held.
+            E::SentFrame(frame) => {
+                if call_trace::enabled() {
+                    let own = self
+                        .client
+                        .as_ref()
+                        .map(|client| call_trace::OwnIdentities {
+                            lid: client.lid(),
+                            pn: client.pn(),
+                        });
+                    if let Some(text) =
+                        call_trace::describe_sent_frame(frame.plaintext.as_ref(), own.as_ref())
+                    {
+                        log::warn!("[CALL-TRACE] sent\n{text}");
                     }
                 }
             }
@@ -11205,6 +11237,7 @@ mod receipt_tests {
             call_devices: crate::calls::DeviceList::default(),
             call_defaults: crate::calls::CallDevices::default(),
             call_trace: None,
+            call_trace_sent: None,
             wa_sender,
             me_pn: Some(ME.to_owned()),
             me_lid: None,

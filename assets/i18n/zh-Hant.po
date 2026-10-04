@@ -5,7 +5,7 @@ msgstr ""
 "Project-Id-Version: ZapFast\n"
 "Report-Msgid-Bugs-To: https://github.com/crmne/zapfast/issues/new?"
 "template=translation.yml\n"
-"POT-Creation-Date: 2026-10-04 20:55+0300\n"
+"POT-Creation-Date: 2026-10-04 21:29+0300\n"
 "PO-Revision-Date: 2026-10-02 18:51+0800\n"
 "Last-Translator: Alang Hsu <alang.hsu@gmail.com>\n"
 "Language-Team: Chinese (Traditional)\n"
@@ -1706,202 +1706,202 @@ msgstr "更新 ZapFast"
 msgid "Ready to install"
 msgstr "可以安裝"
 
-#: src/backend/worker.rs:1902 src/backend/worker.rs:4828
-#: src/backend/worker.rs:4878 src/backend/worker.rs:5967
-#: src/backend/worker.rs:5974 src/backend/worker.rs:6933
-#: src/backend/worker.rs:6964 src/backend/worker.rs:7317
-#: src/backend/worker.rs:7347 src/backend/worker.rs:8864
-#: src/backend/worker.rs:8868 src/backend/worker/stickers.rs:998
+#: src/backend/worker.rs:1915 src/backend/worker.rs:4860
+#: src/backend/worker.rs:4910 src/backend/worker.rs:5999
+#: src/backend/worker.rs:6006 src/backend/worker.rs:6965
+#: src/backend/worker.rs:6996 src/backend/worker.rs:7349
+#: src/backend/worker.rs:7379 src/backend/worker.rs:8896
+#: src/backend/worker.rs:8900 src/backend/worker/stickers.rs:998
 #: src/backend/worker/interactive/replies.rs:233
 msgid "Not connected to WhatsApp"
 msgstr "未連線到 WhatsApp"
 
-#: src/backend/worker.rs:2287 src/backend/worker.rs:5451
+#: src/backend/worker.rs:2319 src/backend/worker.rs:5483
 #, rust-format
 msgid "Could not link by phone number: {error}"
 msgstr "無法透過電話號碼連結：{error}"
 
-#: src/backend/worker.rs:2391
+#: src/backend/worker.rs:2423
 msgid "WhatsApp connection failed"
 msgstr "WhatsApp 連線失敗"
 
-#: src/backend/worker.rs:2399
+#: src/backend/worker.rs:2431
 msgid "Another WhatsApp Web session replaced this one"
 msgstr "另一個 WhatsApp Web 工作階段已取代此工作階段"
 
-#: src/backend/worker.rs:2624
+#: src/backend/worker.rs:2656
 msgid "Connect to WhatsApp to change your profile."
 msgstr "連線 WhatsApp 以變更您的個人資料。"
 
-#: src/backend/worker.rs:2640
+#: src/backend/worker.rs:2672
 #, rust-format
 msgid "Could not change your name: {error}"
 msgstr "無法變更您的名字：{error}"
 
-#: src/backend/worker.rs:2652
+#: src/backend/worker.rs:2684
 #, rust-format
 msgid "Could not change your About: {error}"
 msgstr "無法變更您的個人說明：{error}"
 
-#: src/backend/worker.rs:3790
+#: src/backend/worker.rs:3822
 #, rust-format
 msgid "Could not read part of the chat history: {error}"
 msgstr "無法讀取部分聊天記錄：{error}"
 
-#: src/backend/worker.rs:4152
+#: src/backend/worker.rs:4184
 msgid "Your phone did not send older messages. Check that it is online"
 msgstr "您的手機未傳送較舊的訊息。請確認其是否在線上"
 
-#: src/backend/worker.rs:4575 src/backend/worker.rs:4640
+#: src/backend/worker.rs:4607 src/backend/worker.rs:4672
 #, rust-format
 msgid "Could not use this picture: {error}"
 msgstr "無法使用此圖片：{error}"
 
-#: src/backend/worker.rs:4587
+#: src/backend/worker.rs:4619
 msgid "Connect to WhatsApp to change your profile picture."
 msgstr "連線 WhatsApp 以變更您的大頭貼。"
 
-#: src/backend/worker.rs:4606
+#: src/backend/worker.rs:4638
 #, rust-format
 msgid "Could not change your profile picture: {error}"
 msgstr "無法變更您的大頭貼：{error}"
 
-#: src/backend/worker.rs:4712
+#: src/backend/worker.rs:4744
 #, rust-format
 msgid "Could not save the attachment: {error}"
 msgstr "無法儲存附件：{error}"
 
-#: src/backend/worker.rs:4799
+#: src/backend/worker.rs:4831
 #, rust-format
 msgid "Could not make the sticker: {error}"
 msgstr "無法製作貼圖：{error}"
 
-#: src/backend/worker.rs:4850 src/backend/worker.rs:8874
+#: src/backend/worker.rs:4882 src/backend/worker.rs:8906
 #, rust-format
 msgid "Could not save contact: {error}"
 msgstr "無法儲存聯絡人：{error}"
 
-#: src/backend/worker.rs:4911
+#: src/backend/worker.rs:4943
 #, rust-format
 msgid "{} is not on WhatsApp"
 msgstr "{} 不在 WhatsApp 上"
 
-#: src/backend/worker.rs:4937 src/backend/worker/stickers.rs:987
+#: src/backend/worker.rs:4969 src/backend/worker/stickers.rs:987
 #, rust-format
 msgid "Could not add sticker pack: {error}"
 msgstr "無法新增貼圖包：{error}"
 
-#: src/backend/worker.rs:4993
+#: src/backend/worker.rs:5025
 msgid "Could not update privacy settings."
 msgstr "無法更新隱私設定。"
 
-#: src/backend/worker.rs:5140
+#: src/backend/worker.rs:5172
 #, rust-format
 msgid "Could not create the pack: {error}"
 msgstr "無法建立貼圖包：{error}"
 
-#: src/backend/worker.rs:5219
+#: src/backend/worker.rs:5251
 msgid "Connect to WhatsApp to delete this chat"
 msgstr "連線 WhatsApp 以刪除此聊天"
 
-#: src/backend/worker.rs:5258
+#: src/backend/worker.rs:5290
 msgid "The phone did not delete this chat. Try again when connected"
 msgstr "手機未刪除此聊天。請在連線後重試"
 
-#: src/backend/worker.rs:5270
+#: src/backend/worker.rs:5302
 msgid "Connect to WhatsApp to clear this chat"
 msgstr "連線 WhatsApp 以清空此聊天"
 
-#: src/backend/worker.rs:5282
+#: src/backend/worker.rs:5314
 msgid "Could not read this chat's messages. Try again"
 msgstr "無法讀取此聊天的訊息。請重試"
 
-#: src/backend/worker.rs:5316
+#: src/backend/worker.rs:5348
 msgid "The phone cleared this chat, but ZapFast could not clear it here"
 msgstr "手機已清空此聊天，但 ZapFast 無法在此清空"
 
-#: src/backend/worker.rs:5323
+#: src/backend/worker.rs:5355
 msgid "The phone did not clear this chat. Try again when connected"
 msgstr "手機未清空此聊天。請在連線後重試"
 
-#: src/backend/worker.rs:5422
+#: src/backend/worker.rs:5454
 msgid "Not connected to WhatsApp yet"
 msgstr "尚未連線到 WhatsApp"
 
-#: src/backend/worker.rs:5515
+#: src/backend/worker.rs:5547
 #, rust-format
 msgid "Message not sent: {error}"
 msgstr "訊息未傳送：{error}"
 
-#: src/backend/worker.rs:5606 src/backend/worker.rs:5724
+#: src/backend/worker.rs:5638 src/backend/worker.rs:5756
 msgid "Only admins can change this group's name and photo."
 msgstr "只有管理員可以變更此群組的名稱和大頭貼。"
 
-#: src/backend/worker.rs:5633
+#: src/backend/worker.rs:5665
 #, rust-format
 msgid "A group name can have at most {} characters."
 msgstr "群組名稱最多可以有 {} 個字元。"
 
-#: src/backend/worker.rs:5641
+#: src/backend/worker.rs:5673
 msgid "Connect to WhatsApp to change the group's name."
 msgstr "連線 WhatsApp 以變更群組名稱。"
 
-#: src/backend/worker.rs:5674
+#: src/backend/worker.rs:5706
 msgid "Connect to WhatsApp to change the group's photo."
 msgstr "連線 WhatsApp 以變更群組大頭貼。"
 
-#: src/backend/worker.rs:5728
+#: src/backend/worker.rs:5760
 msgid "Could not rename the group."
 msgstr "無法重新命名群組。"
 
-#: src/backend/worker.rs:5730
+#: src/backend/worker.rs:5762
 msgid "Could not change the group's photo."
 msgstr "無法變更群組大頭貼。"
 
-#: src/backend/worker.rs:5733
+#: src/backend/worker.rs:5765
 msgid "Could not remove the group's photo."
 msgstr "無法移除群組大頭貼。"
 
-#: src/backend/worker.rs:5761 src/backend/worker.rs:5788
+#: src/backend/worker.rs:5793 src/backend/worker.rs:5820
 msgid "Could not leave the channel."
 msgstr "無法退出頻道。"
 
-#: src/backend/worker.rs:5763 src/backend/worker.rs:5790
+#: src/backend/worker.rs:5795 src/backend/worker.rs:5822
 msgid "Could not leave the group."
 msgstr "無法退出群組。"
 
-#: src/backend/worker.rs:6088
+#: src/backend/worker.rs:6120
 msgid ""
 "Not connected to WhatsApp: the rest of the forwarded messages were not sent"
 msgstr "未連線到 WhatsApp：其餘轉寄的訊息未傳送"
 
-#: src/backend/worker.rs:6103 src/backend/worker.rs:6903
+#: src/backend/worker.rs:6135 src/backend/worker.rs:6935
 msgid "This message is not stored on this computer"
 msgstr "此訊息未儲存在此電腦上"
 
-#: src/backend/worker.rs:6117
+#: src/backend/worker.rs:6149
 msgid "This message cannot be forwarded"
 msgstr "無法轉寄此訊息"
 
-#: src/backend/worker.rs:6124
+#: src/backend/worker.rs:6156
 msgid "The original message data is not available to forward"
 msgstr "原始訊息資料無法用於轉寄"
 
-#: src/backend/worker.rs:6131
+#: src/backend/worker.rs:6163
 msgid "The original message data could not be read"
 msgstr "無法讀取原始訊息資料"
 
-#: src/backend/worker.rs:6818 src/backend/worker.rs:6834
+#: src/backend/worker.rs:6850 src/backend/worker.rs:6866
 #, rust-format
 msgid "Could not search: {error}"
 msgstr "無法搜尋：{error}"
 
-#: src/backend/worker.rs:6866 src/backend/worker.rs:6923
+#: src/backend/worker.rs:6898 src/backend/worker.rs:6955
 #, rust-format
 msgid "Could not read the chat: {error}"
 msgstr "無法讀取聊天：{error}"
 
-#: src/backend/worker.rs:7324
+#: src/backend/worker.rs:7356
 msgid "Could not encode the attachment"
 msgstr "無法編碼附件"
 

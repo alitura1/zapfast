@@ -159,6 +159,8 @@ const MIGRATIONS: &[(&str, &str, &str)] = &[
     // NULL until the group's metadata says whether only admins edit its info.
     ("chats", "info_locked", "INTEGER"),
     ("chats", "group_admin", "INTEGER NOT NULL DEFAULT 0"),
+    // How many others a group call had; zero for the one-to-one calls older archives hold.
+    ("calls", "participants", "INTEGER NOT NULL DEFAULT 0"),
 ];
 const CHAT_JOIN: &str = "FROM chats c
              LEFT JOIN messages m ON m.chat = c.id AND m.rowid = (

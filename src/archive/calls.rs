@@ -25,7 +25,8 @@ CREATE TABLE IF NOT EXISTS calls (
     direction TEXT NOT NULL,
     media TEXT NOT NULL,
     status TEXT NOT NULL,
-    duration INTEGER NOT NULL
+    duration INTEGER NOT NULL,
+    participants INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS calls_by_time ON calls (started_at);
 CREATE INDEX IF NOT EXISTS calls_by_chat ON calls (chat, started_at);
@@ -37,8 +38,8 @@ impl Archive {
     pub fn save_call(&self, call: &CallRecord) -> Result<()> {
         self.connection.execute(
             "INSERT OR REPLACE INTO calls
-                 (id, chat, started_at, ended_at, direction, media, status, duration)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                 (id, chat, started_at, ended_at, direction, media, status, duration, participants)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
             params![
                 call.id,
                 call.chat,
@@ -48,6 +49,7 @@ impl Archive {
                 media_key(call.media),
                 status_key(call.status),
                 call.duration as i64,
+                call.participants as i64,
             ],
         )?;
         Ok(())
@@ -85,7 +87,7 @@ impl Archive {
         arguments: impl rusqlite::Params,
     ) -> Result<Vec<CallRecord>> {
         let sql = format!(
-            "SELECT id, chat, started_at, ended_at, direction, media, status, duration FROM calls {filter} ORDER BY started_at DESC, id"
+            "SELECT id, chat, started_at, ended_at, direction, media, status, duration, participants FROM calls {filter} ORDER BY started_at DESC, id"
         );
         let mut statement = self.connection.prepare(&sql)?;
         let rows = statement.query_map(arguments, |row| {
@@ -98,6 +100,7 @@ impl Archive {
                 media: media_from_key(row.get::<_, String>(5)?.as_str()),
                 status: status_from_key(row.get::<_, String>(6)?.as_str()),
                 duration: row.get::<_, i64>(7)?.max(0) as u64,
+                participants: row.get::<_, i64>(8)?.max(0) as u32,
             })
         })?;
         rows.collect()
@@ -178,6 +181,7 @@ mod tests {
             media: CallMedia::Voice,
             status,
             duration: 60,
+            participants: 0,
         }
     }
 
@@ -212,6 +216,7 @@ mod tests {
             media: CallMedia::Video,
             status: CallStatus::Missed,
             duration: 0,
+            participants: 0,
         };
         archive.save_call(&call).unwrap();
         assert_eq!(archive.calls().unwrap(), vec![call.clone()]);

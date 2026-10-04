@@ -9684,6 +9684,7 @@ mod tests {
                 media: crate::model::CallMedia::Voice,
                 status: crate::model::CallStatus::Answered,
                 duration: 30,
+                participants: 0,
             })
             .unwrap();
         unconfirmed(&mut worker);
@@ -9779,6 +9780,7 @@ mod tests {
                 media: crate::model::CallMedia::Voice,
                 status: crate::model::CallStatus::Answered,
                 duration: 30,
+                participants: 0,
             })
             .unwrap();
         while events.try_recv().is_ok() {}

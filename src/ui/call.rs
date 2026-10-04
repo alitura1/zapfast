@@ -119,6 +119,18 @@ fn live(
     palette: &Palette,
     area: Rect,
 ) {
+    // A group call draws a grid of its participants' pictures; a one-to-one call draws its single
+    // peer's picture full-bleed. The tiles are collected first, because whether there is a picture
+    // to fill the surface depends on them as well as on the one-to-one flag.
+    let tiles = if call.group.is_some() {
+        group_tiles(app, call)
+    } else {
+        Vec::new()
+    };
+    if !tiles.is_empty() {
+        draw_grid(ui, app, &tiles, palette, area);
+    }
+
     // The peer's picture fills the surface when there is one; everything else is drawn on top of
     // it. Both textures are kept between frames and updated in place, so a per-frame repaint does
     // not allocate a new GPU texture every time.
@@ -178,7 +190,7 @@ fn live(
         );
     }
 
-    let has_picture = call.video && call.remote_video;
+    let has_picture = (call.video && call.remote_video) || !tiles.is_empty();
     if !has_picture {
         ui.vertical_centered(|ui| {
             ui.add_space(area.height() * 0.16);
@@ -359,7 +371,13 @@ fn bar(app: &mut App, ctx: &egui::Context, call: &CallUpdate, peer: &str, palett
                                 Icon::Phone
                             },
                             13.0,
-                            if live { palette.danger } else { palette.accent },
+                            // The same colours the status line uses: a call that is up is accent, a
+                            // farewell is secondary. Neither is an error, so neither is danger.
+                            if live {
+                                palette.accent
+                            } else {
+                                palette.secondary
+                            },
                         );
                         ui.add_space(4.0);
                         theme::text(ui, peer, theme::semibold(13.5), palette.text);
@@ -409,6 +427,103 @@ fn call_texture(
             *kept = Some(texture);
             id
         }
+    }
+}
+
+/// The participants whose newest picture the grid can draw, in roster order.
+///
+/// Only the participants the interface still holds a frame for are returned: the roster prunes a
+/// frame when its participant leaves or turns their camera off, so an empty list is the honest
+/// "nobody is sending video right now" the surface falls back to the room's own name for.
+fn group_tiles(app: &App, call: &CallUpdate) -> Vec<(String, std::sync::Arc<egui::ColorImage>)> {
+    call.participants
+        .iter()
+        .filter_map(|participant| {
+            app.call_participant_frames
+                .get(&participant.chat)
+                .map(|image| (participant.chat.clone(), std::sync::Arc::clone(image)))
+        })
+        .collect()
+}
+
+/// Draws the participants' pictures in a responsive grid.
+///
+/// The layout follows the count: one remote fills the surface, two share it side by side, three or
+/// four sit in a square, and beyond that the grid grows in columns and rows while each tile shrinks.
+/// Only frames already in hand are drawn, each through one kept texture per sender rather than a
+/// fresh upload per frame, and the tile count is capped so a large room does not paint dozens of
+/// thumbnails. A participant's name rides each tile, redacted the same way the caller is, so an
+/// unknown participant is never named by a phone number.
+fn draw_grid(
+    ui: &mut egui::Ui,
+    app: &mut App,
+    tiles: &[(String, std::sync::Arc<egui::ColorImage>)],
+    palette: &Palette,
+    area: Rect,
+) {
+    /// The most tiles drawn at once; the rest are summarised as `+N`.
+    const MAX_TILES: usize = 16;
+    const GAP: f32 = 8.0;
+    // Room at the top for the room's name and the timer, which are painted over the grid.
+    let grid_area = Rect::from_min_max(pos2(area.left(), area.top() + 46.0), area.max);
+    let shown = tiles.len().min(MAX_TILES);
+    let columns = match shown {
+        0 | 1 => 1,
+        2 => 2,
+        _ => (shown as f32).sqrt().ceil() as usize,
+    };
+    let rows = shown.div_ceil(columns.max(1));
+    let tile_w = (grid_area.width() - GAP * (columns as f32 - 1.0)) / columns as f32;
+    let tile_h = (grid_area.height() - GAP * (rows as f32 - 1.0)) / rows as f32;
+    for (index, (chat, image)) in tiles.iter().take(MAX_TILES).enumerate() {
+        let (col, row) = (index % columns, index / columns);
+        let at = Rect::from_min_size(
+            pos2(
+                grid_area.left() + col as f32 * (tile_w + GAP),
+                grid_area.top() + row as f32 * (tile_h + GAP),
+            ),
+            vec2(tile_w.max(1.0), tile_h.max(1.0)),
+        );
+        let fitted = fit_inside(at, vec2(image.width() as f32, image.height() as f32));
+        ui.painter()
+            .rect_filled(at.expand(2.0), CornerRadius::same(10), palette.outline);
+        let texture = {
+            let texture = app
+                .call_participant_textures
+                .entry(chat.clone())
+                .or_insert_with(|| {
+                    ui.ctx().load_texture(
+                        format!("zapfast-call-tile-{chat}"),
+                        image.as_ref().clone(),
+                        TextureOptions::LINEAR,
+                    )
+                });
+            texture.set(image.as_ref().clone(), TextureOptions::LINEAR);
+            texture.id()
+        };
+        ui.painter().image(
+            texture,
+            fitted,
+            Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
+            Color32::WHITE,
+        );
+        let name = app.call_name(chat);
+        ui.painter().text(
+            pos2(at.left() + 8.0, at.bottom() - 8.0),
+            egui::Align2::LEFT_BOTTOM,
+            name,
+            theme::medium(12.0),
+            Color32::WHITE,
+        );
+    }
+    if tiles.len() > MAX_TILES {
+        ui.painter().text(
+            pos2(grid_area.right() - 8.0, grid_area.top() + 8.0),
+            egui::Align2::RIGHT_TOP,
+            format!("+{}", tiles.len() - MAX_TILES),
+            theme::medium(12.0),
+            Color32::WHITE,
+        );
     }
 }
 

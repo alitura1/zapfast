@@ -291,10 +291,9 @@ pub(crate) fn direction_and_media(locale: Locale, record: &CallRecord) -> String
 
 /// How the call ended: how long it lasted when it was answered, and what became of it otherwise.
 pub(crate) fn outcome(locale: Locale, record: &CallRecord) -> String {
-    if record.status.connected() {
-        return crate::util::duration(record.duration as u32);
-    }
-    match record.status {
+    let base = match record.status {
+        // An answered call shows how long it lasted rather than a word; every other status names
+        // what became of it. `connected()` is exactly this variant, so there is one arm, not two.
         CallStatus::Answered => crate::util::duration(record.duration as u32),
         // Another device took the call. This device has no length to show, only that fact.
         CallStatus::AnsweredElsewhere => gettext(locale, "Answered elsewhere").into_owned(),
@@ -305,7 +304,27 @@ pub(crate) fn outcome(locale: Locale, record: &CallRecord) -> String {
         CallStatus::Failed => gettext(locale, "Could not connect").into_owned(),
         CallStatus::NoAnswer => gettext(locale, "No answer").into_owned(),
         CallStatus::ConnectionLost => gettext(locale, "Connection lost").into_owned(),
+    };
+    // A group call names how many others were on it, in the same words the live call screen uses.
+    // The count is what was stored, never a name, so the list says a call was a group one without
+    // saying who else was there. A group call whose roster never arrived has no count to show.
+    if matches!(
+        crate::model::ChatKind::from_id(&record.chat),
+        crate::model::ChatKind::Group
+    ) && record.participants >= 1
+    {
+        let others = if record.participants == 1 {
+            gettext(locale, "1 other on the call").into_owned()
+        } else {
+            format!(
+                "{} {}",
+                record.participants,
+                gettext(locale, "others on the call")
+            )
+        };
+        return format!("{base} · {others}");
     }
+    base
 }
 
 #[cfg(test)]
@@ -323,6 +342,7 @@ mod tests {
             media,
             status,
             duration: 0,
+            participants: 0,
         }
     }
 

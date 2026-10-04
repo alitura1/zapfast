@@ -378,6 +378,19 @@ impl Worker {
                         Err(error) => Err(error),
                     }
                 } else {
+                    // Turning a video call's camera back on. A camera the machine lost cleared the
+                    // selection (`verify_devices`), so the picker's "Default device" is read again
+                    // here, or the resume would open `None` and fail. A camera the call still holds
+                    // is kept as it is.
+                    if on
+                        && runtime.call.camera().is_none()
+                        && let Some(camera) = calls::default_camera(
+                            &self.call_devices,
+                            self.call_defaults.camera.clone(),
+                        )
+                    {
+                        let _ = runtime.call.set_camera_device(Some(camera));
+                    }
                     runtime.call.set_camera(on).await
                 }
             }
@@ -470,6 +483,7 @@ impl Worker {
                 self.emit(Event::CallVideo {
                     local: Some(image),
                     remote: None,
+                    remote_from: None,
                 });
             }
             VideoTick::Remote(image) => {
@@ -488,11 +502,28 @@ impl Worker {
                     self.emit(Event::CallVideo {
                         local: None,
                         remote: Some(image),
+                        remote_from: None,
                     });
                 }
                 if first && let Some(runtime) = self.call.as_ref() {
                     let update = runtime.call.update();
                     self.emit(Event::Call(Box::new(update)));
+                }
+            }
+            // A group participant's own picture, named by the sender. The frame is drawn while the
+            // call is a group; the interface prunes a tile once the roster drops its participant or
+            // that participant's camera state says they stopped sending, so nothing stale lingers.
+            VideoTick::RemoteFrom { chat, image } => {
+                let draw = self
+                    .call
+                    .as_mut()
+                    .is_some_and(|runtime| runtime.call.participant_video_arrived(&chat));
+                if draw {
+                    self.emit(Event::CallVideo {
+                        local: None,
+                        remote: None,
+                        remote_from: Some((chat, image)),
+                    });
                 }
             }
         }
@@ -639,6 +670,7 @@ impl Worker {
             media: crate::model::CallMedia::Voice,
             status: outcome.status(),
             duration: 0,
+            participants: 0,
         };
         self.log_call(record);
     }

@@ -2716,6 +2716,7 @@ pub fn demo_calls() -> Vec<crate::model::CallRecord> {
         media,
         status,
         duration,
+        participants: 0,
     };
     vec![
         call(

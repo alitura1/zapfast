@@ -935,15 +935,17 @@ impl CallStatus {
     }
 }
 
-/// One finished 1:1 call, as stored and shown.
+/// One finished call, as stored and shown.
 ///
 /// Every field comes from the call itself: the peer's signaling and the media plane decide the
-/// status, and the times are this computer's clock.
+/// status, and the times are this computer's clock. A group call is filed under the group's own
+/// chat, with how many other people were on it, so the Calls view can say it was a group call
+/// without ever naming a participant.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CallRecord {
     /// The WhatsApp call id, which is what keeps one call to one row.
     pub id: String,
-    /// The canonical chat the call belongs to.
+    /// The canonical chat the call belongs to: the group for a group call, the peer otherwise.
     pub chat: ChatId,
     /// Unix seconds the call was placed or received.
     pub started_at: i64,
@@ -954,6 +956,10 @@ pub struct CallRecord {
     pub status: CallStatus,
     /// Seconds the two sides were connected; zero when they never were.
     pub duration: u64,
+    /// How many other participants a group call had, as the roster last reported it. Zero for a
+    /// one-to-one call and for a group call whose roster never arrived. A count, never names: the
+    /// record is local and shipped in no report, and a count is enough for the list.
+    pub participants: u32,
 }
 
 /// The tabs of the picker above the composer.

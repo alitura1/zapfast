@@ -649,8 +649,15 @@ fn require_video(requested: bool, pipeline: bool) -> Result<()> {
 pub enum VideoTick {
     /// Our own camera, for the corner preview.
     Local(Arc<ColorImage>),
-    /// The peer's picture.
+    /// The peer's picture, on a one-to-one call.
     Remote(Arc<ColorImage>),
+    /// One group participant's picture, named by that participant's chat so the grid can put each
+    /// frame on the right tile. A one-to-one peer carries no such name, which is why [`Self::Remote`]
+    /// stays as it is.
+    RemoteFrom {
+        chat: String,
+        image: Arc<ColorImage>,
+    },
 }
 
 /// The camera side of the call: the camera module reads YUV 4:2:0 at a fixed size, so the encoder
@@ -947,7 +954,9 @@ fn capture(
             log::error!("[CALL] camera encoder could not start: {error}");
             source.stop();
             source.reap();
-            ticks.close();
+            // The frame channel is shared with the pipeline this capture belongs to, so it is left
+            // open here: this capture failed, but the channel is not this thread's to close, and
+            // the failed pipeline drops its own end a moment later anyway.
             let _ = ready.send(Err(format!("the camera encoder could not start: {error}")));
             return;
         }
@@ -1081,10 +1090,29 @@ impl openh264::formats::YUVSource for Yuv420<'_> {
     }
 }
 
-/// Decodes the peer's access units into pictures for the UI.
+/// One sender's H.264 stream, with the state that must never be shared across senders.
+///
+/// A group call carries a separate H.264 access-unit stream from every participant, keyed by the
+/// sender the frame names, and feeding two senders into one decoder would decode neither. A
+/// one-to-one peer carries no sender, so it shares the single empty stream, which is exactly the
+/// old single-decoder behaviour.
+struct RemoteStream {
+    decoder: openh264::decoder::Decoder,
+    started: bool,
+    orientation: u8,
+}
+
+/// The most distinct senders this decoder keeps at once. A group holds at most
+/// `GROUP_CALL_MAX_PARTICIPANTS`, so a one-to-one call's one empty stream and a full group fit
+/// underneath it; the oldest stream is dropped past it so a long call cannot grow without limit.
+const MAX_REMOTE_STREAMS: usize = 32;
+
+/// Decodes each sender's access units into pictures for the UI.
 ///
 /// A decoder cannot start on a delta frame, so frames are skipped until the sink marks one as a
-/// keyframe. Runs on its own thread for the same reason the encoder does.
+/// keyframe. A group call demultiplexes by the frame's own sender so each participant gets their
+/// own decoder and their own tile; a one-to-one call still decodes through one. Runs on its own
+/// thread for the same reason the encoder does.
 fn decode_remote(
     frames: async_channel::Receiver<VideoFrame>,
     ticks: async_channel::Sender<VideoTick>,
@@ -1094,32 +1122,60 @@ fn decode_remote(
         .spawn(move || {
             use openh264::formats::YUVSource as _;
 
-            let mut decoder = openh264::decoder::Decoder::new().ok();
-            let mut started = false;
-            let mut last_orientation = 0u8;
+            let mut streams: std::collections::HashMap<String, RemoteStream> =
+                std::collections::HashMap::new();
+            // Insertion order, so the cap drops the stream that began first rather than an
+            // arbitrary one. A participant who leaves frees nothing here, but their decoder is
+            // small and the cap keeps the total fixed; the next new sender evicts the oldest.
+            let mut order: std::collections::VecDeque<String> = std::collections::VecDeque::new();
             while let Ok(frame) = frames.recv_blocking() {
-                if !started {
+                // A one-to-one peer carries no sender, so it shares the empty key and the `Remote`
+                // tick; a group frame is named by its sender and gets its own stream.
+                let key = frame
+                    .sender
+                    .as_ref()
+                    .map(std::string::ToString::to_string)
+                    .unwrap_or_default();
+                if !streams.contains_key(&key) {
+                    let Ok(decoder) = openh264::decoder::Decoder::new() else {
+                        log::error!("[CALL] remote video decoder could not start");
+                        return;
+                    };
+                    if order.len() >= MAX_REMOTE_STREAMS
+                        && let Some(oldest) = order.pop_front()
+                    {
+                        streams.remove(&oldest);
+                    }
+                    order.push_back(key.clone());
+                    streams.insert(
+                        key.clone(),
+                        RemoteStream {
+                            decoder,
+                            started: false,
+                            orientation: 0,
+                        },
+                    );
+                }
+                let stream = streams.get_mut(&key).expect("just inserted");
+                if !stream.started {
                     if !frame.keyframe {
                         continue;
                     }
-                    started = true;
+                    stream.started = true;
                 }
-                let Some(decoder) = decoder.as_mut() else {
-                    return;
-                };
                 // The peer's camera rotation, which the frames carry so a phone held upright arrives
                 // upright. It rides the same bits on a keyframe and on a delta frame, and a peer
                 // that turns its phone changes it mid-call, so it is read per frame rather than once.
                 let orientation = frame.orientation & 0x03;
-                if orientation != last_orientation {
-                    last_orientation = orientation;
+                if orientation != stream.orientation {
+                    stream.orientation = orientation;
                     log::info!(
                         "[CALL] remote camera orientation is {} degrees",
                         orientation as u32 * 90
                     );
                 }
                 let turns = crate::video::orientation_turns(orientation);
-                match decoder.decode(&frame.data) {
+                match stream.decoder.decode(&frame.data) {
                     Ok(Some(decoded)) => {
                         let (width, height) = decoded.dimensions();
                         if width == 0 || height == 0 {
@@ -1134,7 +1190,13 @@ fn decode_remote(
                             (width, height),
                             turns,
                         );
-                        let _ = ticks.try_send(VideoTick::Remote(Arc::new(image)));
+                        let image = Arc::new(image);
+                        let tick = if key.is_empty() {
+                            VideoTick::Remote(image)
+                        } else {
+                            VideoTick::RemoteFrom { chat: key, image }
+                        };
+                        let _ = ticks.try_send(tick);
                     }
                     Ok(None) => {}
                     Err(error) => {
@@ -1509,6 +1571,47 @@ impl Call {
         Some(self.update())
     }
 
+    /// Records one group participant's camera state, as the participant's own signaling reports it.
+    ///
+    /// A participant switching their camera off is a fact about that participant alone: the rest of
+    /// the call keeps sending, so this changes only their entry and never the call's own state. A
+    /// one-to-one call has no roster and falls through to the call-level [`Self::remote_video_stopped`].
+    fn participant_video_state(&mut self, chat: &str, on: bool) -> Option<CallUpdate> {
+        if self.group.is_none() {
+            if !on && self.remote_video_stopped() {
+                return Some(self.update());
+            }
+            return None;
+        }
+        let mut changed = false;
+        for participant in &mut self.participants {
+            if participant.chat == chat && participant.video != on {
+                participant.video = on;
+                changed = true;
+            }
+        }
+        changed.then(|| self.update())
+    }
+
+    /// Notes that a picture arrived from one group participant, and whether it should be drawn.
+    ///
+    /// A group call has no single remote picture: each sender's frame names its own participant, so
+    /// the roster entry learns they are sending video. `false` for anything that is not a group,
+    /// which is how a `RemoteFrom` tick on a one-to-one call is dropped rather than drawn twice.
+    pub fn participant_video_arrived(&mut self, chat: &str) -> bool {
+        if self.group.is_none() {
+            return false;
+        }
+        if let Some(participant) = self
+            .participants
+            .iter_mut()
+            .find(|known| known.chat == chat)
+        {
+            participant.video = true;
+        }
+        true
+    }
+
     /// A call for a test: a snapshot with no signaling and no engine behind it, so a test can put
     /// one on the worker and check what privacy recovery does with its update.
     #[cfg(test)]
@@ -1684,6 +1787,15 @@ impl Call {
                 .video_pipe
                 .as_ref()
                 .is_some_and(|pipe| !pipe.camera_running())
+    }
+
+    /// The camera node the call holds, if any.
+    ///
+    /// `None` is the picker's "Default device", which the caller resolves against the machine
+    /// before turning the camera back on: a camera the machine lost clears this, and resuming would
+    /// otherwise open nothing and fail.
+    pub fn camera(&self) -> Option<&str> {
+        self.camera.as_deref()
     }
 
     /// The devices picked so far: what a call that has not started media yet should bind to, so a
@@ -2015,8 +2127,16 @@ impl Call {
             // A newer authoritative membership snapshot: someone joined, left, or the shared relay
             // moved. The call itself does not end here; only the roster the grid draws changes.
             CallEvent::GroupUpdated(update) => self.apply_group(update),
-            CallEvent::VideoStateChanged { state, .. }
-            | CallEvent::PeerVideoStateChanged { state, .. } => {
+            // A group participant's own video state, named by the sender it belongs to. This is the
+            // only thing that says one person's picture stopped while the rest keep sending, so it
+            // updates that participant's entry rather than the call's single remote flag.
+            CallEvent::PeerVideoStateChanged { source, state, .. } => self
+                .participant_video_state(&source.to_string(), !state.is_inactive_for_call_mode()),
+            // The one-to-one peer's own video state, which is the only thing that says their
+            // picture stopped. Without this the flag only ever went true, so a peer who turned
+            // their camera off was still reported as sending video and the decoder's last frame
+            // stayed on screen as if it were live.
+            CallEvent::VideoStateChanged { state, .. } => {
                 if state.is_inactive_for_call_mode() && self.remote_video_stopped() {
                     Some(self.update())
                 } else {
@@ -2460,6 +2580,8 @@ impl Call {
                 .started
                 .map(|started| started.elapsed().as_secs())
                 .unwrap_or(0),
+            // How many others were on it, as the roster last reported; zero for a one-to-one call.
+            participants: self.participants.len() as u32,
         })
     }
 
@@ -2973,6 +3095,78 @@ mod tests {
             group: None,
             participants: Vec::new(),
         }
+    }
+
+    /// A group call with two other participants, one of whom is already sending video.
+    fn group_call() -> Call {
+        let mut call = Call::test_snapshot("12345-67890@g.us");
+        call.group = Some("12345-67890@g.us".to_owned());
+        call.participants = vec![
+            CallParticipant {
+                chat: "111@s.whatsapp.net".to_owned(),
+                video: false,
+            },
+            CallParticipant {
+                chat: "222@s.whatsapp.net".to_owned(),
+                video: true,
+            },
+        ];
+        call
+    }
+
+    /// One participant's camera state is theirs alone: turning one off must never change another's
+    /// entry, and no change is published when nothing moved.
+    #[test]
+    fn a_participants_camera_state_changes_only_that_participant() {
+        let mut call = group_call();
+        let update = call
+            .participant_video_state("111@s.whatsapp.net", true)
+            .expect("a change is published");
+        assert!(
+            update.participants[0].video,
+            "the named participant turned on"
+        );
+        assert!(
+            update.participants[1].video,
+            "and the other participant is untouched"
+        );
+        assert!(
+            call.participant_video_state("111@s.whatsapp.net", true)
+                .is_none(),
+            "a state that did not change publishes nothing"
+        );
+        assert!(
+            call.participant_video_state("222@s.whatsapp.net", false)
+                .is_some()
+        );
+        assert!(
+            call.participants[0].video,
+            "the first participant keeps sending while the second stops"
+        );
+        assert!(!call.participants[1].video);
+    }
+
+    /// A group frame marks its own sender as sending video, and a frame on a one-to-one call is
+    /// refused rather than drawn twice through the single-peer path.
+    #[test]
+    fn a_group_frame_marks_its_participant_and_a_one_to_one_frame_is_refused() {
+        let mut call = group_call();
+        assert!(
+            call.participant_video_arrived("111@s.whatsapp.net"),
+            "a group frame is drawn"
+        );
+        assert!(
+            call.participants[0].video,
+            "its sender is marked as sending video"
+        );
+        // A sender the roster does not name yet still draws: the membership snapshot can follow the
+        // first frames of a call already under way.
+        assert!(call.participant_video_arrived("999@s.whatsapp.net"));
+        let mut direct = Call::test_snapshot("15551234567@s.whatsapp.net");
+        assert!(
+            !direct.participant_video_arrived("111@s.whatsapp.net"),
+            "a one-to-one call has no participant tiles"
+        );
     }
 
     #[test]

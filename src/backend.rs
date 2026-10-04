@@ -938,10 +938,13 @@ pub enum Event {
     },
     /// One call reached its end and was written to the log.
     CallLogged(Box<crate::model::CallRecord>),
-    /// One video frame for the call screen: our own preview, the peer's picture, or both.
+    /// One video frame for the call screen: our own preview, the one-to-one peer's picture, or one
+    /// group participant's picture named by their chat.
     CallVideo {
         local: Option<Arc<egui::ColorImage>>,
         remote: Option<Arc<egui::ColorImage>>,
+        /// One group participant's frame, with the participant's chat so the grid can place it.
+        remote_from: Option<(String, Arc<egui::ColorImage>)>,
     },
     /// Informational toast message.
     Info(String),

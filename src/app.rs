@@ -542,6 +542,13 @@ pub struct App {
     /// churns GPU memory and uploads at the call's own rate.
     pub call_local_texture: Option<egui::TextureHandle>,
     pub call_remote_texture: Option<egui::TextureHandle>,
+    /// The newest picture of each other participant on a group call, named by their chat. Pruned to
+    /// the roster on every call update, so a participant who leaves or stops sending drops out.
+    pub call_participant_frames:
+        std::collections::HashMap<String, std::sync::Arc<egui::ColorImage>>,
+    /// The GPU texture each participant tile is drawn through, kept between frames and updated in
+    /// place for the same reason the local and remote textures are.
+    pub call_participant_textures: std::collections::HashMap<String, egui::TextureHandle>,
     /// Set when a call event or a video frame arrived, so the frame is drawn now instead of when
     /// something else happens to ask for a repaint.
     call_repaint: bool,
@@ -987,6 +994,8 @@ impl App {
             call_remote_frame: None,
             call_local_texture: None,
             call_remote_texture: None,
+            call_participant_frames: std::collections::HashMap::new(),
+            call_participant_textures: std::collections::HashMap::new(),
             call_repaint: false,
             start_with_system: None,
             waker,
@@ -1595,6 +1604,8 @@ impl App {
             self.call_surface_hidden = true;
             self.call_local_frame = None;
             self.call_remote_frame = None;
+            self.call_participant_frames.clear();
+            self.call_participant_textures.clear();
         }
     }
 
@@ -2008,12 +2019,19 @@ impl App {
                     self.conversations.entry(chat).or_default().calls = *calls;
                 }
                 Event::CallLogged(record) => self.call_logged(*record),
-                Event::CallVideo { local, remote } => {
+                Event::CallVideo {
+                    local,
+                    remote,
+                    remote_from,
+                } => {
                     if let Some(image) = local {
                         self.call_local_frame = Some(image);
                     }
                     if let Some(image) = remote {
                         self.call_remote_frame = Some(image);
+                    }
+                    if let Some((chat, image)) = remote_from {
+                        self.call_participant_frames.insert(chat, image);
                     }
                     self.call_repaint = true;
                 }
@@ -2559,6 +2577,8 @@ impl App {
                 self.call_surface_hidden = false;
                 self.call_local_frame = None;
                 self.call_remote_frame = None;
+                self.call_participant_frames.clear();
+                self.call_participant_textures.clear();
                 // Full screen is left to `tick`, which puts the window back once the surface is
                 // gone rather than leaving it covering the unlinked screen.
                 // Unsent text belongs to the account that was unlinked.
@@ -3425,6 +3445,19 @@ impl App {
         {
             self.call_remote_frame = None;
         }
+        // A group participant who left the roster or turned their camera off must not keep a tile:
+        // the update is the authoritative moment, so the frames are pruned to the participants the
+        // roster still says are sending video.
+        if update.group.is_some() {
+            self.call_participant_frames.retain(|chat, _| {
+                update
+                    .participants
+                    .iter()
+                    .any(|known| &known.chat == chat && known.video)
+            });
+            self.call_participant_textures
+                .retain(|chat, _| self.call_participant_frames.contains_key(chat));
+        }
         let finished = !update.phase.is_live();
         if finished {
             if self.call.is_none() {
@@ -3433,6 +3466,8 @@ impl App {
             }
             self.call_local_frame = None;
             self.call_remote_frame = None;
+            self.call_participant_frames.clear();
+            self.call_participant_textures.clear();
             self.call_surface_until = Some(Instant::now() + CALL_FAREWELL);
             // How a call ended is the whole reason the surface lingers, but a locked chat still says
             // nothing: with the folder closed the four-second farewell stays behind the bar instead
@@ -3525,6 +3560,8 @@ impl App {
             self.call = None;
             self.call_local_frame = None;
             self.call_remote_frame = None;
+            self.call_participant_frames.clear();
+            self.call_participant_textures.clear();
         }
         // Full screen belongs to the call surface and only while the reader is looking at it.
         // Whichever way the surface was put aside (the back button, Escape, a locked chat, or a
@@ -10292,6 +10329,7 @@ mod tests {
             media: crate::model::CallMedia::Voice,
             status: crate::model::CallStatus::Answered,
             duration: 60,
+            participants: 0,
         }
     }
 

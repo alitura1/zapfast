@@ -400,13 +400,19 @@ pub async fn run(
         match opened {
             Ok(Ok(archive)) => break archive,
             result => {
-                let error = match result {
-                    Ok(Err(error)) => format!("{error:#}"),
-                    Err(_) => "Archive unlock worker failed".to_owned(),
+                // The window gets the actionable heading; the log keeps the full chain, where the
+                // bus or keyring detail belongs. Sending the whole chain would bury the one line
+                // a reader can act on under the underlying fault.
+                let (message, detail) = match result {
+                    Ok(Err(error)) => (error.to_string(), format!("{error:#}")),
+                    Err(_) => {
+                        let text = "Archive unlock worker failed".to_owned();
+                        (text.clone(), text)
+                    }
                     Ok(Ok(_)) => unreachable!(),
                 };
-                log::error!("could not unlock the message archive: {error}");
-                let _ = events.send(Event::Link(LinkStatus::Failed(error)));
+                log::error!("could not unlock the message archive: {detail}");
+                let _ = events.send(Event::Link(LinkStatus::Failed(message)));
                 waker.wake();
                 // Do not connect with a disposable archive: history is replayed
                 // only once and would be lost if the keyring were locked.

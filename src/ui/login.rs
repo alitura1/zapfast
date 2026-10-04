@@ -285,6 +285,8 @@ mod start_over_tests {
         for recoverable in [
             "Unlock your OS keyring and restart ZapFast",
             "The OS keyring could not open ZapFast's archive key",
+            "Could not connect to your desktop keyring",
+            "Could not read the archive key from your desktop keyring",
         ] {
             assert!(!super::archive_key_lost(recoverable), "{recoverable}");
         }

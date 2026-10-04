@@ -10,6 +10,61 @@ use zeroize::Zeroizing;
 
 const HEADER: &[u8; 16] = b"SQLite format 3\0";
 
+/// The keyring is locked, and only an unlock (then a restart) can let the archive open.
+pub(super) const KEYRING_LOCKED: &str = "Unlock your OS keyring and restart ZapFast";
+/// The desktop keyring could not be reached at all: no session bus, no Secret Service, or a bus
+/// that refused this process. Nothing about the reader's keyring would change that, so this never
+/// borrows the locked wording.
+pub(super) const KEYRING_UNREACHABLE: &str = "Could not connect to your desktop keyring";
+/// The keyring answered, but could not hand the archive key over. Also not a lock.
+pub(super) const KEYRING_UNREADABLE: &str =
+    "Could not read the archive key from your desktop keyring";
+
+/// A launch at login can beat the session bus or the keyring daemon it needs, so the connection is
+/// retried briefly before the reader is told the keyring is out of reach.
+const KEYRING_ATTEMPTS: u32 = 4;
+const KEYRING_RETRY_DELAY: std::time::Duration = std::time::Duration::from_millis(300);
+
+/// The Secret Service store, with the retry a cold session needs.
+///
+/// This crate builds the store by opening the session bus and asking for
+/// `org.freedesktop.secrets`; a session that has only just come up may have neither, and a single
+/// attempt at login time would then report a keyring that is really only slow to appear.
+#[cfg(target_os = "linux")]
+fn secret_service_store()
+-> keyring_core::Result<std::sync::Arc<zbus_secret_service_keyring_store::Store>> {
+    let mut attempt = 1;
+    loop {
+        match zbus_secret_service_keyring_store::Store::new() {
+            Err(error) if attempt < KEYRING_ATTEMPTS => {
+                log::debug!(
+                    "the desktop keyring is not up yet (attempt {attempt} of {KEYRING_ATTEMPTS}): {error}"
+                );
+                attempt += 1;
+                std::thread::sleep(KEYRING_RETRY_DELAY);
+            }
+            result => return result,
+        }
+    }
+}
+
+/// Names a keyring that could not be reached, keeping the underlying fault as the source so the
+/// log still carries the bus detail.
+fn store_failure(error: keyring_core::Error) -> anyhow::Error {
+    anyhow::Error::new(error).context(KEYRING_UNREACHABLE)
+}
+
+/// Names a keyring that answered with a fault. Only a genuinely locked store is reported as
+/// locked; a store that failed for any other reason is a different, retryable report.
+fn read_failure(error: keyring_core::Error) -> anyhow::Error {
+    match &error {
+        keyring_core::Error::NoStorageAccess(_) => {
+            anyhow::Error::new(error).context(KEYRING_LOCKED)
+        }
+        _ => anyhow::Error::new(error).context(KEYRING_UNREADABLE),
+    }
+}
+
 fn plaintext(path: &Path) -> Result<bool> {
     let mut file = match fs::File::open(path) {
         Ok(file) => file,
@@ -37,13 +92,17 @@ pub(super) fn key_for(path: &Path) -> Result<Zeroizing<[u8; 32]>> {
             .map(|byte| format!("{byte:02x}"))
             .collect::<String>()
     );
+    // A keyring that cannot be reached is not a locked keyring, so the two are named apart: the
+    // locked wording is reserved for a store that answered and refused.
     #[cfg(target_os = "linux")]
-    let store = zbus_secret_service_keyring_store::Store::new();
+    let store = secret_service_store().map_err(store_failure);
     #[cfg(target_os = "macos")]
-    let store = apple_native_keyring_store::keychain::Store::new();
+    let store = apple_native_keyring_store::keychain::Store::new()
+        .map_err(|error| anyhow::Error::new(error).context(KEYRING_UNREACHABLE));
     #[cfg(windows)]
-    let store = windows_native_keyring_store::Store::new();
-    let store = store.context("Unlock your OS keyring and restart ZapFast")?;
+    let store = windows_native_keyring_store::Store::new()
+        .map_err(|error| anyhow::Error::new(error).context(KEYRING_UNREACHABLE));
+    let store = store?;
     let entry = store
         .build("rocks.zapfast.ZapFast", &identity, None)
         .context("The OS keyring could not open ZapFast's archive key")?;
@@ -84,7 +143,7 @@ fn key_from_entry(path: &Path, entry: &keyring_core::Entry) -> Result<Zeroizing<
             );
             Ok(key)
         }
-        Err(error) => Err(error).context("Unlock your OS keyring and restart ZapFast"),
+        Err(error) => Err(read_failure(error)),
     }
 }
 
@@ -250,7 +309,7 @@ mod tests {
             .as_any()
             .downcast_ref::<keyring_core::mock::Cred>()
             .unwrap();
-        mock.set_error(keyring_core::Error::PlatformFailure(Box::new(
+        mock.set_error(keyring_core::Error::NoStorageAccess(Box::new(
             std::io::Error::other("locked"),
         )));
         assert!(
@@ -260,6 +319,40 @@ mod tests {
                 .contains("Unlock")
         );
         assert_eq!(fs::read(&path).unwrap(), original);
+    }
+
+    /// The reported fault decides the wording: a keyring that is merely out of reach must never
+    /// tell the reader to unlock it, which is what a D-Bus handshake failure used to do.
+    #[test]
+    fn a_refused_bus_is_not_reported_as_a_locked_keyring() {
+        let handshake = keyring_core::Error::PlatformFailure(Box::new(std::io::Error::other(
+            "zbus error: D-Bus handshake failed: EXTERNAL rejected by the server. Accepted mechanisms: [EXTERNAL]",
+        )));
+        let error = store_failure(handshake);
+        assert!(error.to_string().contains(KEYRING_UNREACHABLE), "{error}");
+        assert!(!error.to_string().contains("Unlock"), "{error}");
+        // The bus detail is still there for the log, just not as the headline.
+        assert!(
+            format!("{error:#}").contains("EXTERNAL rejected"),
+            "{error:#}"
+        );
+    }
+
+    /// Only a store that answered with a lock asks to be unlocked; anything else is a different,
+    /// retryable report.
+    #[test]
+    fn only_a_locked_keyring_asks_to_be_unlocked() {
+        let locked =
+            keyring_core::Error::NoStorageAccess(Box::new(std::io::Error::other("locked")));
+        assert!(read_failure(locked).to_string().contains(KEYRING_LOCKED));
+        for other in [
+            keyring_core::Error::PlatformFailure(Box::new(std::io::Error::other("broken"))),
+            keyring_core::Error::Ambiguous(Vec::new()),
+        ] {
+            let error = read_failure(other);
+            assert!(error.to_string().contains(KEYRING_UNREADABLE), "{error}");
+            assert!(!error.to_string().contains("Unlock"), "{error}");
+        }
     }
 
     #[test]

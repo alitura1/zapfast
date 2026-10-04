@@ -267,12 +267,40 @@ fn dedupe(mut found: Vec<(String, String)>) -> Vec<(String, String)> {
 /// with something the reader can act on instead of a call that looks healthy.
 pub fn unavailable(microphone: Option<&str>, speaker: Option<&str>) -> Option<&'static str> {
     if !input_available(microphone) {
+        log::warn!(
+            "[CALL] no microphone could be opened in {PROBE_ATTEMPTS} tries; the call is refused"
+        );
         return Some("microphone");
     }
     if !output_available(speaker) {
+        log::warn!(
+            "[CALL] no speaker could be opened in {PROBE_ATTEMPTS} tries; the call is refused"
+        );
         return Some("speaker");
     }
     None
+}
+
+/// How many times a default device is asked for before a call is refused over it, and the pause
+/// between tries.
+///
+/// A device that is momentarily out of reach is ordinary: PipeWire restarts, a Bluetooth headset
+/// takes a beat to attach, a USB dock enumerates late. One failure is not a machine without a
+/// device, so the probe asks again rather than refusing a call on the first miss.
+const PROBE_ATTEMPTS: u32 = 6;
+const PROBE_DELAY: Duration = Duration::from_millis(250);
+
+/// Runs a probe until it succeeds or the attempts run out, pausing between tries.
+fn probes_through(mut attempt: impl FnMut() -> bool) -> bool {
+    for try_index in 1..=PROBE_ATTEMPTS {
+        if attempt() {
+            return true;
+        }
+        if try_index < PROBE_ATTEMPTS {
+            std::thread::sleep(PROBE_DELAY);
+        }
+    }
+    false
 }
 
 /// Whether the microphone a call would really open can be had.
@@ -281,9 +309,11 @@ fn input_available(selected: Option<&str>) -> bool {
         .ok()
         .map(|inputs| inputs.into_iter().map(|input| input.to_string()).collect());
     chosen_available(selected, listed.as_deref(), || {
-        rodio::microphone::MicrophoneBuilder::new()
-            .default_device()
-            .is_ok()
+        probes_through(|| {
+            rodio::microphone::MicrophoneBuilder::new()
+                .default_device()
+                .is_ok()
+        })
     })
 }
 
@@ -300,28 +330,40 @@ fn output_available(selected: Option<&str>) -> bool {
                     .collect()
             });
     chosen_available(selected, listed.as_deref(), || {
-        rodio::DeviceSinkBuilder::from_default_device().is_ok()
+        // The same call the call itself opens with, so the probe cannot pass where the real open
+        // would fail, and a busy or late PipeWire graph is given a few tries rather than one.
+        probes_through(|| rodio::DeviceSinkBuilder::open_default_sink().is_ok())
     })
 }
 
-/// Whether the device a call would open can be had: the one the user picked, or the system default
-/// when nothing is picked.
+/// Whether a call can carry audio at all: the device the user picked, or the system default.
 ///
 /// A named device is looked for in what discovery found, so a machine whose *default* is busy still
-/// takes a call aimed at a device the user chose. The default is asked for only when nothing is
-/// named, which is what the settings mean by `None`. `listed` is `None` when discovery could not
-/// run at all, which is not the same as an empty machine: a broken helper must not refuse a call,
-/// so a selection stands on it, the way `resolve_devices` keeps one.
+/// takes a call aimed at a device the user chose. `listed` is `None` when discovery could not run at
+/// all, which is not the same as an empty machine: a broken helper must not refuse a call, so a
+/// selection stands on it, the way `resolve_devices` keeps one.
+///
+/// This refuses a call only when *nothing* can carry audio. A device the user picked that the
+/// machine no longer lists is not that: the pump behind the call already falls back to the system
+/// default and reports what moved, so a call with a stale selection proceeds on the default and
+/// says so, instead of dying before it rings over a device that was unplugged since the last call.
 fn chosen_available(
     selected: Option<&str>,
     listed: Option<&[String]>,
     default_ok: impl FnOnce() -> bool,
 ) -> bool {
     match selected {
+        // A named device that is still there is trusted without opening it, so a busy default does
+        // not refuse a call aimed at the device the user chose; one that is gone falls back to the
+        // default, exactly as the pump would.
         Some(name) => match listed {
-            Some(names) => names.iter().any(|known| known == name),
+            Some(names) => names.iter().any(|known| known == name) || default_ok(),
             None => true,
         },
+        // Nothing is named, so the default is exactly what the call will open: if it cannot be
+        // had, the call is refused here rather than ringing the peer and carrying silence. The
+        // probe behind this is retried, so a device that is merely late is not mistaken for a
+        // missing one; a default that is truly gone still fails before the call starts.
         None => default_ok(),
     }
 }
@@ -1372,6 +1414,34 @@ pub(crate) mod fake {
 mod tests {
     use super::*;
 
+    /// A device that answers on the second or third try is not a machine without a device.
+    #[test]
+    fn a_probe_that_fails_once_is_asked_again() {
+        let mut tries = 0;
+        assert!(probes_through(|| {
+            tries += 1;
+            tries >= 3
+        }));
+        assert_eq!(tries, 3, "the probe stops as soon as it succeeds");
+        // A device that never answers is a real absence.
+        assert!(!probes_through(|| false));
+    }
+
+    /// The pre-flight probe over a late device is retried, but a default that never answers is
+    /// still a refusal, so a machine without a speaker is caught before the call starts.
+    #[test]
+    fn a_default_that_never_opens_is_still_a_refusal() {
+        let listed = ["Speaker".to_owned()];
+        assert!(
+            !chosen_available(None, Some(&listed), || false),
+            "a default that will not open after every retry refuses the call"
+        );
+        assert!(
+            chosen_available(None, Some(&listed), || true),
+            "a default that opens keeps it"
+        );
+    }
+
     #[test]
     fn mono_mixes_every_channel_in() {
         assert_eq!(mono(&[1.0, 0.0, 0.0, 1.0], 2), vec![0.5, 0.5]);
@@ -1642,9 +1712,12 @@ mod tests {
         let listed = vec!["mic-a".to_owned(), "mic-b".to_owned()];
         // A device the user picked is available when it is there, whatever the default is doing.
         assert!(chosen_available(Some("mic-b"), Some(&listed), || false));
-        // And refused when the machine really does not have it.
-        assert!(!chosen_available(Some("mic-z"), Some(&listed), || true));
-        // The default is consulted only when nothing is named.
+        // A device the machine no longer has falls back to the default rather than refusing the
+        // call the way the pump would: the call proceeds and reports that the device moved.
+        assert!(chosen_available(Some("mic-z"), Some(&listed), || true));
+        // Only when nothing at all can carry audio is the call refused.
+        assert!(!chosen_available(Some("mic-z"), Some(&listed), || false));
+        // The default is consulted when nothing is named.
         assert!(chosen_available(None, Some(&listed), || true));
         assert!(!chosen_available(None, Some(&listed), || false));
         // Discovery that could not run is not an empty machine: the selection stands on it.

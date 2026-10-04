@@ -3979,3 +3979,162 @@ mod hardware_tests {
         }
     }
 }
+
+/// Group-call signaling at the protocol level.
+///
+/// These exercise the pinned library's own group-call builders and parsers with in-memory
+/// fixtures, so what a live server accepts or rejects is pinned without a network. The live
+/// failure this pins is `call service response failed: missing group-call integer attribute`:
+/// the initial-offer ACK the server sent did not carry an integer the parser insists on.
+#[cfg(test)]
+mod group_signaling_tests {
+    use whatsapp_rust::wacore::stanza::group_call::{
+        InitialGroupOfferParams, build_initial_group_offer, parse_initial_group_call_ack,
+    };
+    use whatsapp_rust::wacore::types::group_call::{GroupCallDevice, GroupCallParticipant};
+    use whatsapp_rust::{Jid, NodeBuilder, Server};
+
+    fn creator() -> Jid {
+        Jid::new("111111111111111", Server::Lid)
+    }
+
+    /// The ACK shape the library expects, minus or plus `connected-limit` to show which
+    /// attribute the live failure was missing.
+    fn ack(connected_limit: Option<&str>) -> whatsapp_rust::wacore_binary::Node {
+        let creator = creator();
+        let mut group_info = NodeBuilder::new("group_info")
+            .attr("call-id", "00aabbccddeeff001122334455667788")
+            .attr("call-creator", &creator)
+            .attr("media", "audio")
+            .attr("transaction-id", "1");
+        if let Some(limit) = connected_limit {
+            group_info = group_info.attr("connected-limit", limit);
+        }
+        NodeBuilder::new("ack")
+            .children([group_info.build()])
+            .build()
+    }
+
+    /// The exact live failure, reproduced: an ACK whose `group_info` has no `connected-limit` is
+    /// rejected as a missing integer attribute.
+    #[test]
+    fn an_ack_without_connected_limit_is_a_missing_integer_attribute() {
+        let node = ack(None);
+        let error = parse_initial_group_call_ack(&node.as_node_ref())
+            .expect_err("the live ACK was missing an integer the parser requires");
+        assert_eq!(error.to_string(), "missing group-call integer attribute");
+    }
+
+    /// With every attribute the parser wants, the same envelope parses and keeps the roster's
+    /// media, limits and identity.
+    #[test]
+    fn an_ack_with_every_attribute_parses() {
+        let node = ack(Some("32"));
+        let update = parse_initial_group_call_ack(&node.as_node_ref())
+            .expect("a complete ACK parses")
+            .expect("a group snapshot");
+        assert_eq!(update.call_id, "00aabbccddeeff001122334455667788");
+        assert_eq!(update.call_creator, creator());
+        assert_eq!(update.media, "audio");
+        assert_eq!(update.transaction_id, 1);
+        assert_eq!(update.connected_limit, 32);
+    }
+
+    /// A missing string attribute and a malformed integer are told apart from a missing integer,
+    /// so a reader-facing message can say which is wrong.
+    #[test]
+    fn a_missing_string_and_a_bad_integer_are_not_a_missing_integer() {
+        let creator = creator();
+        let no_media = NodeBuilder::new("ack")
+            .children([NodeBuilder::new("group_info")
+                .attr("call-id", "x")
+                .attr("call-creator", &creator)
+                .attr("transaction-id", "1")
+                .attr("connected-limit", "32")
+                .build()])
+            .build();
+        assert_eq!(
+            parse_initial_group_call_ack(&no_media.as_node_ref())
+                .expect_err("no media")
+                .to_string(),
+            "missing group-call string attribute"
+        );
+
+        let bad_integer = NodeBuilder::new("ack")
+            .children([NodeBuilder::new("group_info")
+                .attr("call-id", "x")
+                .attr("call-creator", &creator)
+                .attr("media", "audio")
+                .attr("transaction-id", "not-a-number")
+                .attr("connected-limit", "32")
+                .build()])
+            .build();
+        assert_eq!(
+            parse_initial_group_call_ack(&bad_integer.as_node_ref())
+                .expect_err("bad integer")
+                .to_string(),
+            "invalid group-call integer attribute"
+        );
+    }
+
+    /// An initial group offer needs the creator and at least two others, which is the roster the
+    /// caller must resolve before a group call can be placed.
+    #[test]
+    fn an_initial_group_offer_needs_self_and_two_others() {
+        let creator = creator();
+        // The roster types are `non_exhaustive` and keep their capability blob private, so the
+        // only way to build one from outside the library is its own constructor and builder.
+        let participant = |user: &str, device: u16| {
+            GroupCallParticipant::new(
+                Jid::new(user, Server::Lid),
+                vec![
+                    GroupCallDevice::new(Jid::new(user, Server::Lid).with_device(device))
+                        .with_capability(1, vec![1, 2, 3]),
+                ],
+            )
+        };
+        let group = Jid::new("1234567890-1111111111", Server::Group);
+        let too_few = [participant("100001", 1), participant("200002", 2)];
+        let error = build_initial_group_offer(&InitialGroupOfferParams {
+            call_id: "00aabbccddeeff001122334455667788",
+            id: "REQ-1",
+            call_creator: &creator,
+            group_jid: Some(&group),
+            participants: &too_few,
+            audio_rate: 16_000,
+            video: false,
+        })
+        .expect_err("a group offer with too few participants is refused");
+        assert_eq!(
+            error.to_string(),
+            "group offer requires self and at least two remote participants"
+        );
+
+        let enough = [
+            participant("100001", 1),
+            participant("200002", 2),
+            participant("300003", 3),
+        ];
+        let node = build_initial_group_offer(&InitialGroupOfferParams {
+            call_id: "00aabbccddeeff001122334455667788",
+            id: "REQ-1",
+            call_creator: &creator,
+            group_jid: Some(&group),
+            participants: &enough,
+            audio_rate: 16_000,
+            video: false,
+        })
+        .expect("a full roster builds an offer");
+        // The offer is routed to the call server and bound to its group.
+        let room = node
+            .as_node_ref()
+            .children()
+            .and_then(|children| children.first().cloned());
+        let room = room.expect("one call action");
+        assert_eq!(
+            room.attrs().optional_jid("group-jid"),
+            Some(group),
+            "the offer stays bound to its source group"
+        );
+    }
+}

@@ -962,7 +962,7 @@ msgstr ""
 msgid "Speaker"
 msgstr ""
 
-#: src/ui/call.rs:661 src/app.rs:3362
+#: src/ui/call.rs:661 src/app.rs:3377
 msgid "Incoming voice call"
 msgstr ""
 
@@ -1058,25 +1058,25 @@ msgstr "{name} (Você)"
 msgid "You"
 msgstr "Você"
 
-#: src/app.rs:1496
+#: src/app.rs:1500
 #, fuzzy
 msgid "Locked chat"
 msgstr "Código das conversas trancadas"
 
-#: src/app.rs:1499
+#: src/app.rs:1503
 #, fuzzy
 msgid "Unknown caller"
 msgstr "Silenciar chamadas desconhecidas"
 
-#: src/app.rs:2315
+#: src/app.rs:2319
 msgid "Could not use this image"
 msgstr "Não foi possível usar esta imagem"
 
-#: src/app.rs:2781
+#: src/app.rs:2785
 msgid "Not sent: ZapFast is not connected to WhatsApp."
 msgstr "Não enviado: o ZapFast não está conectado ao WhatsApp."
 
-#: src/app.rs:2785
+#: src/app.rs:2789
 msgid ""
 "Not sent: the message you’re replying to isn’t available on this computer. "
 "Cancel the reply to send without a quote."
@@ -1084,28 +1084,28 @@ msgstr ""
 "Não enviado: a mensagem que você está respondendo não está disponível neste "
 "computador. Cancele a resposta para enviar sem citação."
 
-#: src/app.rs:4304
+#: src/app.rs:4319
 msgid "Added to favorites"
 msgstr "Adicionada aos favoritos"
 
-#: src/app.rs:4379
+#: src/app.rs:4394
 msgid "Sending the sticker pack…"
 msgstr "Enviando o pacote de figurinhas…"
 
-#: src/app.rs:4669 src/ui/labels.rs:237
+#: src/app.rs:4684 src/ui/labels.rs:237
 #, rust-format
 msgid "You have {limit} labels, the most ZapFast keeps."
 msgstr "Você tem {limit} etiquetas, o máximo que o ZapFast guarda."
 
-#: src/app.rs:5234
+#: src/app.rs:5249
 msgid "This video opens in your system player"
 msgstr "Este vídeo abre no player do sistema"
 
-#: src/app.rs:5725
+#: src/app.rs:5740
 msgid "Copied image"
 msgstr "Imagem copiada"
 
-#: src/app.rs:5728 src/app.rs:5733
+#: src/app.rs:5743 src/app.rs:5748
 msgid "Failed to copy image"
 msgstr "Falha ao copiar imagem"
 

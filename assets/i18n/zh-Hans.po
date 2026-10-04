@@ -945,7 +945,7 @@ msgstr ""
 msgid "Speaker"
 msgstr ""
 
-#: src/ui/call.rs:661 src/app.rs:3362
+#: src/ui/call.rs:661 src/app.rs:3377
 msgid "Incoming voice call"
 msgstr ""
 
@@ -1036,52 +1036,52 @@ msgstr "{name}（你）"
 msgid "You"
 msgstr "你"
 
-#: src/app.rs:1496
+#: src/app.rs:1500
 #, fuzzy
 msgid "Locked chat"
 msgstr "已锁定聊天的密码"
 
-#: src/app.rs:1499
+#: src/app.rs:1503
 #, fuzzy
 msgid "Unknown caller"
 msgstr "静音未知来电"
 
-#: src/app.rs:2315
+#: src/app.rs:2319
 msgid "Could not use this image"
 msgstr "无法使用此图片"
 
-#: src/app.rs:2781
+#: src/app.rs:2785
 msgid "Not sent: ZapFast is not connected to WhatsApp."
 msgstr "未发送：ZapFast 未连接到 WhatsApp。"
 
-#: src/app.rs:2785
+#: src/app.rs:2789
 msgid ""
 "Not sent: the message you’re replying to isn’t available on this computer. "
 "Cancel the reply to send without a quote."
 msgstr "未发送：你要回复的消息不在这台电脑上。取消回复即可不带引用发送。"
 
-#: src/app.rs:4304
+#: src/app.rs:4319
 msgid "Added to favorites"
 msgstr "已添加到收藏"
 
-#: src/app.rs:4379
+#: src/app.rs:4394
 msgid "Sending the sticker pack…"
 msgstr "正在发送贴图包…"
 
-#: src/app.rs:4669 src/ui/labels.rs:237
+#: src/app.rs:4684 src/ui/labels.rs:237
 #, rust-format
 msgid "You have {limit} labels, the most ZapFast keeps."
 msgstr "你已有 {limit} 个标签，这是 ZapFast 的上限。"
 
-#: src/app.rs:5234
+#: src/app.rs:5249
 msgid "This video opens in your system player"
 msgstr "此视频将用系统播放器打开"
 
-#: src/app.rs:5725
+#: src/app.rs:5740
 msgid "Copied image"
 msgstr "已复制图片"
 
-#: src/app.rs:5728 src/app.rs:5733
+#: src/app.rs:5743 src/app.rs:5748
 msgid "Failed to copy image"
 msgstr "复制图片失败"
 

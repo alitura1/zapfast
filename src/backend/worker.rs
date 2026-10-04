@@ -2215,6 +2215,9 @@ impl Worker {
             E::RawNode(node) => {
                 if call_trace::enabled() {
                     let node = node.get();
+                    if let Some(metadata) = call_trace::ack_metadata(node) {
+                        log::warn!("[CALL-TRACE] ack {metadata}");
+                    }
                     if call_trace::is_call_control(node) {
                         log::warn!("[CALL-TRACE]\n{}", call_trace::describe(node, 0));
                     }

@@ -235,6 +235,14 @@ pub struct UnreadDivider {
     pub placed: bool,
 }
 
+/// A participant tile's GPU texture together with the frame it last uploaded, so a repaint only
+/// re-uploads the picture when it actually changed.
+#[derive(Clone)]
+pub struct TileTexture {
+    pub handle: egui::TextureHandle,
+    pub frame: std::sync::Arc<egui::ColorImage>,
+}
+
 pub struct App {
     pub dirs: AppDirs,
     pub settings: Settings,
@@ -565,8 +573,11 @@ pub struct App {
     pub call_participant_frames:
         std::collections::HashMap<String, std::sync::Arc<egui::ColorImage>>,
     /// The GPU texture each participant tile is drawn through, kept between frames and updated in
-    /// place for the same reason the local and remote textures are.
-    pub call_participant_textures: std::collections::HashMap<String, egui::TextureHandle>,
+    /// place for the same reason the local and remote textures are. The remembered frame lets a
+    /// repaint skip the upload entirely when that participant's picture has not changed, which is
+    /// the common case: a group call redraws for a roster change or a chat load without any new
+    /// video, and re-uploading sixteen unchanged full frames would stall the frame.
+    pub call_participant_textures: std::collections::HashMap<String, TileTexture>,
     /// Set when a call event or a video frame arrived, so the frame is drawn now instead of when
     /// something else happens to ask for a repaint.
     call_repaint: bool,

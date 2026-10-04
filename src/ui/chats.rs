@@ -152,6 +152,7 @@ fn header(app: &mut App, ui: &mut egui::Ui) {
                         palette.text,
                         crate::i18n::gettext(app.locale, "Calls").as_ref(),
                     )
+                    .tab_stop(Stop::Calls)
                     .clicked()
                     {
                         app.actions.push(Action::ShowCalls);
@@ -279,6 +280,7 @@ fn macos_header(app: &mut App, ui: &mut egui::Ui) {
                         palette.text,
                         crate::i18n::gettext(app.locale, "Calls").as_ref(),
                     )
+                    .tab_stop(Stop::Calls)
                     .clicked()
                     {
                         app.actions.push(Action::ShowCalls);

@@ -9139,6 +9139,7 @@ mod tests {
                 Stop::Sidebar,
                 Stop::NewChat,
                 Stop::Settings,
+                Stop::Calls,
                 Stop::Search,
                 Stop::All,
                 Stop::Unread,

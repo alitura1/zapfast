@@ -256,17 +256,22 @@ fn live(
         });
     } else {
         // The name and the timer ride on top of the picture, which is why they are painted rather
-        // than laid out: the picture owns the whole surface.
+        // than laid out: the picture owns the whole surface. They are only painted in white when a
+        // picture is actually behind them: a group voice call has tiles but no frames, so the
+        // surface is the theme's own background, and white on a light theme would vanish. The
+        // theme's text colors are used there instead.
+        let backdrop =
+            (call.video && call.remote_video) || tiles.iter().any(|tile| tile.frame.is_some());
+        let (name_color, status_tint) = if backdrop {
+            (Color32::WHITE, Color32::from_white_alpha(190))
+        } else {
+            (palette.text, status_color(call, palette))
+        };
         ui.vertical_centered(|ui| {
             ui.add_space(6.0);
-            theme::text(ui, peer, theme::bold(17.0), Color32::WHITE);
-            theme::text(
-                ui,
-                status(app, call),
-                theme::medium(13.0),
-                Color32::from_white_alpha(190),
-            );
-            under_status(ui, app, call, palette, true);
+            theme::text(ui, peer, theme::bold(17.0), name_color);
+            theme::text(ui, status(app, call), theme::medium(13.0), status_tint);
+            under_status(ui, app, call, palette, backdrop);
         });
     }
 
@@ -499,19 +504,33 @@ fn draw_grid(ui: &mut egui::Ui, app: &mut App, tiles: &[Tile], palette: &Palette
         match &tile.frame {
             Some(image) => {
                 let fitted = fit_inside(at, vec2(image.width() as f32, image.height() as f32));
-                let texture = {
-                    let texture = app
-                        .call_participant_textures
-                        .entry(tile.chat.clone())
-                        .or_insert_with(|| {
-                            ui.ctx().load_texture(
-                                format!("zapfast-call-tile-{}", tile.chat),
-                                image.as_ref().clone(),
-                                TextureOptions::LINEAR,
-                            )
+                // Upload only when this participant's picture actually changed. A group call
+                // redraws for reasons other than new video — a roster update, a chat load, the
+                // timer — and re-uploading every unchanged frame each time would move megabytes
+                // of pixels for nothing.
+                let texture = match app.call_participant_textures.entry(tile.chat.clone()) {
+                    std::collections::hash_map::Entry::Occupied(mut slot) => {
+                        let slot = slot.get_mut();
+                        if !std::sync::Arc::ptr_eq(&slot.frame, image) {
+                            slot.handle
+                                .set(image.as_ref().clone(), TextureOptions::LINEAR);
+                            slot.frame = image.clone();
+                        }
+                        slot.handle.id()
+                    }
+                    std::collections::hash_map::Entry::Vacant(slot) => {
+                        let handle = ui.ctx().load_texture(
+                            format!("zapfast-call-tile-{}", tile.chat),
+                            image.as_ref().clone(),
+                            TextureOptions::LINEAR,
+                        );
+                        let id = handle.id();
+                        slot.insert(crate::app::TileTexture {
+                            handle,
+                            frame: image.clone(),
                         });
-                    texture.set(image.as_ref().clone(), TextureOptions::LINEAR);
-                    texture.id()
+                        id
+                    }
                 };
                 ui.painter().image(
                     texture,

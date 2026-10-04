@@ -21,6 +21,8 @@ pub enum Stop {
     Sidebar,
     NewChat,
     Settings,
+    /// The Calls button in the header, in both the desktop and the macOS title bar.
+    Calls,
     Search,
     All,
     Unread,

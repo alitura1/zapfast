@@ -64,7 +64,9 @@ def main() -> int:
         fuzzy = 0
         obsolete = len(re.findall(r"(?m)^#~ msgid ", text))
         for key, translated, is_fuzzy in entries(text):
-            seen[key] = translated
+            # A fuzzy entry is present but not approved by a translator, so it must not count
+            # toward coverage; it is reported separately as `fuzzy`.
+            seen[key] = translated and not is_fuzzy
             fuzzy += is_fuzzy
         translated = sum(1 for state in seen.values() if state)
         untranslated = sum(1 for state in seen.values() if not state)

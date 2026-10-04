@@ -36,6 +36,42 @@ pub enum Read {
 #[cfg(target_os = "linux")]
 const POLL: libc::c_int = 200;
 
+/// What one `poll` on the camera's descriptor settled.
+///
+/// Kept apart from the read itself so the classification can be tested without a camera: the point
+/// of it is that a signal interrupting the wait is not the camera going away.
+#[cfg(target_os = "linux")]
+enum Polled {
+    /// A frame is waiting; the caller dequeues it.
+    Ready,
+    /// Nothing arrived within the window; the caller checks whether it should stop and reads again.
+    Idle,
+    /// The camera is finished, either because it was stopped or because the device went away.
+    Ended,
+}
+
+/// Reads one `poll` result as the read loop should: a transient interrupt waits again, a real
+/// failure or a hangup ends the camera.
+#[cfg(target_os = "linux")]
+fn classify_poll(ready: libc::c_int, revents: libc::c_short, interrupted: bool) -> Polled {
+    if ready == 0 {
+        return Polled::Idle;
+    }
+    if ready < 0 {
+        // A signal can interrupt the wait with the camera perfectly healthy: that is a reason to
+        // poll again, not to treat the device as gone. Only a real error ends the camera.
+        return if interrupted {
+            Polled::Idle
+        } else {
+            Polled::Ended
+        };
+    }
+    if revents & (libc::POLLIN | libc::POLLPRI) == 0 {
+        return Polled::Ended;
+    }
+    Polled::Ready
+}
+
 /// Whether this platform can open a camera at all.
 pub fn available() -> bool {
     cfg!(target_os = "linux")
@@ -419,7 +455,7 @@ mod v4l2 {
     //! a mirror a byte short makes the kernel reject the call and write past the buffer. The offsets
     //! are named once, here, and used everywhere else.
 
-    use super::{POLL, Read};
+    use super::{POLL, Polled, Read, classify_poll};
     use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
 
     /// The `_IOC` encoding of one request: direction, the size of the argument, the `'V'` type and
@@ -1131,13 +1167,15 @@ mod v4l2 {
                 revents: 0,
             };
             let ready = unsafe { libc::poll(&mut descriptor, 1, POLL) };
-            if ready == 0 {
-                return Read::Idle;
-            }
-            if ready < 0 || descriptor.revents & (libc::POLLIN | libc::POLLPRI) == 0 {
-                // An unplugged camera reports an error on the descriptor, which is a camera that has
-                // gone rather than one to keep polling.
-                return Read::Ended;
+            // A signal (EINTR) can interrupt the wait; that is transient, and the next poll is the
+            // frame. Only a real error means an unplugged camera, which reports on the descriptor
+            // as gone rather than one to keep polling.
+            let interrupted = ready < 0
+                && std::io::Error::last_os_error().kind() == std::io::ErrorKind::Interrupted;
+            match classify_poll(ready, descriptor.revents, interrupted) {
+                Polled::Idle => return Read::Idle,
+                Polled::Ended => return Read::Ended,
+                Polled::Ready => {}
             }
             let (index, used) = match self.dequeue() {
                 Ok(Some(filled)) => filled,
@@ -1268,6 +1306,30 @@ mod tests {
                 width * height + width * height / 4 * 2
             );
         }
+    }
+
+    /// A signal that interrupts the wait is not a camera that has gone; a real error is.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn an_interrupted_poll_waits_again_and_only_a_real_error_ends_the_camera() {
+        use super::{Polled, classify_poll};
+
+        // The poll timed out: nothing arrived, so the caller checks the stop flag and reads again.
+        assert!(matches!(classify_poll(0, 0, false), Polled::Idle));
+        // A signal (EINTR) interrupted the wait. The camera is fine; poll again rather than end it.
+        assert!(matches!(classify_poll(-1, 0, true), Polled::Idle));
+        // A real error is the device gone.
+        assert!(matches!(classify_poll(-1, 0, false), Polled::Ended));
+        // A frame is waiting, so the caller dequeues it.
+        assert!(matches!(
+            classify_poll(1, libc::POLLIN, false),
+            Polled::Ready
+        ));
+        // The descriptor only saw a hangup: nothing to read, and the camera has gone.
+        assert!(matches!(
+            classify_poll(1, libc::POLLHUP, false),
+            Polled::Ended
+        ));
     }
 
     /// The choice between the two capture paths, decided from the driver's formats alone.

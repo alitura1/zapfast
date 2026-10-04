@@ -853,6 +853,19 @@ impl VideoPipeline {
         ))
     }
 
+    /// [`Self::start`] with its blocking work on a blocking thread.
+    ///
+    /// Opening a camera and building its `openh264` encoder waits up to [`CAMERA_STARTUP`]; run on
+    /// the worker's async loop that wait would park signaling and every other command behind it, so
+    /// the call placement calls this instead. A task that panics is reported rather than swallowed.
+    pub async fn start_off_thread(
+        device: Option<String>,
+    ) -> Result<(Self, async_channel::Receiver<VideoTick>)> {
+        tokio::task::spawn_blocking(move || Self::start(device))
+            .await
+            .map_err(|error| anyhow!("the video pipeline task did not finish: {error}"))?
+    }
+
     fn source(&self) -> LocalVideoSource {
         let (empty_tx, empty) = async_channel::bounded::<Vec<u8>>(1);
         drop(empty_tx);
@@ -874,20 +887,29 @@ impl VideoPipeline {
         }
     }
 
-    /// Releases the camera. A resume builds a new source, so nothing here is kept.
-    pub fn pause_camera(&mut self) {
-        if let Some(mut camera) = self.camera.take() {
-            camera.stop();
+    /// Releases the camera, joining its capture thread on a blocking thread so a stop never parks
+    /// the worker's async loop. A resume builds a new source, so nothing here is kept.
+    pub async fn pause_camera_off_thread(&mut self) {
+        if let Some(camera) = self.camera.take() {
+            stop_camera_off_thread(camera).await;
         }
     }
 
     /// Starts capturing from `device` again, reusing the frame channel the UI already drains.
-    pub fn resume_camera(&mut self, device: Option<String>) -> Result<()> {
-        if let Some(mut camera) = self.camera.take() {
-            camera.stop();
+    ///
+    /// The old capture is stopped and the new one opened on a blocking thread, so the join and the
+    /// [`CAMERA_STARTUP`] wait never hold up the worker's async loop.
+    pub async fn resume_camera_off_thread(&mut self, device: Option<String>) -> Result<()> {
+        if let Some(camera) = self.camera.take() {
+            stop_camera_off_thread(camera).await;
         }
-        self.device = device.clone();
-        self.camera = Some(CameraCapture::start(device, self.ticks.clone())?);
+        let ticks = self.ticks.clone();
+        let wanted = device.clone();
+        let camera = tokio::task::spawn_blocking(move || CameraCapture::start(wanted, ticks))
+            .await
+            .map_err(|error| anyhow!("the camera task did not finish: {error}"))??;
+        self.device = device;
+        self.camera = Some(camera);
         Ok(())
     }
 
@@ -903,6 +925,11 @@ impl VideoPipeline {
             camera.stop();
         }
     }
+}
+
+/// Stops a camera on a blocking thread, so joining its capture thread never parks the async loop.
+async fn stop_camera_off_thread(mut camera: CameraCapture) {
+    let _ = tokio::task::spawn_blocking(move || camera.stop()).await;
 }
 
 /// Captures from the camera, encodes each frame to an Annex-B access unit, and feeds the preview.
@@ -1293,7 +1320,7 @@ impl Call {
         // exists and before the peer is rung, because a video call must not silently become voice.
         let mut pipe = None;
         if video {
-            match VideoPipeline::start(camera.clone()) {
+            match VideoPipeline::start_off_thread(camera.clone()).await {
                 Ok((pipeline, frames)) => pipe = Some((pipeline, frames)),
                 Err(error) => log::warn!("[CALL] video pipeline could not start: {error}"),
             }
@@ -1431,7 +1458,7 @@ impl Call {
         // before anyone is rung, rather than silently becoming a voice call.
         let mut pipe = None;
         if video {
-            match VideoPipeline::start(camera.clone()) {
+            match VideoPipeline::start_off_thread(camera.clone()).await {
                 Ok((pipeline, frames)) => pipe = Some((pipeline, frames)),
                 Err(error) => log::warn!("[CALL] video pipeline could not start: {error}"),
             }
@@ -1836,7 +1863,7 @@ impl Call {
         // ringing and the user can still decline it.
         let mut pipe = None;
         if self.video {
-            match VideoPipeline::start(camera.clone()) {
+            match VideoPipeline::start_off_thread(camera.clone()).await {
                 Ok((pipeline, frames)) => pipe = Some((pipeline, frames)),
                 Err(error) => log::warn!("[CALL] video pipeline could not start: {error}"),
             }
@@ -2397,7 +2424,7 @@ impl Call {
             // refuses, the capture that was just started is rolled back: leaving it running would
             // be a camera holding the device and frames going to nobody, while the screen still
             // reads the call as video-off.
-            pipe.resume_camera(self.camera.clone())?;
+            pipe.resume_camera_off_thread(self.camera.clone()).await?;
             let (source, sink) = (pipe.source(), pipe.sink());
             // The camera stream exists now, so the graph has relinked around it.
             if let Some(speaker) = &self.speaker {
@@ -2405,7 +2432,7 @@ impl Call {
             }
             if let Err(error) = handle.resume_video(source, sink).await {
                 if let Some(pipe) = self.video_pipe.as_mut() {
-                    pipe.pause_camera();
+                    pipe.pause_camera_off_thread().await;
                 }
                 self.camera_wanted = false;
                 self.media_stream_changed();
@@ -2419,7 +2446,7 @@ impl Call {
             // to leave the camera capturing and sending: the request was to turn it off.
             let notified = handle.stop_video().await;
             if let Some(pipe) = self.video_pipe.as_mut() {
-                pipe.pause_camera();
+                pipe.pause_camera_off_thread().await;
             }
             self.camera_wanted = false;
             self.media_stream_changed();
@@ -2458,7 +2485,7 @@ impl Call {
         };
         self.note_transition("video requested");
         if self.video_pipe.is_none() {
-            let (pipe, frames) = VideoPipeline::start(camera.clone())?;
+            let (pipe, frames) = VideoPipeline::start_off_thread(camera.clone()).await?;
             self.media_stream_changed();
             self.camera_wanted = pipe.camera_running();
             self.video_pipe = Some(pipe);
@@ -2526,7 +2553,7 @@ impl Call {
     /// has no system default, so the caller reads it as the first node the machine reports — exactly
     /// as [`resolve_devices`] reads it when a call starts. Resolving it here instead would enumerate
     /// devices on whatever thread is driving the call, which is the worker's async loop.
-    pub fn set_camera_device(&mut self, device: Option<String>) -> Result<CallUpdate> {
+    pub async fn set_camera_device(&mut self, device: Option<String>) -> Result<CallUpdate> {
         self.camera = device.clone();
         self.lost_devices.clear();
         // Said before the switch is attempted, because the stream is going either way: the old
@@ -2539,10 +2566,12 @@ impl Call {
         {
             self.media_stream_changed();
         }
+        // The stop and the restart run on a blocking thread: neither the join of the old capture
+        // nor the new camera's startup wait may park the worker's async loop.
         if let Some(pipe) = self.video_pipe.as_mut()
             && pipe.camera_running()
         {
-            pipe.resume_camera(device)?;
+            pipe.resume_camera_off_thread(device).await?;
         }
         log::info!("[CALL] camera device {:?}", self.camera);
         Ok(self.update())
@@ -2757,8 +2786,10 @@ mod tests {
         );
 
         call.set_camera_device(Some("/dev/video9".to_owned()))
+            .await
             .expect("a camera can be selected");
         call.set_camera_device(None)
+            .await
             .expect("a camera can be cleared");
         call.set_speaker(Some("Second speaker".to_owned()));
         call.set_microphone(Some("Second microphone".to_owned()));
@@ -2824,7 +2855,7 @@ mod tests {
         );
         // Whether this machine can open `/dev/video9` is not what is under test: the stream is
         // torn down either way, so the sink is told either way.
-        let _ = call.set_camera_device(Some("/dev/video9".to_owned()));
+        let _ = call.set_camera_device(Some("/dev/video9".to_owned())).await;
         assert!(
             call.speaker.as_ref().is_some_and(AudioOutput::relink_open),
             "switching the camera tells the sink the graph is relinking"
@@ -2972,6 +3003,7 @@ mod tests {
         call.set_microphone(Some("Second microphone".to_owned()));
         call.set_speaker(Some("Second speaker".to_owned()));
         call.set_camera_device(Some("/dev/video9".to_owned()))
+            .await
             .expect("a camera can be selected");
         assert!(
             call.set_camera(true).await.is_err(),
@@ -3038,20 +3070,22 @@ mod tests {
     /// resume, and end. A machine with no camera has nothing to drive and says so.
     /// `cargo test --lib -- --ignored --nocapture calls::tests::hardware`
     #[cfg(target_os = "linux")]
-    #[test]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     #[ignore = "opens this machine's real camera"]
-    fn hardware_pipeline_starts_pauses_and_stops_the_camera() {
+    async fn hardware_pipeline_starts_pauses_and_stops_the_camera() {
         let Some((device, label)) = crate::camera::cameras().into_iter().next() else {
             eprintln!("no camera on this machine: nothing to drive");
             return;
         };
         eprintln!("driving {device} ({label})");
-        let (mut pipe, _ticks) =
-            VideoPipeline::start(Some(device.clone())).expect("the camera opens");
+        let (mut pipe, _ticks) = VideoPipeline::start_off_thread(Some(device.clone()))
+            .await
+            .expect("the camera opens");
         assert!(pipe.camera_running(), "a started camera reads as on");
-        pipe.pause_camera();
+        pipe.pause_camera_off_thread().await;
         assert!(!pipe.camera_running(), "a pause reads as off at once");
-        pipe.resume_camera(Some(device))
+        pipe.resume_camera_off_thread(Some(device))
+            .await
             .expect("the camera starts again");
         assert!(pipe.camera_running(), "a resumed camera reads as on again");
         pipe.shutdown();

@@ -10,4 +10,4 @@ crate=$(cargo metadata --format-version 1 --locked |
     sed 's/^"manifest_path":"//; s/Cargo.toml"$//')
 exec "$crate/scripts/update-translations.sh" --package ZapFast --domain zapfast \
     --bugs 'https://github.com/crmne/zapfast/issues/new?template=translation.yml' \
-    --keyword translated:2 --fuzzy-matching "$@"
+    --keyword translated:2 --keyword fault:2 --fuzzy-matching "$@"

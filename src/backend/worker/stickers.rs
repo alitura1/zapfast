@@ -455,7 +455,10 @@ impl Worker {
         let hash = match super::super::sticker_store::save(&self.dirs.saved_sticker_dir(), path) {
             Ok(hash) => hash,
             Err(error) => {
-                self.emit(Event::Error(format!("Could not add to favorites: {error}")));
+                self.emit(Event::Error(
+                    fault(self.locale, "Could not add to favorites: {error}")
+                        .replace("{error}", &error.to_string()),
+                ));
                 return;
             }
         };
@@ -980,14 +983,20 @@ impl Worker {
                 self.emit_stickers();
                 self.emit(Event::Info(format!("Added sticker pack \"{name}\"")));
             }
-            Err(error) => self.emit(Event::Error(format!("Could not add sticker pack: {error}"))),
+            Err(error) => self.emit(Event::Error(
+                fault(self.locale, "Could not add sticker pack: {error}")
+                    .replace("{error}", &error.to_string()),
+            )),
         }
     }
 
     /// Sends one of our packs to a chat as a WhatsApp sticker pack.
     pub(super) fn send_sticker_pack(&mut self, chat: ChatId, dir: PathBuf) {
         let Some(client) = self.client.clone() else {
-            self.emit(Event::Error("Not connected to WhatsApp".to_owned()));
+            self.emit(Event::Error(fault(
+                self.locale,
+                "Not connected to WhatsApp",
+            )));
             return;
         };
         let Some(pack) = self

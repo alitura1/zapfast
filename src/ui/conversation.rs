@@ -890,7 +890,12 @@ fn composer(app: &mut App, ui: &mut egui::Ui, chat: &Chat) {
                 }
                 if chat.locked {
                     ui.vertical_centered(|ui| {
-                        theme::text(ui, "Locked chats are read-only in ZapFast", theme::regular(13.5), palette.secondary);
+                        theme::text(
+                            ui,
+                            crate::i18n::gettext(app.locale, "Locked chats are read-only in ZapFast"),
+                            theme::regular(13.5),
+                            palette.secondary,
+                        );
                     });
                     return;
                 }
@@ -915,11 +920,21 @@ fn composer(app: &mut App, ui: &mut egui::Ui, chat: &Chat) {
                         ui.horizontal(|ui| {
                             let width = 230.0;
                             ui.add_space((ui.available_width() - width).max(0.0) / 2.0);
-                            theme::text(ui, "Only", theme::regular(13.5), palette.secondary);
-                            theme::text(ui, "admins", theme::semibold(13.5), palette.accent);
                             theme::text(
                                 ui,
-                                "can send messages",
+                                crate::i18n::gettext(app.locale, "Only"),
+                                theme::regular(13.5),
+                                palette.secondary,
+                            );
+                            theme::text(
+                                ui,
+                                crate::i18n::gettext(app.locale, "admins"),
+                                theme::semibold(13.5),
+                                palette.accent,
+                            );
+                            theme::text(
+                                ui,
+                                crate::i18n::gettext(app.locale, "can send messages"),
                                 theme::regular(13.5),
                                 palette.secondary,
                             );
@@ -1591,7 +1606,12 @@ fn edit_strip(app: &mut App, ui: &mut egui::Ui) {
             ui.set_width(ui.available_width());
             ui.horizontal(|ui| {
                 theme::icon(ui, Icon::Pencil, 16.0, palette.accent);
-                theme::text(ui, "Editing message", theme::semibold(12.5), palette.accent);
+                theme::text(
+                    ui,
+                    crate::i18n::gettext(app.locale, "Editing message"),
+                    theme::semibold(12.5),
+                    palette.accent,
+                );
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                     if theme::icon_button(
                         ui,
@@ -3264,7 +3284,7 @@ fn bubble_frame(
                     |ui| {
                         ui.add(
                             egui::Label::new(
-                                egui::RichText::new("Forwarded")
+                                egui::RichText::new(crate::i18n::gettext(view.locale, "Forwarded"))
                                     .font(theme::regular(12.5))
                                     .italics()
                                     .color(palette.dim),
@@ -6721,7 +6741,14 @@ fn selection_bar(app: &mut App, ui: &mut egui::Ui, chat: &str, selected: &[Strin
         };
         theme::text(ui, &count, theme::medium(14.5), palette.text);
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-            if theme::pill_button(ui, &palette, "Forward…", true).clicked() {
+            if theme::pill_button(
+                ui,
+                &palette,
+                &crate::i18n::gettext(app.locale, "Forward…"),
+                true,
+            )
+            .clicked()
+            {
                 app.actions.push(Action::ShowDialog(Dialog::Forward {
                     chat: chat.to_owned(),
                     messages: selected.to_vec(),

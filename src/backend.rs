@@ -449,6 +449,17 @@ pub enum Command {
     },
     /// Where new downloads go; `None` is the cache.
     SetDownloadFolder(Option<std::path::PathBuf>),
+    /// The reader's interface language, so the faults the worker names with fixed words reach
+    /// them translated. The worker has no language of its own.
+    InterfaceLanguage(crate::i18n::Locale),
+    /// A finished device scan, sent by the blocking thread that ran it back to the worker so the
+    /// scan never holds up the loop. `generation` is the call state it was started for: a scan
+    /// that arrives after that call ended or was replaced is discarded rather than overwriting
+    /// the newer list.
+    CallDevices {
+        generation: u64,
+        devices: Box<crate::calls::DeviceList>,
+    },
     /// Asks where to save a copy of an attachment, then copies it there.
     SaveAttachmentAs {
         source: std::path::PathBuf,

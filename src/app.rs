@@ -774,6 +774,8 @@ impl App {
                 crate::util::twelve_hour_clock();
             })
             .ok();
+        // The reader's language, so the faults the worker names with fixed words arrive translated.
+        app.backend.send(Command::InterfaceLanguage(app.locale));
         app.backend.send(Command::SetDownloadFolder(
             app.settings.download_folder.clone(),
         ));
@@ -2604,7 +2606,10 @@ impl App {
                 self.draft_mentions.clear();
                 self.composer.clear();
                 self.composer_mentions.clear();
-                self.toast_error("This device was unlinked from your phone");
+                self.toast_error(crate::i18n::gettext(
+                    self.locale,
+                    "This device was unlinked from your phone",
+                ));
             }
             LinkStatus::Failed(message) => self.toast_error(message.clone()),
             _ => {}
@@ -3346,7 +3351,7 @@ impl App {
     /// Adds files to the open chat's composer.
     fn stage_files(&mut self, paths: Vec<PathBuf>) {
         if self.open_chat.is_none() {
-            self.toast_error("Open a chat first");
+            self.toast_error(crate::i18n::gettext(self.locale, "Open a chat first"));
             return;
         }
         for path in paths {
@@ -3404,7 +3409,7 @@ impl App {
     #[allow(dead_code)]
     fn send_files(&mut self, paths: Vec<PathBuf>) {
         let Some(chat) = self.open_chat.clone() else {
-            self.toast_error("Open a chat first");
+            self.toast_error(crate::i18n::gettext(self.locale, "Open a chat first"));
             return;
         };
         if paths.is_empty() {
@@ -4112,7 +4117,13 @@ impl App {
             Action::OpenFile(path) => {
                 if crate::safety::can_open_attachment(&path) && path.is_file() {
                     if let Err(error) = open::that_detached(&path) {
-                        self.toast_error(format!("Could not open the attachment: {error}"));
+                        self.toast_error(
+                            crate::i18n::gettext(
+                                self.locale,
+                                "Could not open the attachment: {error}",
+                            )
+                            .replace("{error}", &error.to_string()),
+                        );
                     }
                 } else {
                     self.toast("For safety, open this file yourself from its folder");
@@ -4128,10 +4139,16 @@ impl App {
             Action::OpenFolder(path) => {
                 if path.is_dir() {
                     if let Err(error) = open::that_detached(&path) {
-                        self.toast_error(format!("Could not open the folder: {error}"));
+                        self.toast_error(
+                            crate::i18n::gettext(self.locale, "Could not open the folder: {error}")
+                                .replace("{error}", &error.to_string()),
+                        );
                     }
                 } else {
-                    self.toast_error("The folder is unavailable");
+                    self.toast_error(crate::i18n::gettext(
+                        self.locale,
+                        "The folder is unavailable",
+                    ));
                 }
             }
             Action::OpenUrl(url) => {
@@ -4145,7 +4162,10 @@ impl App {
                 } else if let Some(url) = crate::safety::external_url(&url) {
                     ctx.open_url(egui::OpenUrl::new_tab(url));
                 } else {
-                    self.toast_error("This link type cannot be opened from ZapFast");
+                    self.toast_error(crate::i18n::gettext(
+                        self.locale,
+                        "This link type cannot be opened from ZapFast",
+                    ));
                 }
             }
             Action::CopyText(text) => {
@@ -5046,6 +5066,8 @@ impl App {
             Action::SetInterfaceLanguage(choice) => {
                 self.settings.interface_language = choice;
                 self.locale = crate::i18n::resolve(choice);
+                // The worker reports in fixed words too, so it follows the same choice.
+                self.backend.send(Command::InterfaceLanguage(self.locale));
                 self.mark_settings_dirty();
             }
             Action::SetCustomTheme(filename) => {
@@ -5199,7 +5221,10 @@ impl App {
             }
             Action::SetStartWithSystem(enabled) => match crate::autostart::set(enabled) {
                 Ok(()) => self.start_with_system = Some(crate::autostart::enabled()),
-                Err(error) => self.toast_error(format!("Could not change the login item: {error}")),
+                Err(error) => self.toast_error(
+                    crate::i18n::gettext(self.locale, "Could not change the login item: {error}")
+                        .replace("{error}", &error.to_string()),
+                ),
             },
             Action::ZoomBy(delta) => {
                 self.settings.zoom = (self.settings.zoom + delta).clamp(0.6, 2.0);
@@ -5421,7 +5446,10 @@ impl App {
         }
         if let Some(error) = self.recording.as_ref().and_then(Recorder::failure) {
             self.recording = None;
-            self.toast_error(format!("Could not record: {error}"));
+            self.toast_error(
+                crate::i18n::gettext(self.locale, "Could not record: {error}")
+                    .replace("{error}", &error.to_string()),
+            );
         }
         if self.player.is_playing() || self.recording.is_some() {
             self.waker.wake_after(Duration::from_millis(40));
@@ -5615,7 +5643,10 @@ impl App {
                     quoting,
                 });
             }
-            Err(error) => self.toast_error(format!("Could not record: {error}")),
+            Err(error) => self.toast_error(
+                crate::i18n::gettext(self.locale, "Could not record: {error}")
+                    .replace("{error}", &error.to_string()),
+            ),
         }
     }
 

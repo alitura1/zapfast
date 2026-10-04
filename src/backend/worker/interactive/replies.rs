@@ -1,7 +1,7 @@
 //! Maps known choices to whatsapp-rust message types. The library owns quoting,
 //! encryption, fanout, stanza classification, receipts, and disappearing timers.
 
-use super::super::{ChatId, Delivery, Event, Message, MessageField, Quoted, send_outgoing};
+use super::super::{ChatId, Delivery, Event, Message, MessageField, Quoted, fault, send_outgoing};
 use super::*;
 
 fn present(value: Option<&str>) -> Option<&str> {
@@ -228,7 +228,10 @@ impl Worker {
             return;
         }
         let (Some(client), Some(jid)) = (self.client.clone(), Self::jid_of(&chat)) else {
-            self.emit(Event::Error("Not connected to WhatsApp".into()));
+            self.emit(Event::Error(fault(
+                self.locale,
+                "Not connected to WhatsApp",
+            )));
             return;
         };
         let prepared = (|| {
@@ -239,7 +242,7 @@ impl Worker {
             Some((row, reply))
         })();
         let Some((source, mut message)) = prepared else {
-            self.emit(Event::Error("This option is unavailable in ZapFast. Open the message in WhatsApp Web or on your phone.".into()));
+            self.emit(Event::Error(fault(self.locale, "This option is unavailable in ZapFast. Open the message in WhatsApp Web or on your phone.")));
             return;
         };
         let expiration = self.apply_ephemeral(&chat, &mut message);

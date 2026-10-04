@@ -107,10 +107,25 @@ fn body(app: &mut App, ui: &mut egui::Ui) {
             );
             ui.add_space(12.0);
             ui.horizontal(|ui| {
-                if theme::pill_button(ui, &palette, "Try again", true).clicked() {
+                if theme::pill_button(
+                    ui,
+                    &palette,
+                    &crate::i18n::gettext(app.locale, "Try again"),
+                    true,
+                )
+                .clicked()
+                {
                     app.actions.push(Action::Reconnect);
                 }
-                if key_lost && theme::pill_button(ui, &palette, "Start over…", false).clicked() {
+                if key_lost
+                    && theme::pill_button(
+                        ui,
+                        &palette,
+                        &crate::i18n::gettext(app.locale, "Start over…"),
+                        false,
+                    )
+                    .clicked()
+                {
                     app.actions
                         .push(Action::ShowDialog(crate::model::Dialog::ConfirmStartOver));
                 }
@@ -257,7 +272,15 @@ fn pair_code_view(app: &mut App, ui: &mut egui::Ui, code: &str, phone: Option<&s
     ui.add_space(10.0);
     ui.horizontal(|ui| {
         ui.add_space((ui.available_width() - 200.0).max(0.0) / 2.0);
-        if theme::soft_button(ui, &palette, Some(Icon::Copy), "Copy code", false).clicked() {
+        if theme::soft_button(
+            ui,
+            &palette,
+            Some(Icon::Copy),
+            &crate::i18n::gettext(app.locale, "Copy code"),
+            false,
+        )
+        .clicked()
+        {
             app.actions.push(Action::CopyText(code.to_owned()));
         }
     });

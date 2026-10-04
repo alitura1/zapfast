@@ -96,15 +96,88 @@ impl Worker {
 
     /// Hands the call screen the microphones, speakers and cameras it can offer, and keeps them:
     /// they are how a device that goes away is named by the description the user saw.
-    pub(super) async fn emit_call_devices(&mut self) -> calls::DeviceList {
-        match scan_devices().await {
-            Some(devices) => {
-                self.publish_call_devices(devices.clone());
-                devices
+    ///
+    /// The list returned is the one already published, so no handler ever waits on the machine:
+    /// a fresh scan is started off the loop and lands later through [`Self::call_devices_arrived`].
+    pub(super) fn emit_call_devices(&mut self) -> calls::DeviceList {
+        self.begin_device_discovery();
+        self.call_devices.clone()
+    }
+
+    /// Starts a device scan off the worker's loop.
+    ///
+    /// Enumerating opens every audio device to name it and probes each camera node, so it runs on a
+    /// blocking thread rather than on the async loop. The result is sent back as
+    /// [`Command::CallDevices`], tagged with the current call generation, so a scan that finishes
+    /// after the call it belonged to has ended or been replaced is discarded rather than
+    /// overwriting the newer list. Nothing here is awaited: a slow or stuck driver cannot hold up
+    /// signaling or the commands that share the loop.
+    pub(super) fn begin_device_discovery(&mut self) {
+        let generation = self.call_generation;
+        let commands = self.commands.clone();
+        tokio::task::spawn_blocking(move || {
+            let devices = calls::devices();
+            let _ = commands.send(Command::CallDevices {
+                generation,
+                devices: Box::new(devices),
+            });
+        });
+    }
+
+    /// Applies one finished device scan and publishes it.
+    ///
+    /// `generation` is the call state the scan was started for. A scan for a call that has since
+    /// ended or been replaced is dropped here, so its result cannot overwrite the list a newer call
+    /// already published.
+    pub(super) async fn call_devices_arrived(
+        &mut self,
+        generation: u64,
+        devices: calls::DeviceList,
+    ) {
+        if !discovery_is_current(generation, self.call_generation) {
+            log::debug!("[CALL] discarding a device scan for a call that has moved on");
+            return;
+        }
+        // Read before the fresh list replaces it: a device that just went away is still named in
+        // here by the description the user saw.
+        let known = self.call_devices.clone();
+        if devices != known {
+            self.publish_call_devices(devices.clone());
+        }
+        let mut lost = Vec::new();
+        if let Some(runtime) = self.call.as_mut() {
+            lost.extend(runtime.call.take_stream_fallbacks());
+            lost.extend(runtime.call.verify_devices(&devices).await);
+            if runtime.call.camera_stalled()
+                && let Err(error) = runtime.call.set_camera(false).await
+            {
+                log::warn!("[CALL] the peer was not told the camera stopped: {error}");
             }
-            // The scan did not finish in time: the list the pickers already show is the honest
-            // one, and publishing nothing would leave a call with no device to open.
-            None => self.call_devices.clone(),
+        }
+        if !lost.is_empty() {
+            // Worded by the call screen, which knows the reader's language; the log says it plainly.
+            let lost: Vec<calls::LostDevice> = lost
+                .into_iter()
+                .map(|(kind, id)| {
+                    let name = calls::device_name(&known, kind, &id);
+                    log::warn!("[CALL] {kind:?} \"{name}\" is not available any more");
+                    calls::LostDevice { kind, name }
+                })
+                .collect();
+            if let Some(runtime) = self.call.as_mut() {
+                runtime.call.set_lost_devices(lost);
+            }
+        }
+        // Compared against the snapshot the UI was handed, so a camera that stopped on its own or a
+        // mute another device set reaches the screen even though no user pressed anything.
+        let changed = self.call.as_mut().and_then(|runtime| {
+            let current = runtime.call.update();
+            let changed = current != runtime.last;
+            runtime.last = current.clone();
+            changed.then_some(current)
+        });
+        if let Some(update) = changed {
+            self.emit_call(update);
         }
     }
 
@@ -156,6 +229,9 @@ impl Worker {
         }
         self.emit(Event::Call(Box::new(update)));
         if finished {
+            // The call is over, so any device scan still in flight belongs to a call that is gone:
+            // moving the generation on makes it stale, and it is dropped when it lands.
+            self.call_generation = self.call_generation.wrapping_add(1);
             self.call = None;
         }
         if let Some(record) = record {
@@ -213,23 +289,26 @@ impl Worker {
         let group = group_chat(&chat);
         if !callable_chat(&chat) && !group {
             log::warn!("[CALL] refusing a call to a chat that is not one to one or a group");
-            self.emit(Event::Error(
-                "Calls are one to one or group only".to_owned(),
-            ));
+            self.emit(Event::Error(fault(
+                self.locale,
+                "Calls are one to one or group only",
+            )));
             return;
         }
         let self_chat = self.own_chat();
         let Some(client) = self.client.clone() else {
             log::warn!("[CALL] cannot start a call: WhatsApp is not connected");
-            self.emit(Event::Error(
-                "ZapFast is not connected to WhatsApp".to_owned(),
-            ));
+            self.emit(Event::Error(fault(
+                self.locale,
+                "ZapFast is not connected to WhatsApp",
+            )));
             return;
         };
         // The devices the settings remember, checked against the machine first: a headset that was
         // switched off since the last call falls back to the system default and says so, instead of
-        // opening a stream that can never deliver a frame.
-        let devices = self.emit_call_devices().await;
+        // opening a stream that can never deliver a frame. Discovery runs off the loop and lands
+        // later, so the call opens with the list the pickers already show.
+        let devices = self.emit_call_devices();
         let wanted = self.call_defaults.clone();
         let resolved =
             calls::resolve_devices(&devices, wanted.microphone, wanted.speaker, wanted.camera);
@@ -266,9 +345,10 @@ impl Worker {
             }
             Err(error) => {
                 log::error!("[CALL] could not start the call: {error}");
-                self.emit(Event::Error(format!(
-                    "The call could not be started: {error}"
-                )));
+                self.emit(Event::Error(
+                    fault(self.locale, "The call could not be started: {error}")
+                        .replace("{error}", &error.to_string()),
+                ));
             }
         }
     }
@@ -277,12 +357,9 @@ impl Worker {
         let Some(client) = self.client.clone() else {
             return;
         };
-        // Scanned before the runtime is borrowed, and bounded, so a stuck driver cannot hold the
+        // The list the pickers already show, refreshed off the loop: a stuck driver cannot hold the
         // worker inside the answer while signaling waits behind it.
-        let devices = match scan_devices().await {
-            Some(devices) => devices,
-            None => self.call_devices.clone(),
-        };
+        let devices = self.emit_call_devices();
         let update = match self.call.as_mut() {
             Some(runtime) => {
                 // Whatever the user picked while the phone was ringing is what the media binds to,
@@ -310,9 +387,10 @@ impl Worker {
                     }
                     Err(error) => {
                         log::error!("[CALL] could not answer the call: {error}");
-                        self.emit(Event::Error(format!(
-                            "The call could not be answered: {error}"
-                        )));
+                        self.emit(Event::Error(
+                            fault(self.locale, "The call could not be answered: {error}")
+                                .replace("{error}", &error.to_string()),
+                        ));
                         return;
                     }
                 }
@@ -400,7 +478,7 @@ impl Worker {
                             self.call_defaults.camera.clone(),
                         )
                     {
-                        let _ = runtime.call.set_camera_device(Some(camera));
+                        let _ = runtime.call.set_camera_device(Some(camera)).await;
                     }
                     runtime.call.set_camera(on).await
                 }
@@ -439,17 +517,17 @@ impl Worker {
         }
     }
 
-    pub(super) fn set_call_camera_device(&mut self, device: Option<String>) {
+    pub(super) async fn set_call_camera_device(&mut self, device: Option<String>) {
         self.call_defaults.camera = device.clone();
         // `None` is the picker's "Default device". A camera has no system default, so it is read
         // as the first camera the machine reports — the same reading a call's startup applies.
         // Passing the bare `None` through stopped the running camera and then had no node to open,
         // so choosing the default left the call with no picture until the next call.
         let device = calls::default_camera(&self.call_devices, device);
-        let outcome = self
-            .call
-            .as_mut()
-            .map(|runtime| runtime.call.set_camera_device(device));
+        let outcome = match self.call.as_mut() {
+            Some(runtime) => Some(runtime.call.set_camera_device(device).await),
+            None => None,
+        };
         match outcome {
             Some(Ok(update)) => self.emit_call(update),
             Some(Err(error)) => {
@@ -631,7 +709,7 @@ impl Worker {
         };
         let update = call.update();
         self.call = Some(CallRuntime::new(call, None));
-        self.emit_call_devices().await;
+        self.emit_call_devices();
         self.emit_call(update);
     }
 
@@ -740,7 +818,7 @@ impl Worker {
     ///
     /// The fresh list is also published when it changed, so a device that came or went shows up in
     /// the pickers without anyone pressing anything.
-    pub(super) async fn reconcile_call(&mut self) {
+    pub(super) fn reconcile_call(&mut self) {
         if self
             .call
             .as_ref()
@@ -754,88 +832,19 @@ impl Worker {
         if let Some(runtime) = self.call.as_ref() {
             runtime.call.log_media_stats();
         }
-        // Discovery opens every audio device to name it and runs `v4l2-ctl` with a format probe per
-        // camera node, so it runs on a blocking thread rather than on the worker's async loop: a
-        // slow device or a stuck helper must not hold up message handling or the call's own events.
-        // The wait is bounded, so even a driver that never answers cannot stop the loop for good.
-        let devices = match scan_devices().await {
-            Some(devices) => devices,
-            // Keep the list the pickers already show rather than publish an empty one.
-            None => self.call_devices.clone(),
-        };
-        // Read before the fresh list replaces it: a device that just went away is still named in
-        // here by the description the user saw.
-        let known = self.call_devices.clone();
-        if devices != known {
-            self.call_devices = devices.clone();
-            self.emit(Event::CallDevices(Box::new(devices.clone())));
-        }
-        let mut lost = Vec::new();
-        if let Some(runtime) = self.call.as_mut() {
-            lost.extend(runtime.call.take_stream_fallbacks());
-            lost.extend(runtime.call.verify_devices(&devices).await);
-            if runtime.call.camera_stalled()
-                && let Err(error) = runtime.call.set_camera(false).await
-            {
-                log::warn!("[CALL] the peer was not told the camera stopped: {error}");
-            }
-        }
-        if !lost.is_empty() {
-            // Worded by the call screen, which knows the reader's language; the log says it plainly.
-            let lost: Vec<calls::LostDevice> = lost
-                .into_iter()
-                .map(|(kind, id)| {
-                    let name = calls::device_name(&known, kind, &id);
-                    log::warn!("[CALL] {kind:?} \"{name}\" is not available any more");
-                    calls::LostDevice { kind, name }
-                })
-                .collect();
-            if let Some(runtime) = self.call.as_mut() {
-                runtime.call.set_lost_devices(lost);
-            }
-        }
-        // Compared against the snapshot the UI was handed, so a camera that stopped on its own or a
-        // mute another device set reaches the screen even though no user pressed anything.
-        let changed = self.call.as_mut().and_then(|runtime| {
-            let current = runtime.call.update();
-            let changed = current != runtime.last;
-            runtime.last = current.clone();
-            changed.then_some(current)
-        });
-        if let Some(update) = changed {
-            self.emit_call(update);
-        }
+        // A fresh scan, off the loop. Its result lands in [`Self::call_devices_arrived`], where a
+        // device that came or went is published and a live call's streams are checked against it.
+        self.begin_device_discovery();
     }
 }
 
-/// Device discovery off the worker thread: enumerating opens every audio device to name it, so it
-/// runs on a blocking thread rather than on the async loop, where a slow device would hold up
-/// message handling and the call's own events.
-async fn discover_devices() -> calls::DeviceList {
-    tokio::task::spawn_blocking(calls::devices)
-        .await
-        .unwrap_or_default()
-}
-
-/// Longest the worker waits for a device scan before falling back to the list it already has.
+/// Whether a finished device scan still belongs to the call it was started for.
 ///
-/// The blocking thread keeps a slow device off the runtime's own threads, but the worker still
-/// awaits the result, so the wait itself has to be bounded: a driver or helper that never answers
-/// would otherwise park signaling and every other command behind it.
-const DEVICE_DISCOVERY_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
-
-/// A device scan that cannot hold the worker longer than [`DEVICE_DISCOVERY_TIMEOUT`]. `None`
-/// means it did not finish, and the caller keeps the snapshot it already published.
-async fn scan_devices() -> Option<calls::DeviceList> {
-    match tokio::time::timeout(DEVICE_DISCOVERY_TIMEOUT, discover_devices()).await {
-        Ok(devices) => Some(devices),
-        Err(_) => {
-            log::warn!(
-                "[CALL] device discovery did not finish within {DEVICE_DISCOVERY_TIMEOUT:?}; keeping the last known devices"
-            );
-            None
-        }
-    }
+/// The generation only moves when a call ends, so every scan started while one call is up shares
+/// its generation and is applied, while a scan that lands after that call ended is dropped rather
+/// than overwriting the list a newer call already published.
+fn discovery_is_current(scan_generation: u64, call_generation: u64) -> bool {
+    scan_generation == call_generation
 }
 
 /// Whether a chat can be called at all.
@@ -871,6 +880,17 @@ mod tests {
         assert!(!callable_chat("12345-67890@g.us"));
         assert!(!callable_chat("1234567890@broadcast"));
         assert!(!callable_chat("1234567890@newsletter"));
+    }
+
+    /// A device scan is applied to the call it was started for, and only to that one: a scan that
+    /// lands after the call ended must not overwrite the newer list.
+    #[test]
+    fn a_device_scan_only_applies_to_the_call_it_was_started_for() {
+        assert!(discovery_is_current(4, 4));
+        // The call ended and the generation moved on while the scan was in flight.
+        assert!(!discovery_is_current(4, 5));
+        // A scan started against an older call can never match a newer one.
+        assert!(!discovery_is_current(3, 4));
     }
 
     #[test]

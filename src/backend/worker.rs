@@ -466,6 +466,7 @@ pub async fn run(
                 .set_meta(stickers::FAVORITES_RECOVERED, "complete")
                 .is_ok());
     let mut worker = Worker {
+        locale: crate::i18n::Locale::English,
         privacy_ready: privacy_confirmed,
         privacy_confirmed,
         privacy_snapshot,
@@ -484,6 +485,7 @@ pub async fn run(
         client: None,
         handle: None,
         call: None,
+        call_generation: 0,
         call_devices: crate::calls::DeviceList::default(),
         call_defaults: crate::calls::CallDevices::default(),
         wa_sender,
@@ -608,7 +610,7 @@ pub async fn run(
                 worker.pump_poll_votes();
                 worker.pump_poll_history();
                 worker.prune_waiting_receipts();
-                worker.reconcile_call().await;
+                worker.reconcile_call();
             }
         }
     }
@@ -745,6 +747,10 @@ struct Worker {
     receipts_pruned: Instant,
     /// Notices a link that stays open after a sleep but carries nothing.
     link_watch: link_watch::LinkWatch,
+    /// The interface language, for the faults the worker names with fixed words. It has no
+    /// language of its own: the window sends the reader's choice, and every finished sentence
+    /// the reader can see goes through it.
+    locale: crate::i18n::Locale,
     dirs: AppDirs,
     events: std::sync::mpsc::Sender<Event>,
     commands: mpsc::UnboundedSender<Command>,
@@ -820,6 +826,9 @@ struct Worker {
     /// Serial forward in flight. The next send waits for the running one.
     forward_queue: Option<ForwardQueue<ForwardJob>>,
     call: Option<calls::CallRuntime>,
+    /// Which call the live runtime belongs to, so a device scan that finishes late can be told
+    /// apart from one that still belongs to the call on screen. It only moves when a call ends.
+    call_generation: u64,
     /// The devices the call screen was last handed, kept so a device that goes away can be named
     /// by the description the user saw in the picker rather than by its node name.
     call_devices: crate::calls::DeviceList,
@@ -829,6 +838,17 @@ struct Worker {
 
 /// A queued forward: where it goes, the protobuf, and its disappearing timer.
 type ForwardJob = (ChatId, Jid, wa::Message, Option<u32>);
+
+/// One finished sentence for the reader, in their language.
+///
+/// The worker reports in English source text; this is where it becomes the reader's. It is a free
+/// function, not a method, so the translator's template extractor can see the literal templates
+/// (a method call is invisible to it). A template that carries runtime detail keeps the detail
+/// as-is: `{error}` and the like are substituted after the lookup, so the fixed words can be
+/// translated while the machine's own words stay readable.
+pub(crate) fn fault(locale: crate::i18n::Locale, template: &'static str) -> String {
+    crate::i18n::gettext(locale, template).into_owned()
+}
 
 /// Pure queue behind a serial forward. `T` is one job's payload.
 struct ForwardQueue<T> {
@@ -1864,7 +1884,10 @@ impl Worker {
             return;
         };
         let Some(client) = self.client.clone() else {
-            self.emit(Event::Error("Not connected to WhatsApp".into()));
+            self.emit(Event::Error(fault(
+                self.locale,
+                "Not connected to WhatsApp",
+            )));
             let _ = self.commands.send(Command::AccountPrivacyFailed { kind });
             return;
         };
@@ -2221,10 +2244,10 @@ impl Worker {
             E::PairingCodeError(error) => {
                 self.pair_code = None;
                 self.pairing_phone = None;
-                self.emit(Event::Error(format!(
-                    "Could not link by phone number: {}",
-                    error.error
-                )));
+                self.emit(Event::Error(
+                    fault(self.locale, "Could not link by phone number: {error}")
+                        .replace("{error}", &error.error.to_string()),
+                ));
                 let status = self.unlinked();
                 self.set_status(status);
             }
@@ -2322,16 +2345,20 @@ impl Worker {
                         .as_ref()
                         .map(|message| format!(": {message}"))
                         .unwrap_or_default();
+                    // Only the fixed words are translated; the reason and any detail the phone
+                    // gave stay as the machine wrote them.
                     self.emit(Event::Error(format!(
-                        "WhatsApp connection failed ({:?}){detail}",
+                        "{} ({:?}){detail}",
+                        fault(self.locale, "WhatsApp connection failed"),
                         failure.reason
                     )));
                 }
             }
             E::StreamReplaced(_) => {
-                self.emit(Event::Error(
-                    "Another WhatsApp Web session replaced this one".to_owned(),
-                ));
+                self.emit(Event::Error(fault(
+                    self.locale,
+                    "Another WhatsApp Web session replaced this one",
+                )));
             }
             E::TemporaryBan(ban) => {
                 self.set_status(LinkStatus::Failed(format!(
@@ -2553,14 +2580,16 @@ impl Worker {
     /// Sends a new display name and About text; each `None` stays as it is.
     fn set_profile(&mut self, name: Option<String>, about: Option<String>) {
         let Some(client) = self.client.clone() else {
-            self.emit(Event::Error(
-                "Connect to WhatsApp to change your profile.".to_owned(),
-            ));
+            self.emit(Event::Error(fault(
+                self.locale,
+                "Connect to WhatsApp to change your profile.",
+            )));
             return;
         };
         let commands = self.commands.clone();
         let events = self.events.clone();
         let waker = self.waker.clone();
+        let locale = self.locale;
         tokio::spawn(async move {
             let profile = client.profile();
             let mut saved_name = None;
@@ -2568,8 +2597,10 @@ impl Worker {
                 match profile.set_push_name(&name).await {
                     Ok(()) => saved_name = Some(name),
                     Err(error) => {
-                        let _ = events
-                            .send(Event::Error(format!("Could not change your name: {error}")));
+                        let _ = events.send(Event::Error(
+                            fault(locale, "Could not change your name: {error}")
+                                .replace("{error}", &error.to_string()),
+                        ));
                     }
                 }
             }
@@ -2578,9 +2609,10 @@ impl Worker {
                 match profile.set_status_text(&about).await {
                     Ok(()) => saved_about = Some(about),
                     Err(error) => {
-                        let _ = events.send(Event::Error(format!(
-                            "Could not change your About: {error}"
-                        )));
+                        let _ = events.send(Event::Error(
+                            fault(locale, "Could not change your About: {error}")
+                                .replace("{error}", &error.to_string()),
+                        ));
                     }
                 }
             }
@@ -3713,9 +3745,13 @@ impl Worker {
             }
             Ok(Err(error)) => {
                 log::warn!("a history chunk could not be read");
-                self.emit(Event::Error(format!(
-                    "Could not read part of the chat history: {error}"
-                )));
+                self.emit(Event::Error(
+                    fault(
+                        self.locale,
+                        "Could not read part of the chat history: {error}",
+                    )
+                    .replace("{error}", &error.to_string()),
+                ));
             }
             Err(_error) => log::warn!("history parsing worker failed"),
         }
@@ -4072,9 +4108,10 @@ impl Worker {
             });
             // Report the timeout once per chat; later retries back off silently.
             if self.older_warned.insert(chat) {
-                self.emit(Event::Error(
-                    "Your phone did not send older messages. Check that it is online".to_owned(),
-                ));
+                self.emit(Event::Error(fault(
+                    self.locale,
+                    "Your phone did not send older messages. Check that it is online",
+                )));
             }
         }
     }
@@ -4156,10 +4193,14 @@ impl Worker {
             Command::SetCallCamera(on) => self.set_call_camera(on).await,
             Command::SetCallMicrophone(device) => self.set_call_microphone(device),
             Command::SetCallSpeaker(device) => self.set_call_speaker(device),
-            Command::SetCallCameraDevice(device) => self.set_call_camera_device(device),
+            Command::SetCallCameraDevice(device) => self.set_call_camera_device(device).await,
             Command::RefreshCallDevices => {
-                self.emit_call_devices().await;
+                self.emit_call_devices();
             }
+            Command::CallDevices {
+                generation,
+                devices,
+            } => self.call_devices_arrived(generation, *devices).await,
             Command::LoadCalls => self.load_calls(),
             Command::LoadChatCalls { chat } => self.load_chat_calls(chat),
             Command::SetCallDevices {
@@ -4405,6 +4446,7 @@ impl Worker {
                     self.start_bot().await;
                 }
             }
+            Command::InterfaceLanguage(locale) => self.locale = locale,
             Command::SetDownloadFolder(folder) => {
                 // Interrupted downloads leave hidden staging files behind.
                 if let Some(folder) = &folder {
@@ -4466,6 +4508,7 @@ impl Worker {
                 let commands = self.commands.clone();
                 let events = self.events.clone();
                 let waker = self.waker.clone();
+                let locale = self.locale;
                 tokio::task::spawn_blocking(move || {
                     let Some(path) = rfd::FileDialog::new()
                         .set_title("Choose a profile picture")
@@ -4479,8 +4522,10 @@ impl Worker {
                             let _ = commands.send(Command::SetProfilePicture(bytes));
                         }
                         Err(error) => {
-                            let _ = events
-                                .send(Event::Error(format!("Could not use this picture: {error}")));
+                            let _ = events.send(Event::Error(
+                                fault(locale, "Could not use this picture: {error}")
+                                    .replace("{error}", &error.to_string()),
+                            ));
                         }
                     }
                     waker.wake();
@@ -4488,14 +4533,16 @@ impl Worker {
             }
             Command::SetProfilePicture(bytes) => {
                 let Some(client) = self.client.clone() else {
-                    self.emit(Event::Error(
-                        "Connect to WhatsApp to change your profile picture.".to_owned(),
-                    ));
+                    self.emit(Event::Error(fault(
+                        self.locale,
+                        "Connect to WhatsApp to change your profile picture.",
+                    )));
                     return;
                 };
                 let commands = self.commands.clone();
                 let events = self.events.clone();
                 let waker = self.waker.clone();
+                let locale = self.locale;
                 tokio::spawn(async move {
                     match client.profile().set_profile_picture(bytes).await {
                         Ok(_) => {
@@ -4506,9 +4553,10 @@ impl Worker {
                             });
                         }
                         Err(error) => {
-                            let _ = events.send(Event::Error(format!(
-                                "Could not change your profile picture: {error}"
-                            )));
+                            let _ = events.send(Event::Error(
+                                fault(locale, "Could not change your profile picture: {error}")
+                                    .replace("{error}", &error.to_string()),
+                            ));
                         }
                     }
                     waker.wake();
@@ -4522,6 +4570,7 @@ impl Worker {
                 let commands = self.commands.clone();
                 let events = self.events.clone();
                 let waker = self.waker.clone();
+                let locale = self.locale;
                 tokio::task::spawn_blocking(move || {
                     let Some(path) = rfd::FileDialog::new()
                         .set_title("Choose a group photo")
@@ -4538,8 +4587,10 @@ impl Worker {
                             });
                         }
                         Err(error) => {
-                            let _ = events
-                                .send(Event::Error(format!("Could not use this picture: {error}")));
+                            let _ = events.send(Event::Error(
+                                fault(locale, "Could not use this picture: {error}")
+                                    .replace("{error}", &error.to_string()),
+                            ));
                         }
                     }
                     waker.wake();
@@ -4586,6 +4637,7 @@ impl Worker {
             Command::SaveAttachmentAs { source, name } => {
                 let events = self.events.clone();
                 let waker = self.waker.clone();
+                let locale = self.locale;
                 tokio::task::spawn_blocking(move || {
                     let mut dialog = rfd::FileDialog::new()
                         .set_title("Save attachment")
@@ -4607,9 +4659,10 @@ impl Worker {
                                 |name| name.to_string_lossy().into_owned()
                             )
                         )),
-                        Err(error) => {
-                            Event::Error(format!("Could not save the attachment: {error}"))
-                        }
+                        Err(error) => Event::Error(
+                            fault(locale, "Could not save the attachment: {error}")
+                                .replace("{error}", &error.to_string()),
+                        ),
                     };
                     let _ = events.send(event);
                     waker.wake();
@@ -4693,9 +4746,10 @@ impl Worker {
                     self.favorite_sticker(&path);
                     self.emit(Event::Info("Added to favorites".to_owned()));
                 }
-                (Err(error), _) => {
-                    self.emit(Event::Error(format!("Could not make the sticker: {error}")))
-                }
+                (Err(error), _) => self.emit(Event::Error(
+                    fault(self.locale, "Could not make the sticker: {error}")
+                        .replace("{error}", &error.to_string()),
+                )),
             },
             Command::PickStickerArchive => {
                 let commands = self.commands.clone();
@@ -4720,7 +4774,10 @@ impl Worker {
                 to_phone,
             } => {
                 let (Some(client), Some(jid)) = (self.client.clone(), Self::jid_of(&id)) else {
-                    self.emit(Event::Error("Not connected to WhatsApp".to_owned()));
+                    self.emit(Event::Error(fault(
+                        self.locale,
+                        "Not connected to WhatsApp",
+                    )));
                     return;
                 };
                 let commands = self.commands.clone();
@@ -4740,7 +4797,10 @@ impl Worker {
             }
             Command::ContactSaved { id, name, error } => {
                 if let Some(error) = error {
-                    self.emit(Event::Error(format!("Could not save contact: {error}")));
+                    self.emit(Event::Error(
+                        fault(self.locale, "Could not save contact: {error}")
+                            .replace("{error}", &error.to_string()),
+                    ));
                     return;
                 }
                 let contact = Contact {
@@ -4764,7 +4824,10 @@ impl Worker {
                 to_phone,
             } => {
                 let Some(client) = self.client.clone() else {
-                    self.emit(Event::Error("Not connected to WhatsApp".to_owned()));
+                    self.emit(Event::Error(fault(
+                        self.locale,
+                        "Not connected to WhatsApp",
+                    )));
                     return;
                 };
                 let commands = self.commands.clone();
@@ -4795,10 +4858,10 @@ impl Worker {
                 registered,
             } => {
                 if !registered {
-                    self.emit(Event::Error(format!(
-                        "{} is not on WhatsApp",
-                        crate::util::phone(&phone)
-                    )));
+                    self.emit(Event::Error(
+                        fault(self.locale, "{} is not on WhatsApp")
+                            .replace("{}", &(crate::util::phone(&phone)).to_string()),
+                    ));
                     return;
                 }
                 let id = format!("{phone}@s.whatsapp.net");
@@ -4821,9 +4884,10 @@ impl Worker {
                     self.emit(Event::Info(format!("Added sticker pack \"{name}\"")));
                 }
                 Err(error) if error.is_empty() => self.emit_stickers(),
-                Err(error) => {
-                    self.emit(Event::Error(format!("Could not add sticker pack: {error}")))
-                }
+                Err(error) => self.emit(Event::Error(
+                    fault(self.locale, "Could not add sticker pack: {error}")
+                        .replace("{error}", &error.to_string()),
+                )),
             },
             Command::DeleteStickerPack { dir } => {
                 let root = self.packs_dir();
@@ -4875,7 +4939,10 @@ impl Worker {
             }
             Command::AccountPrivacyFailed { kind } => {
                 self.emit(Event::AccountPrivacyFailed { kind });
-                self.emit(Event::Error("Could not update privacy settings.".into()));
+                self.emit(Event::Error(fault(
+                    self.locale,
+                    "Could not update privacy settings.",
+                )));
             }
             Command::SetOnline(online) => self.set_online(online),
             // Only meaningful while the archive cannot be opened.
@@ -5020,9 +5087,10 @@ impl Worker {
                     crate::util::now(),
                 ) {
                     Ok(_) => self.emit_stickers(),
-                    Err(error) => {
-                        self.emit(Event::Error(format!("Could not create the pack: {error}")))
-                    }
+                    Err(error) => self.emit(Event::Error(
+                        fault(self.locale, "Could not create the pack: {error}")
+                            .replace("{error}", &error.to_string()),
+                    )),
                 }
             }
             Command::SetStickerPack {
@@ -5097,9 +5165,10 @@ impl Worker {
                 // leave the chat on the phone, and the next sync would bring
                 // it back despite the dialog saying it was deleted there too.
                 let (Some(client), Some(jid)) = (self.client.clone(), Self::jid_of(&chat)) else {
-                    self.emit(Event::Error(
-                        "Connect to WhatsApp to delete this chat".to_owned(),
-                    ));
+                    self.emit(Event::Error(fault(
+                        self.locale,
+                        "Connect to WhatsApp to delete this chat",
+                    )));
                     return;
                 };
                 let through = self
@@ -5135,9 +5204,10 @@ impl Worker {
                     self.remove_chat(&chat, through, true);
                 } else {
                     log::warn!("the phone did not delete a chat");
-                    self.emit(Event::Error(
-                        "The phone did not delete this chat. Try again when connected".to_owned(),
-                    ));
+                    self.emit(Event::Error(fault(
+                        self.locale,
+                        "The phone did not delete this chat. Try again when connected",
+                    )));
                 }
             }
             Command::ClearChat(chat) => {
@@ -5146,9 +5216,10 @@ impl Worker {
                 // on the phone, and the next sync would bring them back
                 // despite the dialog saying they were cleared there too.
                 let (Some(client), Some(jid)) = (self.client.clone(), Self::jid_of(&chat)) else {
-                    self.emit(Event::Error(
-                        "Connect to WhatsApp to clear this chat".to_owned(),
-                    ));
+                    self.emit(Event::Error(fault(
+                        self.locale,
+                        "Connect to WhatsApp to clear this chat",
+                    )));
                     return;
                 };
                 let Some(through) = clear_boundary(self.archive.messages(&chat, None, 1)) else {
@@ -5157,9 +5228,10 @@ impl Worker {
                     // while the dialog said they matched. Nothing is cleared
                     // anywhere.
                     log::warn!("could not read the boundary of a chat to clear");
-                    self.emit(Event::Error(
-                        "Could not read this chat's messages. Try again".to_owned(),
-                    ));
+                    self.emit(Event::Error(fault(
+                        self.locale,
+                        "Could not read this chat's messages. Try again",
+                    )));
                     return;
                 };
                 let commands = self.commands.clone();
@@ -5190,16 +5262,17 @@ impl Worker {
                     if !self.empty_chat(&chat, through, true) {
                         // The phone has cleared it; say so rather than leave
                         // the messages here looking as if nothing happened.
-                        self.emit(Event::Error(
-                            "The phone cleared this chat, but ZapFast could not clear it here"
-                                .to_owned(),
-                        ));
+                        self.emit(Event::Error(fault(
+                            self.locale,
+                            "The phone cleared this chat, but ZapFast could not clear it here",
+                        )));
                     }
                 } else {
                     log::warn!("the phone did not clear a chat");
-                    self.emit(Event::Error(
-                        "The phone did not clear this chat. Try again when connected".to_owned(),
-                    ));
+                    self.emit(Event::Error(fault(
+                        self.locale,
+                        "The phone did not clear this chat. Try again when connected",
+                    )));
                 }
             }
             Command::SetPinned(chat, pinned) => {
@@ -5295,7 +5368,10 @@ impl Worker {
             }
             Command::PairWithPhone(phone) => {
                 let Some(client) = self.client.clone() else {
-                    self.emit(Event::Error("Not connected to WhatsApp yet".to_owned()));
+                    self.emit(Event::Error(fault(
+                        self.locale,
+                        "Not connected to WhatsApp yet",
+                    )));
                     return;
                 };
                 self.pairing_phone = Some(phone.clone());
@@ -5322,9 +5398,10 @@ impl Worker {
                 }
                 Err(error) => {
                     self.pairing_phone = None;
-                    self.emit(Event::Error(format!(
-                        "Could not link by phone number: {error}"
-                    )));
+                    self.emit(Event::Error(
+                        fault(self.locale, "Could not link by phone number: {error}")
+                            .replace("{error}", &error.to_string()),
+                    ));
                     let status = self.unlinked();
                     self.set_status(status);
                 }
@@ -5385,7 +5462,10 @@ impl Worker {
                 self.emit_chat(&chat);
                 self.advance_serial_forward(&id);
                 if let Some(error) = error {
-                    self.emit(Event::Error(format!("Message not sent: {error}")));
+                    self.emit(Event::Error(
+                        fault(self.locale, "Message not sent: {error}")
+                            .replace("{error}", &error.to_string()),
+                    ));
                 }
             }
             Command::Downloaded {
@@ -5472,7 +5552,10 @@ impl Worker {
             .flatten()
             .is_some_and(|row| row.can_edit_info());
         if !allowed {
-            self.emit(Event::Error(GROUP_EDIT_REFUSED.to_owned()));
+            self.emit(Event::Error(fault(
+                self.locale,
+                "Only admins can change this group's name and photo.",
+            )));
         }
         allowed
     }
@@ -5497,16 +5580,17 @@ impl Worker {
             return;
         }
         let Ok(subject) = whatsapp_rust::GroupSubject::new(name.clone()) else {
-            self.emit(Event::Error(format!(
-                "A group name can have at most {} characters.",
-                crate::model::GROUP_NAME_LIMIT
-            )));
+            self.emit(Event::Error(
+                fault(self.locale, "A group name can have at most {} characters.")
+                    .replace("{}", &(crate::model::GROUP_NAME_LIMIT).to_string()),
+            ));
             return;
         };
         let (Some(client), Some(jid)) = (self.client.clone(), Self::jid_of(&chat)) else {
-            self.emit(Event::Error(
-                "Connect to WhatsApp to change the group's name.".to_owned(),
-            ));
+            self.emit(Event::Error(fault(
+                self.locale,
+                "Connect to WhatsApp to change the group's name.",
+            )));
             return;
         };
         self.emit(Event::GroupSaving {
@@ -5536,9 +5620,10 @@ impl Worker {
             return;
         }
         let (Some(client), Some(jid)) = (self.client.clone(), Self::jid_of(&chat)) else {
-            self.emit(Event::Error(
-                "Connect to WhatsApp to change the group's photo.".to_owned(),
-            ));
+            self.emit(Event::Error(fault(
+                self.locale,
+                "Connect to WhatsApp to change the group's photo.",
+            )));
             return;
         };
         self.emit(Event::GroupSaving {
@@ -5585,18 +5670,20 @@ impl Worker {
                     if refused { "refused" } else { "failed" }
                 );
                 self.emit(Event::Error(if refused {
-                    GROUP_EDIT_REFUSED.to_owned()
+                    fault(
+                        self.locale,
+                        "Only admins can change this group's name and photo.",
+                    )
                 } else {
                     match edit {
-                        GroupEdit::Name(_) => "Could not rename the group.",
+                        GroupEdit::Name(_) => fault(self.locale, "Could not rename the group."),
                         GroupEdit::Picture { removed: false } => {
-                            "Could not change the group's photo."
+                            fault(self.locale, "Could not change the group's photo.")
                         }
                         GroupEdit::Picture { removed: true } => {
-                            "Could not remove the group's photo."
+                            fault(self.locale, "Could not remove the group's photo.")
                         }
                     }
-                    .to_owned()
                 }));
                 if refused {
                     // Our rights changed without our knowing: learn them, so
@@ -5622,9 +5709,9 @@ impl Worker {
         // us as a member.
         let (Some(client), Some(jid)) = (self.client.clone(), Self::jid_of(&chat)) else {
             self.emit(Event::Error(if channel {
-                "Could not leave the channel.".into()
+                fault(self.locale, "Could not leave the channel.")
             } else {
-                "Could not leave the group.".into()
+                fault(self.locale, "Could not leave the group.")
             }));
             self.emit_chat(&chat);
             return;
@@ -5649,9 +5736,9 @@ impl Worker {
                 log::warn!("could not leave group: {error}");
             }
             self.emit(Event::Error(if channel {
-                "Could not leave the channel.".into()
+                fault(self.locale, "Could not leave the channel.")
             } else {
-                "Could not leave the group.".into()
+                fault(self.locale, "Could not leave the group.")
             }));
             // The chat goes back to what the archive says, which rolls back
             // the optimistic mark the interface made when the menu was used.
@@ -5826,11 +5913,17 @@ impl Worker {
 
     fn forward_messages(&mut self, from_chat: ChatId, messages: Vec<String>, to_chat: ChatId) {
         let Some(client) = self.client.clone() else {
-            self.emit(Event::Error("Not connected to WhatsApp".to_owned()));
+            self.emit(Event::Error(fault(
+                self.locale,
+                "Not connected to WhatsApp",
+            )));
             return;
         };
         let Some(jid) = Self::jid_of(&to_chat) else {
-            self.emit(Event::Error("Not connected to WhatsApp".to_owned()));
+            self.emit(Event::Error(fault(
+                self.locale,
+                "Not connected to WhatsApp",
+            )));
             return;
         };
         let jobs: Vec<_> = messages
@@ -5941,10 +6034,10 @@ impl Worker {
         for chat in &chats {
             self.emit_chat(chat);
         }
-        self.emit(Event::Error(
-            "Not connected to WhatsApp: the rest of the forwarded messages were not sent"
-                .to_owned(),
-        ));
+        self.emit(Event::Error(fault(
+            self.locale,
+            "Not connected to WhatsApp: the rest of the forwarded messages were not sent",
+        )));
     }
 
     /// Prepares one forwarded message: its stored row and the outgoing
@@ -5956,9 +6049,10 @@ impl Worker {
         to_chat: &ChatId,
     ) -> Option<(String, wa::Message, Option<u32>)> {
         let Ok(Some(source)) = self.archive.message(from_chat, message_id) else {
-            self.emit(Event::Error(
-                "This message is not stored on this computer".to_owned(),
-            ));
+            self.emit(Event::Error(fault(
+                self.locale,
+                "This message is not stored on this computer",
+            )));
             return None;
         };
         if matches!(
@@ -5969,19 +6063,24 @@ impl Worker {
                 | Content::Poll { .. }
                 | Content::Interactive { .. }
         ) {
-            self.emit(Event::Error("This message cannot be forwarded".to_owned()));
+            self.emit(Event::Error(fault(
+                self.locale,
+                "This message cannot be forwarded",
+            )));
             return None;
         }
         let Ok(Some(raw)) = self.archive.raw(from_chat, message_id) else {
-            self.emit(Event::Error(
-                "The original message data is not available to forward".to_owned(),
-            ));
+            self.emit(Event::Error(fault(
+                self.locale,
+                "The original message data is not available to forward",
+            )));
             return None;
         };
         let Ok(original) = wa::Message::decode_from_slice(&raw) else {
-            self.emit(Event::Error(
-                "The original message data could not be read".to_owned(),
-            ));
+            self.emit(Event::Error(fault(
+                self.locale,
+                "The original message data could not be read",
+            )));
             return None;
         };
         // whatsapp-rust owns the forwarding rules: unwrap transient wrappers,
@@ -6666,7 +6765,10 @@ impl Worker {
                     truncated,
                 });
             }
-            Err(error) => self.emit(Event::Error(format!("Could not search: {error}"))),
+            Err(error) => self.emit(Event::Error(
+                fault(self.locale, "Could not search: {error}")
+                    .replace("{error}", &error.to_string()),
+            )),
         }
     }
 
@@ -6679,7 +6781,10 @@ impl Worker {
                 }
                 self.emit(Event::SearchHits { query, messages });
             }
-            Err(error) => self.emit(Event::Error(format!("Could not search: {error}"))),
+            Err(error) => self.emit(Event::Error(
+                fault(self.locale, "Could not search: {error}")
+                    .replace("{error}", &error.to_string()),
+            )),
         }
     }
 
@@ -6708,7 +6813,10 @@ impl Worker {
                     complete,
                 });
             }
-            Err(error) => self.emit(Event::Error(format!("Could not read the chat: {error}"))),
+            Err(error) => self.emit(Event::Error(
+                fault(self.locale, "Could not read the chat: {error}")
+                    .replace("{error}", &error.to_string()),
+            )),
         }
     }
 
@@ -6741,9 +6849,10 @@ impl Worker {
                 older: true,
                 complete: false,
             });
-            self.emit(Event::Error(
-                "This message is not stored on this computer".to_owned(),
-            ));
+            self.emit(Event::Error(fault(
+                self.locale,
+                "This message is not stored on this computer",
+            )));
             return;
         };
         match self
@@ -6761,13 +6870,19 @@ impl Worker {
                     complete: false,
                 });
             }
-            Err(error) => self.emit(Event::Error(format!("Could not read the chat: {error}"))),
+            Err(error) => self.emit(Event::Error(
+                fault(self.locale, "Could not read the chat: {error}")
+                    .replace("{error}", &error.to_string()),
+            )),
         }
     }
 
     fn edit_text(&mut self, chat: ChatId, id: String, text: String, mentions: Vec<String>) {
         let (Some(client), Some(jid)) = (self.client.clone(), Self::jid_of(&chat)) else {
-            self.emit(Event::Error("Not connected to WhatsApp".to_owned()));
+            self.emit(Event::Error(fault(
+                self.locale,
+                "Not connected to WhatsApp",
+            )));
             return;
         };
         let content = Content::text(text.clone());
@@ -6795,7 +6910,10 @@ impl Worker {
 
     fn revoke(&mut self, chat: ChatId, id: String) {
         let (Some(client), Some(jid)) = (self.client.clone(), Self::jid_of(&chat)) else {
-            self.emit(Event::Error("Not connected to WhatsApp".to_owned()));
+            self.emit(Event::Error(fault(
+                self.locale,
+                "Not connected to WhatsApp",
+            )));
             return;
         };
         if let Ok(true) = self
@@ -7145,11 +7263,17 @@ impl Worker {
     /// Archives and sends an uploaded attachment message.
     fn outbound(&mut self, chat: ChatId, row: Message, raw: Vec<u8>) {
         let (Some(client), Some(jid)) = (self.client.clone(), Self::jid_of(&chat)) else {
-            self.emit(Event::Error("Not connected to WhatsApp".to_owned()));
+            self.emit(Event::Error(fault(
+                self.locale,
+                "Not connected to WhatsApp",
+            )));
             return;
         };
         let Ok(mut message) = wa::Message::decode_from_slice(&raw) else {
-            self.emit(Event::Error("Could not encode the attachment".to_owned()));
+            self.emit(Event::Error(fault(
+                self.locale,
+                "Could not encode the attachment",
+            )));
             return;
         };
         let expiration = self.apply_ephemeral(&chat, &mut message);
@@ -7169,7 +7293,10 @@ impl Worker {
 
     fn react(&mut self, chat: ChatId, id: String, emoji: String) {
         let (Some(client), Some(jid)) = (self.client.clone(), Self::jid_of(&chat)) else {
-            self.emit(Event::Error("Not connected to WhatsApp".to_owned()));
+            self.emit(Event::Error(fault(
+                self.locale,
+                "Not connected to WhatsApp",
+            )));
             return;
         };
         let Ok(Some(target)) = self.archive.message(&chat, &id) else {
@@ -7861,9 +7988,6 @@ fn square_picture_jpeg(image: &image::DynamicImage) -> Result<Vec<u8>, String> {
     let resized = square.resize_exact(size, size, image::imageops::FilterType::Lanczos3);
     encode_jpeg(&resized, 85)
 }
-
-/// What a refused change to a group's info says.
-const GROUP_EDIT_REFUSED: &str = "Only admins can change this group's name and photo.";
 
 /// Whether WhatsApp refused a group change because we may not make it,
 /// rather than failing to carry it out.
@@ -8682,6 +8806,27 @@ fn clear_boundary(read: crate::archive::Result<Vec<Message>>) -> Option<i64> {
 mod tests {
     use super::*;
     use std::io::Cursor;
+
+    /// A fault the worker names is spoken in the reader's language, and a template keeps the
+    /// runtime detail it carries: only the fixed words are translated.
+    #[test]
+    fn a_worker_fault_is_spoken_in_the_readers_language() {
+        assert_eq!(
+            fault(crate::i18n::Locale::Turkish, "Not connected to WhatsApp"),
+            "WhatsApp'a bağlı değil"
+        );
+        assert_eq!(
+            fault(crate::i18n::Locale::English, "Not connected to WhatsApp"),
+            "Not connected to WhatsApp",
+            "English is the source and the fallback"
+        );
+        let spoken = fault(
+            crate::i18n::Locale::Turkish,
+            "Could not save contact: {error}",
+        )
+        .replace("{error}", "disk full");
+        assert_eq!(spoken, "Kişi kaydedilemedi: disk full");
+    }
 
     #[test]
     fn only_phone_playable_audio_is_sent_as_an_audio_message() {
@@ -10644,7 +10789,10 @@ mod receipt_tests {
             .await;
         assert_eq!(
             errors(&events),
-            vec![GROUP_EDIT_REFUSED.to_owned(), GROUP_EDIT_REFUSED.to_owned()],
+            vec![
+                "Only admins can change this group's name and photo.".to_owned(),
+                "Only admins can change this group's name and photo.".to_owned()
+            ],
             "a locked group is for admins"
         );
 
@@ -10729,7 +10877,10 @@ mod receipt_tests {
             .await;
         assert_eq!(
             errors(&events),
-            vec!["saving".to_owned(), GROUP_EDIT_REFUSED.to_owned()]
+            vec![
+                "saving".to_owned(),
+                "Only admins can change this group's name and photo.".to_owned()
+            ]
         );
         assert_eq!(
             worker.archive.chat(chat).unwrap().unwrap().name,
@@ -10982,6 +11133,7 @@ mod receipt_tests {
         let (wa_sender, wa_events) = mpsc::unbounded_channel();
         let root = std::env::temp_dir().join(format!("zapfast-worker-test-{}", std::process::id()));
         let worker = Worker {
+            locale: crate::i18n::Locale::English,
             privacy_ready: true,
             privacy_confirmed: true,
             privacy_snapshot: false,
@@ -11000,6 +11152,7 @@ mod receipt_tests {
             client: None,
             handle: None,
             call: None,
+            call_generation: 0,
             call_devices: crate::calls::DeviceList::default(),
             call_defaults: crate::calls::CallDevices::default(),
             wa_sender,

@@ -430,6 +430,8 @@ mod tests {
             microphone: None,
             speaker: None,
             camera: None,
+            group: None,
+            participants: Vec::new(),
         });
         app.call_fullscreen = true;
         let ctx = egui::Context::default();

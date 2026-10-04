@@ -23,7 +23,7 @@ use crate::model::{CallDirection, CallMedia, CallRecord, CallStatus};
 use whatsapp_rust::prelude::{Client, Jid};
 use whatsapp_rust::types::call::{CallAction, IncomingCall};
 use whatsapp_rust::voip::{
-    CallEvent, CallHandle, TimedVideoFrame, VideoFrame, VideoSink, VideoSource,
+    CallEvent, CallHandle, GroupCallUpdate, TimedVideoFrame, VideoFrame, VideoSink, VideoSource,
 };
 
 /// The pixel budget one camera session encodes within: a landscape frame at most 1280 by 720, a
@@ -186,6 +186,18 @@ pub enum PeerAudio {
     Stalled,
 }
 
+/// One other person on a group call, as the interface needs them.
+///
+/// Held as the chat id the rest of the app already names the person by, so a participant is shown
+/// with the same contact the message list uses and no raw phone number is carried here. `video` is
+/// that participant's own camera state, so the grid can tell who is sending a picture without
+/// another lookup.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CallParticipant {
+    pub chat: String,
+    pub video: bool,
+}
+
 /// One snapshot of the live call, or of the call that just ended.
 #[derive(Clone, Debug, PartialEq)]
 pub struct CallUpdate {
@@ -216,6 +228,11 @@ pub struct CallUpdate {
     pub microphone: Option<String>,
     pub speaker: Option<String>,
     pub camera: Option<String>,
+    /// The group this call belongs to when it is a group call; `None` for a one-to-one call.
+    pub group: Option<String>,
+    /// The others on a group call, as the media plane last reported them. Empty for a one-to-one
+    /// call, and rebuilt as participants join or leave without the call itself ending.
+    pub participants: Vec<CallParticipant>,
 }
 
 /// A microphone or speaker PipeWire knows about.
@@ -455,6 +472,20 @@ pub fn offer_is_video(action: &CallAction) -> bool {
 /// Whether a stanza is an offer, which is the only one that may start ringing.
 pub fn is_offer(action: &CallAction) -> bool {
     matches!(action, CallAction::Offer { .. })
+}
+
+/// The group an offer belongs to, when it is a group call rather than a one-to-one call.
+///
+/// A group offer carries the group's own JID, which is what the call is bound to: `from` is the
+/// member who started the call, not the room. `None` is a one-to-one offer.
+pub fn offer_group(action: &CallAction) -> Option<String> {
+    match action {
+        CallAction::Offer {
+            group_jid: Some(jid),
+            ..
+        } => Some(jid.to_string()),
+        _ => None,
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1164,6 +1195,14 @@ pub struct Call {
     /// Whether the call asked the camera to capture. Kept apart from whether frames are really
     /// arriving, so a camera that stopped on its own is told from one the user switched off.
     camera_wanted: bool,
+    /// The group chat id when this is a group call; `None` for a one-to-one call.
+    group: Option<String>,
+    /// The other participants on a group call, as the media plane reports them. Rebuilt from every
+    /// authoritative membership snapshot, so one person leaving never ends the call for the rest.
+    participants: Vec<CallParticipant>,
+    /// This account's own chat id, so its own participant can be told from the others when the
+    /// roster arrives.
+    self_chat: Option<String>,
 }
 
 impl Call {
@@ -1253,6 +1292,9 @@ impl Call {
                 microphone,
                 speaker_device: speaker,
                 camera,
+                group: None,
+                participants: Vec::new(),
+                self_chat: None,
                 lost_devices: Vec::new(),
             },
             frames,
@@ -1292,9 +1334,179 @@ impl Call {
             microphone: devices.microphone,
             speaker_device: devices.speaker,
             camera: devices.camera,
+            group: None,
+            participants: Vec::new(),
+            self_chat: None,
             lost_devices: Vec::new(),
             camera_wanted: false,
         }
+    }
+
+    /// Places an outgoing group call. The engine resolves the group's current roster, with this
+    /// account left out, so a call started from a group reaches everyone still in it. `video`
+    /// offers a video call from the first frame, exactly as a one-to-one call does.
+    pub async fn place_group(
+        client: &Arc<Client>,
+        group: String,
+        video: bool,
+        microphone: Option<String>,
+        speaker: Option<String>,
+        camera: Option<String>,
+        self_chat: Option<String>,
+    ) -> Result<(Self, Option<async_channel::Receiver<VideoTick>>)> {
+        let group_jid: Jid = group
+            .parse()
+            .map_err(|error| anyhow!("not a WhatsApp group JID: {error}"))?;
+        if !capabilities().voice {
+            return Err(anyhow!("calling is not available on this platform yet"));
+        }
+        if let Some(missing) =
+            missing_audio_device_off_thread(microphone.clone(), speaker.clone()).await
+        {
+            return Err(anyhow!("no {missing} is available; a call needs one"));
+        }
+        // The same rule as a one-to-one call: a video call that cannot start video is refused
+        // before anyone is rung, rather than silently becoming a voice call.
+        let mut pipe = None;
+        if video {
+            match VideoPipeline::start(camera.clone()) {
+                Ok((pipeline, frames)) => pipe = Some((pipeline, frames)),
+                Err(error) => log::warn!("[CALL] video pipeline could not start: {error}"),
+            }
+        }
+        require_video(video, pipe.is_some())?;
+        let (mic, mic_rx) = AudioInput::spawn(microphone.clone());
+        let (output, output_tx) = AudioOutput::spawn(speaker.clone());
+
+        let voip = client.voip();
+        let builder = voip.group_call_by_id(&group_jid).audio(mic_rx, output_tx);
+        let placed = match &pipe {
+            Some((pipeline, _)) => {
+                builder
+                    .video(pipeline.source(), pipeline.sink())
+                    .start()
+                    .await
+            }
+            None => builder.start().await,
+        };
+        let handle = match placed {
+            Ok(handle) => Arc::new(handle),
+            Err(error) => return Err(anyhow!("WhatsApp refused the group call: {error}")),
+        };
+        // The destination is deliberately not logged: a group JID is the room, not a phone number.
+        log::info!(
+            "[CALL] outgoing group call call_id={} video={}",
+            handle.call_id(),
+            pipe.is_some()
+        );
+        let (video_pipe, frames) = match pipe {
+            Some((pipeline, frames)) => (Some(pipeline), Some(frames)),
+            None => (None, None),
+        };
+        Ok((
+            Self {
+                generation: next_generation(),
+                call_id: handle.call_id().to_owned(),
+                chat: group.clone(),
+                began: std::time::SystemTime::now(),
+                direction: CallDirection::Outgoing,
+                video: video_pipe.is_some(),
+                phase: CallPhase::Dialing,
+                started: None,
+                outcome: None,
+                peer_audio: None,
+                incoming: None,
+                handle: Some(handle),
+                media_ready: false,
+                mic: Some(mic),
+                speaker: Some(output),
+                camera_wanted: video_pipe
+                    .as_ref()
+                    .is_some_and(VideoPipeline::camera_running),
+                video_pipe,
+                remote_video: false,
+                microphone,
+                speaker_device: speaker,
+                camera,
+                group: Some(group),
+                participants: Vec::new(),
+                self_chat,
+                lost_devices: Vec::new(),
+            },
+            frames,
+        ))
+    }
+
+    /// Records an incoming group offer so the UI can ask the user to join. No media exists until
+    /// they answer. Kept apart from [`Call::ringing`] because the call's chat is the group, and the
+    /// roster arrives over the media plane once the user joins.
+    pub fn ringing_group(
+        chat: String,
+        incoming: Box<IncomingCall>,
+        video: bool,
+        devices: CallDevices,
+        self_chat: Option<String>,
+    ) -> Self {
+        let call_id = incoming.action.call_id().to_owned();
+        log::info!("[CALL] incoming group offer call_id={call_id} video={video}");
+        Self {
+            generation: next_generation(),
+            call_id,
+            chat: chat.clone(),
+            began: std::time::SystemTime::now(),
+            direction: CallDirection::Incoming,
+            video,
+            phase: CallPhase::Incoming,
+            started: None,
+            outcome: None,
+            peer_audio: None,
+            incoming: Some(incoming),
+            handle: None,
+            media_ready: false,
+            mic: None,
+            speaker: None,
+            video_pipe: None,
+            remote_video: false,
+            microphone: devices.microphone,
+            speaker_device: devices.speaker,
+            camera: devices.camera,
+            group: Some(chat),
+            participants: Vec::new(),
+            self_chat,
+            lost_devices: Vec::new(),
+            camera_wanted: false,
+        }
+    }
+
+    /// Whether this call belongs to a group rather than one other person.
+    pub fn is_group(&self) -> bool {
+        self.group.is_some()
+    }
+
+    /// Rebuilds the participant list from an authoritative group snapshot.
+    ///
+    /// This account's own participant is left out, so the grid shows only the others. An empty
+    /// roster still updates the call: that is the moment the last other participant left, not a
+    /// reason to keep stale names on the screen.
+    fn apply_group(&mut self, update: &GroupCallUpdate) -> Option<CallUpdate> {
+        self.group.as_ref()?;
+        let mut participants = Vec::new();
+        for participant in &update.participants {
+            let chat = participant.jid.to_string();
+            if self.self_chat.as_deref() == Some(chat.as_str()) {
+                continue;
+            }
+            // Keep the video flag already learned for anyone still here, so a membership refresh
+            // does not blink a picture off.
+            let video = self
+                .participants
+                .iter()
+                .find(|known| known.chat == chat)
+                .is_some_and(|known| known.video);
+            participants.push(CallParticipant { chat, video });
+        }
+        self.participants = participants;
+        Some(self.update())
     }
 
     /// A call for a test: a snapshot with no signaling and no engine behind it, so a test can put
@@ -1322,6 +1534,9 @@ impl Call {
             microphone: None,
             speaker_device: None,
             camera: None,
+            group: None,
+            participants: Vec::new(),
+            self_chat: None,
             lost_devices: Vec::new(),
             camera_wanted: false,
         }
@@ -1371,6 +1586,8 @@ impl Call {
             microphone: self.microphone.clone(),
             speaker: self.speaker_device.clone(),
             camera: self.camera.clone(),
+            group: self.group.clone(),
+            participants: self.participants.clone(),
         }
     }
 
@@ -1515,6 +1732,16 @@ impl Call {
         require_video(self.video, pipe.is_some())?;
         let (mic, mic_rx) = AudioInput::spawn(microphone.clone());
         let (output, output_tx) = AudioOutput::spawn(speaker.clone());
+
+        // A group invitation is answered in two steps: the early group accept, which tells the room
+        // this device is joining, and then the same media accept a one-to-one call uses. The early
+        // accept is not fatal if it fails, because the media accept below is what actually attaches
+        // the streams; a warning is enough.
+        if self.group.is_some()
+            && let Err(error) = client.voip().accept_group_invite(&incoming).await
+        {
+            log::warn!("[CALL] the group accept was refused: {error}");
+        }
 
         let voip = client.voip();
         let builder = voip.accept(&incoming).audio(mic_rx, output_tx);
@@ -1785,6 +2012,9 @@ impl Call {
             // Without this the flag only ever went true, so a peer who turned their camera off was
             // still reported as sending video and the decoder's last frame stayed on screen as if
             // it were live.
+            // A newer authoritative membership snapshot: someone joined, left, or the shared relay
+            // moved. The call itself does not end here; only the roster the grid draws changes.
+            CallEvent::GroupUpdated(update) => self.apply_group(update),
             CallEvent::VideoStateChanged { state, .. }
             | CallEvent::PeerVideoStateChanged { state, .. } => {
                 if state.is_inactive_for_call_mode() && self.remote_video_stopped() {
@@ -2740,6 +2970,8 @@ mod tests {
             microphone: None,
             speaker: None,
             camera: None,
+            group: None,
+            participants: Vec::new(),
         }
     }
 
@@ -3096,6 +3328,9 @@ mod tests {
             microphone: None,
             speaker_device: None,
             camera: None,
+            group: None,
+            participants: Vec::new(),
+            self_chat: None,
             lost_devices: Vec::new(),
             camera_wanted: false,
         }

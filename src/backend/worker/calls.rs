@@ -186,6 +186,11 @@ impl Worker {
             .is_some_and(|runtime| runtime.call.call_id() == call_id)
     }
 
+    /// This account's own chat id, so a group roster can leave its own participant out of the grid.
+    pub(super) fn own_chat(&self) -> Option<String> {
+        self.me_lid.clone().or_else(|| self.me_pn.clone())
+    }
+
     /// Whether a call is already up, which every entry point refuses to double.
     pub(super) fn call_busy(&mut self) -> bool {
         if self.call.is_some() {
@@ -199,11 +204,15 @@ impl Worker {
         if self.call_busy() {
             return;
         }
-        if !callable_chat(&chat) {
-            log::warn!("[CALL] refusing a call to a chat that is not one to one");
-            self.emit(Event::Error("Calls are one to one only".to_owned()));
+        let group = group_chat(&chat);
+        if !callable_chat(&chat) && !group {
+            log::warn!("[CALL] refusing a call to a chat that is not one to one or a group");
+            self.emit(Event::Error(
+                "Calls are one to one or group only".to_owned(),
+            ));
             return;
         }
+        let self_chat = self.own_chat();
         let Some(client) = self.client.clone() else {
             log::warn!("[CALL] cannot start a call: WhatsApp is not connected");
             self.emit(Event::Error(
@@ -218,16 +227,29 @@ impl Worker {
         let wanted = self.call_defaults.clone();
         let resolved =
             calls::resolve_devices(&devices, wanted.microphone, wanted.speaker, wanted.camera);
-        match Call::place(
-            &client,
-            chat.to_string(),
-            video,
-            resolved.microphone,
-            resolved.speaker,
-            resolved.camera,
-        )
-        .await
-        {
+        let placed = if group {
+            Call::place_group(
+                &client,
+                chat.to_string(),
+                video,
+                resolved.microphone,
+                resolved.speaker,
+                resolved.camera,
+                self_chat,
+            )
+            .await
+        } else {
+            Call::place(
+                &client,
+                chat.to_string(),
+                video,
+                resolved.microphone,
+                resolved.speaker,
+                resolved.camera,
+            )
+            .await
+        };
+        match placed {
             Ok((mut call, frames)) => {
                 call.set_lost_devices(resolved.lost_devices);
                 let mut runtime = CallRuntime::new(call, frames);
@@ -528,7 +550,13 @@ impl Worker {
         // side ringing until its own protocol timeout, believing this device might still answer,
         // while a real `<reject>` ends it there and then. Only a 1:1 offer rings, so an offer that
         // reaches here is one the caller is told we will not take.
-        if !callable_chat(&chat) {
+        let video = calls::offer_is_video(action);
+        let self_chat = self.own_chat();
+        // A group invite rings like a one-to-one offer: the room's own JID becomes the call's chat,
+        // and the roster arrives once the user joins. Only a broadcast, a channel or a newsletter
+        // —a non-direct offer that is not a group—is refused, because there is no call to join.
+        let group = calls::offer_group(action);
+        if !callable_chat(&chat) && group.is_none() {
             match self.client.as_ref() {
                 Some(client) => match client.voip().reject(incoming).await {
                     Ok(()) => log::warn!(
@@ -542,15 +570,23 @@ impl Worker {
             }
             return;
         }
-        let video = calls::offer_is_video(action);
         // The remembered devices are pre-selected on the prompt, so answering picks up right where
         // the last call left off.
-        let call = Call::ringing(
-            chat,
-            Box::new(incoming.clone()),
-            video,
-            self.call_defaults.clone(),
-        );
+        let call = match group {
+            Some(group) => Call::ringing_group(
+                group,
+                Box::new(incoming.clone()),
+                video,
+                self.call_defaults.clone(),
+                self_chat,
+            ),
+            None => Call::ringing(
+                chat,
+                Box::new(incoming.clone()),
+                video,
+                self.call_defaults.clone(),
+            ),
+        };
         let update = call.update();
         self.call = Some(CallRuntime::new(call, None));
         self.emit_call_devices().await;
@@ -746,9 +782,18 @@ fn callable_chat(chat: &str) -> bool {
     )
 }
 
+/// Whether a chat is a group, which can carry a group call.
+fn group_chat(chat: &str) -> bool {
+    matches!(
+        crate::model::ChatKind::from_id(chat),
+        crate::model::ChatKind::Group
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use whatsapp_rust::types::call::CallAction;
 
     #[test]
     fn only_a_one_to_one_chat_can_be_called() {
@@ -757,5 +802,50 @@ mod tests {
         assert!(!callable_chat("12345-67890@g.us"));
         assert!(!callable_chat("1234567890@broadcast"));
         assert!(!callable_chat("1234567890@newsletter"));
+    }
+
+    #[test]
+    fn a_group_chat_is_a_group_and_nothing_else_is() {
+        assert!(group_chat("12345-67890@g.us"));
+        assert!(!group_chat("15551234567@s.whatsapp.net"));
+        assert!(!group_chat("123456789012345@lid"));
+        assert!(!group_chat("1234567890@broadcast"));
+        assert!(!group_chat("1234567890@newsletter"));
+    }
+
+    /// A group offer names the room it belongs to; a one-to-one offer names no room, because its
+    /// chat is the caller. That is the whole difference the worker needs to ring one or refuse the
+    /// other, so it is pinned here with both offers built in memory.
+    #[test]
+    fn a_group_offer_says_which_group_and_a_one_to_one_offer_says_none() {
+        let caller: Jid = "15551234567@s.whatsapp.net".parse().expect("a caller jid");
+        let group: Jid = "120363000000000000@g.us".parse().expect("a group jid");
+        let group_offer = CallAction::Offer {
+            call_id: "a-call".to_owned(),
+            call_creator: caller.clone(),
+            caller_pn: None,
+            caller_country_code: None,
+            device_class: None,
+            joinable: false,
+            is_video: false,
+            audio: Vec::new(),
+            group_jid: Some(group),
+        };
+        assert_eq!(
+            calls::offer_group(&group_offer).as_deref(),
+            Some("120363000000000000@g.us")
+        );
+        let direct_offer = CallAction::Offer {
+            call_id: "a-call".to_owned(),
+            call_creator: caller,
+            caller_pn: None,
+            caller_country_code: None,
+            device_class: None,
+            joinable: false,
+            is_video: false,
+            audio: Vec::new(),
+            group_jid: None,
+        };
+        assert_eq!(calls::offer_group(&direct_offer), None);
     }
 }

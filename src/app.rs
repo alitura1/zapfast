@@ -10354,6 +10354,8 @@ mod tests {
             microphone: None,
             speaker: None,
             camera: None,
+            group: None,
+            participants: Vec::new(),
         }
     }
 }

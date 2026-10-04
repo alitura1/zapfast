@@ -2635,6 +2635,8 @@ pub fn call_sample(app: &mut App, incoming: bool, video: bool) {
         microphone: None,
         speaker: None,
         camera: None,
+        group: None,
+        participants: Vec::new(),
     });
     if video && !incoming {
         app.call_remote_frame = Some(std::sync::Arc::new(test_pattern(1280, 720, false)));

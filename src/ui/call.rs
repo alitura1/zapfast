@@ -186,6 +186,23 @@ fn live(
             widgets::avatar(ui, palette, peer, &call.chat, size, picture);
             ui.add_space(18.0);
             theme::text(ui, peer, theme::bold(26.0), palette.text);
+            // A group call names the room, so the surface also says how many others are on it. The
+            // names themselves are the participants' own chats, which the roster carries; the count
+            // is enough for the header, and the roster is what keeps it honest as people join and
+            // leave without the call ending.
+            if call.group.is_some() && !call.participants.is_empty() {
+                ui.add_space(4.0);
+                let others = call.participants.len();
+                let text = if others == 1 {
+                    crate::i18n::gettext(app.locale, "1 other on the call").into_owned()
+                } else {
+                    format!(
+                        "{others} {}",
+                        crate::i18n::gettext(app.locale, "others on the call")
+                    )
+                };
+                theme::text(ui, &text, theme::medium(14.0), palette.text);
+            }
             ui.add_space(6.0);
             // A call going out breathes too, but slower and shallower than one coming in: this
             // side already knows it is waiting, so the screen need not work as hard for it.

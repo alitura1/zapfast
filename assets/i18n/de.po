@@ -6,7 +6,7 @@ msgstr ""
 "Project-Id-Version: ZapFast\n"
 "Report-Msgid-Bugs-To: https://github.com/crmne/zapfast/issues/new?"
 "template=translation.yml\n"
-"POT-Creation-Date: 2026-10-04 15:00+0300\n"
+"POT-Creation-Date: 2026-10-04 16:12+0300\n"
 "PO-Revision-Date: 2026-09-22 00:00-0300\n"
 "Last-Translator: ZapFast contributors\n"
 "Language-Team: German\n"
@@ -364,7 +364,7 @@ msgstr "In einer Karte öffnen"
 msgid "Pause"
 msgstr "Pause"
 
-#: src/ui/conversation.rs:6057 src/ui/settings.rs:1436
+#: src/ui/conversation.rs:6057 src/ui/settings.rs:1550
 msgid "Play"
 msgstr "Abspielen"
 
@@ -384,7 +384,7 @@ msgstr "Weiterleiten…"
 #: src/ui/dialogs.rs:782 src/ui/dialogs.rs:872 src/ui/dialogs.rs:1081
 #: src/ui/dialogs.rs:1114 src/ui/dialogs.rs:1157 src/ui/dialogs.rs:1186
 #: src/ui/dialogs.rs:1250 src/ui/dialogs.rs:1333 src/ui/dialogs.rs:1517
-#: src/ui/settings.rs:1239 src/ui/polls.rs:143
+#: src/ui/settings.rs:1353 src/ui/polls.rs:143
 msgid "Cancel"
 msgstr "Abbrechen"
 
@@ -631,7 +631,7 @@ msgstr "Geheimcode"
 msgid "Clear"
 msgstr "Löschen"
 
-#: src/ui/settings.rs:402 src/ui/settings.rs:1564
+#: src/ui/settings.rs:402 src/ui/settings.rs:1678
 msgid "Notifications"
 msgstr "Benachrichtigungen"
 
@@ -645,7 +645,7 @@ msgstr ""
 "Für Chats, die du gerade nicht ansiehst. Stummgeschaltete Chats bleiben "
 "still."
 
-#: src/ui/settings.rs:415 src/ui/settings.rs:1571
+#: src/ui/settings.rs:415 src/ui/settings.rs:1685
 msgid "Play sounds for group messages"
 msgstr "Töne für Gruppennachrichten abspielen"
 
@@ -694,50 +694,86 @@ msgstr "Datenschutzeinstellungen deines Kontos werden geladen…"
 msgid "Change who is excluded on your phone."
 msgstr "Wer ausgenommen ist, änderst du auf deinem Telefon."
 
-#: src/ui/settings.rs:503
+#: src/ui/settings.rs:503 src/ui/call.rs:944
+msgid "Microphone"
+msgstr "Mikrofon"
+
+#: src/ui/settings.rs:506
+msgid "The microphone every call opens with. Default follows the system."
+msgstr "Das Mikrofon, mit dem jeder Anruf beginnt. „Standard“ folgt dem System."
+
+#: src/ui/settings.rs:511 src/ui/call.rs:954
+msgid "Speaker"
+msgstr "Lautsprecher"
+
+#: src/ui/settings.rs:514
+msgid "The speaker every call opens with. Default follows the system."
+msgstr "Der Lautsprecher, mit dem jeder Anruf beginnt. „Standard“ folgt dem System."
+
+#: src/ui/settings.rs:519
+msgid "Test speaker"
+msgstr "Lautsprecher testen"
+
+#: src/ui/settings.rs:520
+msgid "Plays a short tone through the chosen speaker."
+msgstr "Spielt einen kurzen Ton über den gewählten Lautsprecher."
+
+#: src/ui/settings.rs:522
+msgid "Play a test tone"
+msgstr "Testton abspielen"
+
+#: src/ui/settings.rs:529 src/ui/call.rs:965
+msgid "Camera"
+msgstr "Kamera"
+
+#: src/ui/settings.rs:532
+msgid "The camera every video call opens with. Default uses the first camera."
+msgstr "Die Kamera, mit der jeder Videoanruf beginnt. „Standard“ nutzt die erste Kamera."
+
+#: src/ui/settings.rs:537
 msgid "Call animations"
 msgstr "Anruf-Animationen"
 
-#: src/ui/settings.rs:506
+#: src/ui/settings.rs:540
 msgid "A gentle pulse when a call rings. Off, the call screen stays still."
 msgstr ""
 "Ein sanftes Pulsieren, wenn ein Anruf klingelt. Aus bleibt der "
 "Anrufbildschirm still."
 
-#: src/ui/settings.rs:511
+#: src/ui/settings.rs:545
 msgid "System"
 msgstr "System"
 
-#: src/ui/settings.rs:513
+#: src/ui/settings.rs:547
 msgid "Keep running when the window closes"
 msgstr "Weiterlaufen, wenn das Fenster geschlossen wird"
 
-#: src/ui/settings.rs:514
+#: src/ui/settings.rs:548
 msgid "Quit from the tray or with Ctrl+Q."
 msgstr "Beenden über das Tray-Symbol oder mit Strg+Q."
 
-#: src/ui/settings.rs:519 src/ui/settings.rs:527
+#: src/ui/settings.rs:553 src/ui/settings.rs:561
 msgid "Start at login"
 msgstr "Bei der Anmeldung starten"
 
-#: src/ui/settings.rs:520
+#: src/ui/settings.rs:554
 msgid "Starts in the tray, without a window."
 msgstr "Startet im Tray, ohne Fenster."
 
-#: src/ui/settings.rs:543
+#: src/ui/settings.rs:577
 msgid "Check for updates"
 msgstr "Nach Updates suchen"
 
-#: src/ui/settings.rs:546
+#: src/ui/settings.rs:580
 msgid "Asks GitHub once a day, sending only the ZapFast version."
 msgstr ""
 "Fragt einmal täglich bei GitHub nach und sendet nur die ZapFast-Version."
 
-#: src/ui/settings.rs:551
+#: src/ui/settings.rs:585
 msgid "Download updates automatically"
 msgstr "Updates automatisch herunterladen"
 
-#: src/ui/settings.rs:554
+#: src/ui/settings.rs:588
 msgid ""
 "You still choose when to restart. Package managers and Flatpak update "
 "ZapFast themselves."
@@ -745,176 +781,180 @@ msgstr ""
 "Wann neu gestartet wird, entscheidest du. Paketmanager und Flatpak "
 "aktualisieren ZapFast selbst."
 
-#: src/ui/settings.rs:567
+#: src/ui/settings.rs:601
 #, rust-format
 msgid "Using {proxy} from the environment."
 msgstr "{proxy} aus der Umgebung wird verwendet."
 
-#: src/ui/settings.rs:575
+#: src/ui/settings.rs:609
 msgid "For WhatsApp, media, and updates. Empty uses ALL_PROXY or HTTPS_PROXY."
 msgstr ""
 "Für WhatsApp, Medien und Updates. Leer verwendet ALL_PROXY oder HTTPS_PROXY."
 
-#: src/ui/settings.rs:578
+#: src/ui/settings.rs:612
 msgid "Proxy"
 msgstr "Proxy"
 
-#: src/ui/settings.rs:598
+#: src/ui/settings.rs:632
 msgid "GIPHY API key"
 msgstr "GIPHY-API-Schlüssel"
 
-#: src/ui/settings.rs:602
+#: src/ui/settings.rs:636
 msgid "For GIF search. Replaces the key this build includes."
 msgstr "Für die GIF-Suche. Ersetzt den Schlüssel dieses Builds."
 
-#: src/ui/settings.rs:607
+#: src/ui/settings.rs:641
 msgid "For GIF search. Get a free key at developers.giphy.com."
 msgstr ""
 "Für die GIF-Suche. Einen kostenlosen Schlüssel gibt es auf "
 "developers.giphy.com."
 
-#: src/ui/settings.rs:623 src/ui/settings.rs:1618 src/ui/settings.rs:1624
+#: src/ui/settings.rs:657 src/ui/settings.rs:1732 src/ui/settings.rs:1738
 msgid "Account"
 msgstr "Konto"
 
-#: src/ui/settings.rs:626 src/ui/settings.rs:1165
+#: src/ui/settings.rs:660 src/ui/settings.rs:1279
 msgid "Your name"
 msgstr "Dein Name"
 
-#: src/ui/settings.rs:627 src/ui/settings.rs:707 src/ui/settings.rs:1173
-#: src/ui/settings.rs:1335
+#: src/ui/settings.rs:661 src/ui/settings.rs:741 src/ui/settings.rs:1287
+#: src/ui/settings.rs:1449
 msgid "About"
 msgstr "Über"
 
-#: src/ui/settings.rs:628 src/ui/settings.rs:1142
+#: src/ui/settings.rs:662 src/ui/settings.rs:1256
 msgid "Change profile picture"
 msgstr "Profilbild ändern"
 
-#: src/ui/settings.rs:629 src/ui/settings.rs:1209 src/ui/settings.rs:1620
+#: src/ui/settings.rs:663 src/ui/settings.rs:1323 src/ui/settings.rs:1734
 msgid "Unlink this computer"
 msgstr "Diesen Computer abmelden"
 
-#: src/ui/settings.rs:634
+#: src/ui/settings.rs:668
 msgid "Files"
 msgstr "Dateien"
 
-#: src/ui/settings.rs:636
+#: src/ui/settings.rs:670
 msgid "Open folder"
 msgstr "Ordner öffnen"
 
-#: src/ui/settings.rs:638
+#: src/ui/settings.rs:672
 msgid "Message archive"
 msgstr "Nachrichtenarchiv"
 
-#: src/ui/settings.rs:654
+#: src/ui/settings.rs:688
 msgid "Downloads"
 msgstr "Downloads"
 
-#: src/ui/settings.rs:667
+#: src/ui/settings.rs:701
 msgid "Change…"
 msgstr "Ändern…"
 
-#: src/ui/settings.rs:679
+#: src/ui/settings.rs:713
 msgid "Use default"
 msgstr "Standard verwenden"
 
-#: src/ui/settings.rs:690
+#: src/ui/settings.rs:724
 msgid "Log"
 msgstr "Protokoll"
 
-#: src/ui/settings.rs:697
+#: src/ui/settings.rs:731
 msgid "Open"
 msgstr "Öffnen"
 
-#: src/ui/settings.rs:711 src/ui/settings.rs:1324
+#: src/ui/settings.rs:745 src/ui/settings.rs:1438
 msgid "Keyboard shortcuts"
 msgstr "Tastenkürzel"
 
-#: src/ui/settings.rs:712 src/ui/settings.rs:1346
+#: src/ui/settings.rs:746 src/ui/settings.rs:1460
 msgid "Source code"
 msgstr "Quellcode"
 
-#: src/ui/settings.rs:815
+#: src/ui/settings.rs:849
 msgid "How to make a theme"
 msgstr "So erstellst du ein Theme"
 
-#: src/ui/settings.rs:834 src/ui/settings.rs:843
+#: src/ui/settings.rs:868 src/ui/settings.rs:877
 msgid "Auto"
 msgstr "Automatisch"
 
-#: src/ui/settings.rs:908
+#: src/ui/settings.rs:942
 msgid "Set chat wallpaper"
 msgstr "Chat-Hintergrund festlegen"
 
-#: src/ui/settings.rs:935
+#: src/ui/settings.rs:969
 msgid "Add doodles"
 msgstr "Doodles hinzufügen"
 
-#: src/ui/settings.rs:939
+#: src/ui/settings.rs:973
 msgid "Show the default doodles over the selected colour."
 msgstr "Die Standard-Doodles über der gewählten Farbe anzeigen."
 
-#: src/ui/settings.rs:1023
+#: src/ui/settings.rs:1057
 msgid "Choose image…"
 msgstr "Bild auswählen…"
 
-#: src/ui/settings.rs:1024
+#: src/ui/settings.rs:1058
 msgid "Remove image"
 msgstr "Bild entfernen"
 
-#: src/ui/settings.rs:1052
+#: src/ui/settings.rs:1086
 msgctxt "wallpaper colour"
 msgid "Theme"
 msgstr "Design"
 
-#: src/ui/settings.rs:1181
+#: src/ui/settings.rs:1142 src/ui/call.rs:916
+msgid "Default device"
+msgstr "Standardgerät"
+
+#: src/ui/settings.rs:1295
 msgid "Linked device"
 msgstr "Verknüpftes Gerät"
 
-#: src/ui/settings.rs:1192
+#: src/ui/settings.rs:1306
 msgid "Edit your name and About"
 msgstr "Name und Info bearbeiten"
 
-#: src/ui/settings.rs:1229
+#: src/ui/settings.rs:1343
 msgid "Save"
 msgstr "Speichern"
 
-#: src/ui/settings.rs:1303
+#: src/ui/settings.rs:1417
 msgid "A native WhatsApp client built with Rust, egui, and whatsapp-rust."
 msgstr "Ein nativer WhatsApp-Client, gebaut mit Rust, egui und whatsapp-rust."
 
-#: src/ui/settings.rs:1314
+#: src/ui/settings.rs:1428
 #, rust-format
 msgid "Update to {version}"
 msgstr "Auf {version} aktualisieren"
 
-#: src/ui/settings.rs:1392
+#: src/ui/settings.rs:1506
 msgid "Mention sound"
 msgstr "Erwähnungston"
 
-#: src/ui/settings.rs:1393
+#: src/ui/settings.rs:1507
 msgid "When a group mentions you or replies to you."
 msgstr "Wenn dich jemand in einer Gruppe erwähnt oder dir antwortet."
 
-#: src/ui/settings.rs:1396
+#: src/ui/settings.rs:1510
 msgid "Message sound"
 msgstr "Nachrichtenton"
 
-#: src/ui/settings.rs:1413
+#: src/ui/settings.rs:1527
 msgid "Pidgin alert"
 msgstr "Pidgin-Hinweis"
 
-#: src/ui/settings.rs:1414
+#: src/ui/settings.rs:1528
 msgid "System default"
 msgstr "Systemstandard"
 
 #. Translators: no notification sound.
-#: src/ui/settings.rs:1416
+#: src/ui/settings.rs:1530
 msgctxt "sound"
 msgid "None"
 msgstr "Kein Ton"
 
-#: src/ui/settings.rs:1453
+#: src/ui/settings.rs:1567
 msgid "Choose a file…"
 msgstr "Datei auswählen…"
 
@@ -1079,22 +1119,6 @@ msgstr ""
 #: src/ui/call.rs:821
 msgid "Speaker and devices"
 msgstr "Lautsprecher und Geräte"
-
-#: src/ui/call.rs:916
-msgid "Default device"
-msgstr "Standardgerät"
-
-#: src/ui/call.rs:944
-msgid "Microphone"
-msgstr "Mikrofon"
-
-#: src/ui/call.rs:954
-msgid "Speaker"
-msgstr "Lautsprecher"
-
-#: src/ui/call.rs:965
-msgid "Camera"
-msgstr "Kamera"
 
 #: src/ui/call.rs:1101 src/ui/calls.rs:287 src/app.rs:3555
 msgid "Incoming video call"
@@ -1285,56 +1309,56 @@ msgstr ""
 msgid "Open a chat first"
 msgstr "Zuerst einen Chat öffnen"
 
-#: src/app.rs:4123
+#: src/app.rs:4129
 #, rust-format
 msgid "Could not open the attachment: {error}"
 msgstr "Der Anhang konnte nicht geöffnet werden: {error}"
 
-#: src/app.rs:4143
+#: src/app.rs:4149
 #, rust-format
 msgid "Could not open the folder: {error}"
 msgstr "Der Ordner konnte nicht geöffnet werden: {error}"
 
-#: src/app.rs:4150
+#: src/app.rs:4156
 msgid "The folder is unavailable"
 msgstr "Der Ordner ist nicht verfügbar"
 
-#: src/app.rs:4167
+#: src/app.rs:4173
 msgid "This link type cannot be opened from ZapFast"
 msgstr "Dieser Linktyp kann nicht in ZapFast geöffnet werden"
 
-#: src/app.rs:4537
+#: src/app.rs:4543
 msgid "Added to favorites"
 msgstr "Zu Favoriten hinzugefügt"
 
-#: src/app.rs:4612
+#: src/app.rs:4618
 msgid "Sending the sticker pack…"
 msgstr "Sticker-Pack wird gesendet…"
 
-#: src/app.rs:4902 src/ui/labels.rs:237
+#: src/app.rs:4908 src/ui/labels.rs:237
 #, rust-format
 msgid "You have {limit} labels, the most ZapFast keeps."
 msgstr "Du hast {limit} Labels, mehr hebt ZapFast nicht auf."
 
-#: src/app.rs:5225
+#: src/app.rs:5231
 #, rust-format
 msgid "Could not change the login item: {error}"
 msgstr "Das Anmeldeelement konnte nicht geändert werden: {error}"
 
-#: src/app.rs:5450 src/app.rs:5647
+#: src/app.rs:5456 src/app.rs:5653
 #, rust-format
 msgid "Could not record: {error}"
 msgstr "Aufnahme fehlgeschlagen: {error}"
 
-#: src/app.rs:5475
+#: src/app.rs:5481
 msgid "This video opens in your system player"
 msgstr "Dieses Video öffnet sich im Systemplayer"
 
-#: src/app.rs:5969
+#: src/app.rs:5975
 msgid "Copied image"
 msgstr "Bild kopiert"
 
-#: src/app.rs:5972 src/app.rs:5977
+#: src/app.rs:5978 src/app.rs:5983
 msgid "Failed to copy image"
 msgstr "Bild konnte nicht kopiert werden"
 
@@ -1734,17 +1758,17 @@ msgstr "ZapFast aktualisieren"
 msgid "Ready to install"
 msgstr "Bereit zur Installation"
 
-#: src/backend/worker.rs:1889 src/backend/worker.rs:4779
-#: src/backend/worker.rs:4829 src/backend/worker.rs:5918
-#: src/backend/worker.rs:5925 src/backend/worker.rs:6884
-#: src/backend/worker.rs:6915 src/backend/worker.rs:7268
-#: src/backend/worker.rs:7298 src/backend/worker.rs:8815
-#: src/backend/worker.rs:8819 src/backend/worker/stickers.rs:998
+#: src/backend/worker.rs:1889 src/backend/worker.rs:4789
+#: src/backend/worker.rs:4839 src/backend/worker.rs:5928
+#: src/backend/worker.rs:5935 src/backend/worker.rs:6894
+#: src/backend/worker.rs:6925 src/backend/worker.rs:7278
+#: src/backend/worker.rs:7308 src/backend/worker.rs:8825
+#: src/backend/worker.rs:8829 src/backend/worker/stickers.rs:998
 #: src/backend/worker/interactive/replies.rs:233
 msgid "Not connected to WhatsApp"
 msgstr "Nicht mit WhatsApp verbunden"
 
-#: src/backend/worker.rs:2248 src/backend/worker.rs:5402
+#: src/backend/worker.rs:2248 src/backend/worker.rs:5412
 #, rust-format
 msgid "Could not link by phone number: {error}"
 msgstr "Verknüpfung per Telefonnummer fehlgeschlagen: {error}"
@@ -1778,158 +1802,168 @@ msgstr "Ein Teil des Chatverlaufs konnte nicht gelesen werden: {error}"
 
 #: src/backend/worker.rs:4113
 msgid "Your phone did not send older messages. Check that it is online"
-msgstr "Dein Telefon hat keine älteren Nachrichten gesendet. Prüfe, ob es online ist"
+msgstr ""
+"Dein Telefon hat keine älteren Nachrichten gesendet. Prüfe, ob es online ist"
 
-#: src/backend/worker.rs:4526 src/backend/worker.rs:4591
+#: src/backend/worker.rs:4536 src/backend/worker.rs:4601
 #, rust-format
 msgid "Could not use this picture: {error}"
 msgstr "Dieses Bild konnte nicht verwendet werden: {error}"
 
-#: src/backend/worker.rs:4538
+#: src/backend/worker.rs:4548
 msgid "Connect to WhatsApp to change your profile picture."
 msgstr "Verbinde dich mit WhatsApp, um dein Profilbild zu ändern."
 
-#: src/backend/worker.rs:4557
+#: src/backend/worker.rs:4567
 #, rust-format
 msgid "Could not change your profile picture: {error}"
 msgstr "Profilbild konnte nicht geändert werden: {error}"
 
-#: src/backend/worker.rs:4663
+#: src/backend/worker.rs:4673
 #, rust-format
 msgid "Could not save the attachment: {error}"
 msgstr "Der Anhang konnte nicht gespeichert werden: {error}"
 
-#: src/backend/worker.rs:4750
+#: src/backend/worker.rs:4760
 #, rust-format
 msgid "Could not make the sticker: {error}"
 msgstr "Der Sticker konnte nicht erstellt werden: {error}"
 
-#: src/backend/worker.rs:4801 src/backend/worker.rs:8825
+#: src/backend/worker.rs:4811 src/backend/worker.rs:8835
 #, rust-format
 msgid "Could not save contact: {error}"
 msgstr "Kontakt konnte nicht gespeichert werden: {error}"
 
-#: src/backend/worker.rs:4862
+#: src/backend/worker.rs:4872
 #, rust-format
 msgid "{} is not on WhatsApp"
 msgstr "{} ist nicht bei WhatsApp"
 
-#: src/backend/worker.rs:4888 src/backend/worker/stickers.rs:987
+#: src/backend/worker.rs:4898 src/backend/worker/stickers.rs:987
 #, rust-format
 msgid "Could not add sticker pack: {error}"
 msgstr "Sticker-Paket konnte nicht hinzugefügt werden: {error}"
 
-#: src/backend/worker.rs:4944
+#: src/backend/worker.rs:4954
 msgid "Could not update privacy settings."
 msgstr "Datenschutzeinstellungen konnten nicht aktualisiert werden."
 
-#: src/backend/worker.rs:5091
+#: src/backend/worker.rs:5101
 #, rust-format
 msgid "Could not create the pack: {error}"
 msgstr "Das Paket konnte nicht erstellt werden: {error}"
 
-#: src/backend/worker.rs:5170
+#: src/backend/worker.rs:5180
 msgid "Connect to WhatsApp to delete this chat"
 msgstr "Verbinde dich mit WhatsApp, um diesen Chat zu löschen"
 
-#: src/backend/worker.rs:5209
+#: src/backend/worker.rs:5219
 msgid "The phone did not delete this chat. Try again when connected"
-msgstr "Das Telefon hat diesen Chat nicht gelöscht. Versuche es erneut, wenn du verbunden bist"
+msgstr ""
+"Das Telefon hat diesen Chat nicht gelöscht. Versuche es erneut, wenn du "
+"verbunden bist"
 
-#: src/backend/worker.rs:5221
+#: src/backend/worker.rs:5231
 msgid "Connect to WhatsApp to clear this chat"
 msgstr "Verbinde dich mit WhatsApp, um diesen Chat zu leeren"
 
-#: src/backend/worker.rs:5233
+#: src/backend/worker.rs:5243
 msgid "Could not read this chat's messages. Try again"
-msgstr "Nachrichten dieses Chats konnten nicht gelesen werden. Versuche es erneut"
+msgstr ""
+"Nachrichten dieses Chats konnten nicht gelesen werden. Versuche es erneut"
 
-#: src/backend/worker.rs:5267
+#: src/backend/worker.rs:5277
 msgid "The phone cleared this chat, but ZapFast could not clear it here"
-msgstr "Das Telefon hat diesen Chat geleert, aber ZapFast konnte ihn hier nicht leeren"
+msgstr ""
+"Das Telefon hat diesen Chat geleert, aber ZapFast konnte ihn hier nicht "
+"leeren"
 
-#: src/backend/worker.rs:5274
+#: src/backend/worker.rs:5284
 msgid "The phone did not clear this chat. Try again when connected"
-msgstr "Das Telefon hat diesen Chat nicht geleert. Versuche es erneut, wenn du verbunden bist"
+msgstr ""
+"Das Telefon hat diesen Chat nicht geleert. Versuche es erneut, wenn du "
+"verbunden bist"
 
-#: src/backend/worker.rs:5373
+#: src/backend/worker.rs:5383
 msgid "Not connected to WhatsApp yet"
 msgstr "Noch nicht mit WhatsApp verbunden"
 
-#: src/backend/worker.rs:5466
+#: src/backend/worker.rs:5476
 #, rust-format
 msgid "Message not sent: {error}"
 msgstr "Nachricht nicht gesendet: {error}"
 
-#: src/backend/worker.rs:5557 src/backend/worker.rs:5675
+#: src/backend/worker.rs:5567 src/backend/worker.rs:5685
 msgid "Only admins can change this group's name and photo."
 msgstr "Nur Administratoren können Name und Bild dieser Gruppe ändern."
 
-#: src/backend/worker.rs:5584
+#: src/backend/worker.rs:5594
 #, rust-format
 msgid "A group name can have at most {} characters."
 msgstr "Ein Gruppenname kann höchstens {} Zeichen haben."
 
-#: src/backend/worker.rs:5592
+#: src/backend/worker.rs:5602
 msgid "Connect to WhatsApp to change the group's name."
 msgstr "Verbinde dich mit WhatsApp, um den Gruppennamen zu ändern."
 
-#: src/backend/worker.rs:5625
+#: src/backend/worker.rs:5635
 msgid "Connect to WhatsApp to change the group's photo."
 msgstr "Verbinde dich mit WhatsApp, um das Gruppenbild zu ändern."
 
-#: src/backend/worker.rs:5679
+#: src/backend/worker.rs:5689
 msgid "Could not rename the group."
 msgstr "Die Gruppe konnte nicht umbenannt werden."
 
-#: src/backend/worker.rs:5681
+#: src/backend/worker.rs:5691
 msgid "Could not change the group's photo."
 msgstr "Das Gruppenbild konnte nicht geändert werden."
 
-#: src/backend/worker.rs:5684
+#: src/backend/worker.rs:5694
 msgid "Could not remove the group's photo."
 msgstr "Das Gruppenbild konnte nicht entfernt werden."
 
-#: src/backend/worker.rs:5712 src/backend/worker.rs:5739
+#: src/backend/worker.rs:5722 src/backend/worker.rs:5749
 msgid "Could not leave the channel."
 msgstr "Der Kanal konnte nicht verlassen werden."
 
-#: src/backend/worker.rs:5714 src/backend/worker.rs:5741
+#: src/backend/worker.rs:5724 src/backend/worker.rs:5751
 msgid "Could not leave the group."
 msgstr "Die Gruppe konnte nicht verlassen werden."
 
-#: src/backend/worker.rs:6039
+#: src/backend/worker.rs:6049
 msgid ""
 "Not connected to WhatsApp: the rest of the forwarded messages were not sent"
-msgstr "Nicht mit WhatsApp verbunden: Die übrigen weitergeleiteten Nachrichten wurden nicht gesendet"
+msgstr ""
+"Nicht mit WhatsApp verbunden: Die übrigen weitergeleiteten Nachrichten "
+"wurden nicht gesendet"
 
-#: src/backend/worker.rs:6054 src/backend/worker.rs:6854
+#: src/backend/worker.rs:6064 src/backend/worker.rs:6864
 msgid "This message is not stored on this computer"
 msgstr "Diese Nachricht ist nicht auf diesem Computer gespeichert"
 
-#: src/backend/worker.rs:6068
+#: src/backend/worker.rs:6078
 msgid "This message cannot be forwarded"
 msgstr "Diese Nachricht kann nicht weitergeleitet werden"
 
-#: src/backend/worker.rs:6075
+#: src/backend/worker.rs:6085
 msgid "The original message data is not available to forward"
 msgstr "Die Originalnachricht ist zum Weiterleiten nicht verfügbar"
 
-#: src/backend/worker.rs:6082
+#: src/backend/worker.rs:6092
 msgid "The original message data could not be read"
 msgstr "Die Originalnachricht konnte nicht gelesen werden"
 
-#: src/backend/worker.rs:6769 src/backend/worker.rs:6785
+#: src/backend/worker.rs:6779 src/backend/worker.rs:6795
 #, rust-format
 msgid "Could not search: {error}"
 msgstr "Suche fehlgeschlagen: {error}"
 
-#: src/backend/worker.rs:6817 src/backend/worker.rs:6874
+#: src/backend/worker.rs:6827 src/backend/worker.rs:6884
 #, rust-format
 msgid "Could not read the chat: {error}"
 msgstr "Der Chat konnte nicht gelesen werden: {error}"
 
-#: src/backend/worker.rs:7275
+#: src/backend/worker.rs:7285
 msgid "Could not encode the attachment"
 msgstr "Der Anhang konnte nicht kodiert werden"
 
@@ -1952,4 +1986,6 @@ msgstr "Zu Favoriten hinzufügen fehlgeschlagen: {error}"
 msgid ""
 "This option is unavailable in ZapFast. Open the message in WhatsApp Web or "
 "on your phone."
-msgstr "Diese Option ist in ZapFast nicht verfügbar. Öffne die Nachricht in WhatsApp Web oder auf deinem Telefon."
+msgstr ""
+"Diese Option ist in ZapFast nicht verfügbar. Öffne die Nachricht in WhatsApp "
+"Web oder auf deinem Telefon."

@@ -528,6 +528,37 @@ impl Sink {
     }
 }
 
+/// How long the Settings test tone sounds, and at what level.
+const TEST_TONE: Duration = Duration::from_millis(900);
+const TEST_TONE_HZ: f32 = 440.0;
+const TEST_TONE_LEVEL: f32 = 0.2;
+
+/// Plays a short tone through the speaker a call would open, so Settings can prove the chosen
+/// output really makes a sound.
+///
+/// It runs the very open a call's speaker does, on the device the settings name (or the system
+/// default), so a device that fails the tone is a device that would fail the call. The caller runs
+/// this off the UI thread — opening a device and waiting out the tone is a blocking driver. Nothing
+/// here needs a call: the sink is opened, a sine is queued, and the device is torn down after it has
+/// played, so a preview never touches call state.
+pub fn play_test_tone(device: Option<&str>) -> Result<(), String> {
+    let sink = open_sink(device)?;
+    let layout = sink.layout();
+    let frames = (layout.rate as f32 * TEST_TONE.as_secs_f32()) as usize;
+    let mut samples = Vec::with_capacity(frames * layout.channels as usize);
+    for index in 0..frames {
+        let seconds = index as f32 / layout.rate as f32;
+        let sample = (seconds * TEST_TONE_HZ * std::f32::consts::TAU).sin() * TEST_TONE_LEVEL;
+        for _ in 0..layout.channels {
+            samples.push(sample);
+        }
+    }
+    sink.append(samples);
+    // Outlive the queue so every sample reaches the device before the sink drops and closes it.
+    std::thread::sleep(TEST_TONE + Duration::from_millis(250));
+    Ok(())
+}
+
 // ---------------------------------------------------------------------------
 // The microphone
 // ---------------------------------------------------------------------------
@@ -1425,6 +1456,29 @@ mod tests {
         assert_eq!(tries, 3, "the probe stops as soon as it succeeds");
         // A device that never answers is a real absence.
         assert!(!probes_through(|| false));
+    }
+
+    /// The Settings test tone really reaches the speaker a call would open.
+    #[test]
+    fn the_settings_test_tone_reaches_the_opened_speaker() {
+        let (_devices, speaker) = fake::install(vec![0.0; 8], 1, RATE, (RATE, 2));
+        play_test_tone(None).expect("the tone plays on the default speaker");
+        assert_eq!(
+            speaker.opened(),
+            vec![None],
+            "the default opens exactly once"
+        );
+        assert!(
+            speaker.written_count() > 0,
+            "a tone really reached the device"
+        );
+        // Through a named device, the tone opens that device and nothing else.
+        play_test_tone(Some("Headset")).expect("the tone plays on the named speaker");
+        assert_eq!(
+            speaker.opened(),
+            vec![None, Some("Headset".to_owned())],
+            "the named speaker is the one opened"
+        );
     }
 
     /// The pre-flight probe over a late device is retried, but a default that never answers is

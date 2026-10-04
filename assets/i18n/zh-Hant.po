@@ -5,7 +5,7 @@ msgstr ""
 "Project-Id-Version: ZapFast\n"
 "Report-Msgid-Bugs-To: https://github.com/crmne/zapfast/issues/new?"
 "template=translation.yml\n"
-"POT-Creation-Date: 2026-10-04 15:00+0300\n"
+"POT-Creation-Date: 2026-10-04 16:12+0300\n"
 "PO-Revision-Date: 2026-10-02 18:51+0800\n"
 "Last-Translator: Alang Hsu <alang.hsu@gmail.com>\n"
 "Language-Team: Chinese (Traditional)\n"
@@ -357,7 +357,7 @@ msgstr "在地圖中開啟"
 msgid "Pause"
 msgstr "暫停"
 
-#: src/ui/conversation.rs:6057 src/ui/settings.rs:1436
+#: src/ui/conversation.rs:6057 src/ui/settings.rs:1550
 msgid "Play"
 msgstr "播放"
 
@@ -377,7 +377,7 @@ msgstr "轉寄…"
 #: src/ui/dialogs.rs:782 src/ui/dialogs.rs:872 src/ui/dialogs.rs:1081
 #: src/ui/dialogs.rs:1114 src/ui/dialogs.rs:1157 src/ui/dialogs.rs:1186
 #: src/ui/dialogs.rs:1250 src/ui/dialogs.rs:1333 src/ui/dialogs.rs:1517
-#: src/ui/settings.rs:1239 src/ui/polls.rs:143
+#: src/ui/settings.rs:1353 src/ui/polls.rs:143
 msgid "Cancel"
 msgstr "取消"
 
@@ -619,7 +619,7 @@ msgstr "請輸入密碼"
 msgid "Clear"
 msgstr "清除"
 
-#: src/ui/settings.rs:402 src/ui/settings.rs:1564
+#: src/ui/settings.rs:402 src/ui/settings.rs:1678
 msgid "Notifications"
 msgstr "通知"
 
@@ -631,7 +631,7 @@ msgstr "桌面通知"
 msgid "For chats you are not looking at. Muted chats stay quiet."
 msgstr "用於您未正在查看的對話。已靜音的對話不會發出通知。"
 
-#: src/ui/settings.rs:415 src/ui/settings.rs:1571
+#: src/ui/settings.rs:415 src/ui/settings.rs:1685
 msgid "Play sounds for group messages"
 msgstr "群組訊息播放提示音"
 
@@ -676,220 +676,260 @@ msgstr "正在載入您的帳號隱私設定…"
 msgid "Change who is excluded on your phone."
 msgstr "請在手機上變更被排除的人員。"
 
-#: src/ui/settings.rs:503
+#: src/ui/settings.rs:503 src/ui/call.rs:944
+msgid "Microphone"
+msgstr "麥克風"
+
+#: src/ui/settings.rs:506
+msgid "The microphone every call opens with. Default follows the system."
+msgstr "每次通話使用的麥克風。預設跟隨系統。"
+
+#: src/ui/settings.rs:511 src/ui/call.rs:954
+msgid "Speaker"
+msgstr "喇叭"
+
+#: src/ui/settings.rs:514
+msgid "The speaker every call opens with. Default follows the system."
+msgstr "每次通話使用的外放。預設跟隨系統。"
+
+#: src/ui/settings.rs:519
+msgid "Test speaker"
+msgstr "測試外放"
+
+#: src/ui/settings.rs:520
+msgid "Plays a short tone through the chosen speaker."
+msgstr "透過所選外放播放一段短音。"
+
+#: src/ui/settings.rs:522
+msgid "Play a test tone"
+msgstr "播放測試音"
+
+#: src/ui/settings.rs:529 src/ui/call.rs:965
+msgid "Camera"
+msgstr "鏡頭"
+
+#: src/ui/settings.rs:532
+msgid "The camera every video call opens with. Default uses the first camera."
+msgstr "每次視訊通話使用的攝影機。預設使用第一個。"
+
+#: src/ui/settings.rs:537
 msgid "Call animations"
 msgstr "通話動畫"
 
-#: src/ui/settings.rs:506
+#: src/ui/settings.rs:540
 msgid "A gentle pulse when a call rings. Off, the call screen stays still."
 msgstr "來電時輕微跳動。關閉後，通話畫面保持靜止。"
 
-#: src/ui/settings.rs:511
+#: src/ui/settings.rs:545
 msgid "System"
 msgstr "系統"
 
-#: src/ui/settings.rs:513
+#: src/ui/settings.rs:547
 msgid "Keep running when the window closes"
 msgstr "關閉視窗後繼續在背景執行"
 
-#: src/ui/settings.rs:514
+#: src/ui/settings.rs:548
 msgid "Quit from the tray or with Ctrl+Q."
 msgstr "請從系統匣選單退出，或按 Ctrl+Q。"
 
-#: src/ui/settings.rs:519 src/ui/settings.rs:527
+#: src/ui/settings.rs:553 src/ui/settings.rs:561
 msgid "Start at login"
 msgstr "登入時啟動"
 
-#: src/ui/settings.rs:520
+#: src/ui/settings.rs:554
 msgid "Starts in the tray, without a window."
 msgstr "啟動時會在系統匣中執行，不顯示視窗。"
 
-#: src/ui/settings.rs:543
+#: src/ui/settings.rs:577
 msgid "Check for updates"
 msgstr "檢查更新"
 
-#: src/ui/settings.rs:546
+#: src/ui/settings.rs:580
 msgid "Asks GitHub once a day, sending only the ZapFast version."
 msgstr "每天向 GitHub 詢問一次，只傳送 ZapFast 的版本資訊。"
 
-#: src/ui/settings.rs:551
+#: src/ui/settings.rs:585
 msgid "Download updates automatically"
 msgstr "自動下載更新"
 
-#: src/ui/settings.rs:554
+#: src/ui/settings.rs:588
 msgid ""
 "You still choose when to restart. Package managers and Flatpak update "
 "ZapFast themselves."
 msgstr ""
 "您仍可自行選擇重新啟動的時間。套件管理員與 Flatpak 會自行更新 ZapFast。"
 
-#: src/ui/settings.rs:567
+#: src/ui/settings.rs:601
 #, rust-format
 msgid "Using {proxy} from the environment."
 msgstr "正在使用環境變數中的 {proxy}。"
 
-#: src/ui/settings.rs:575
+#: src/ui/settings.rs:609
 msgid "For WhatsApp, media, and updates. Empty uses ALL_PROXY or HTTPS_PROXY."
 msgstr "用於 WhatsApp、媒體與更新。留空時會使用 ALL_PROXY 或 HTTPS_PROXY。"
 
-#: src/ui/settings.rs:578
+#: src/ui/settings.rs:612
 msgid "Proxy"
 msgstr "Proxy 伺服器"
 
-#: src/ui/settings.rs:598
+#: src/ui/settings.rs:632
 msgid "GIPHY API key"
 msgstr "GIPHY API 金鑰"
 
-#: src/ui/settings.rs:602
+#: src/ui/settings.rs:636
 msgid "For GIF search. Replaces the key this build includes."
 msgstr "用於 GIF 搜尋。會取代這個版本內建的金鑰。"
 
-#: src/ui/settings.rs:607
+#: src/ui/settings.rs:641
 msgid "For GIF search. Get a free key at developers.giphy.com."
 msgstr "用於 GIF 搜尋。可至 developers.giphy.com 免費取得金鑰。"
 
-#: src/ui/settings.rs:623 src/ui/settings.rs:1618 src/ui/settings.rs:1624
+#: src/ui/settings.rs:657 src/ui/settings.rs:1732 src/ui/settings.rs:1738
 msgid "Account"
 msgstr "帳號"
 
-#: src/ui/settings.rs:626 src/ui/settings.rs:1165
+#: src/ui/settings.rs:660 src/ui/settings.rs:1279
 msgid "Your name"
 msgstr "您的姓名"
 
-#: src/ui/settings.rs:627 src/ui/settings.rs:707 src/ui/settings.rs:1173
-#: src/ui/settings.rs:1335
+#: src/ui/settings.rs:661 src/ui/settings.rs:741 src/ui/settings.rs:1287
+#: src/ui/settings.rs:1449
 msgid "About"
 msgstr "關於"
 
-#: src/ui/settings.rs:628 src/ui/settings.rs:1142
+#: src/ui/settings.rs:662 src/ui/settings.rs:1256
 msgid "Change profile picture"
 msgstr "變更個人照片"
 
-#: src/ui/settings.rs:629 src/ui/settings.rs:1209 src/ui/settings.rs:1620
+#: src/ui/settings.rs:663 src/ui/settings.rs:1323 src/ui/settings.rs:1734
 msgid "Unlink this computer"
 msgstr "取消連結這部電腦"
 
-#: src/ui/settings.rs:634
+#: src/ui/settings.rs:668
 msgid "Files"
 msgstr "檔案"
 
-#: src/ui/settings.rs:636
+#: src/ui/settings.rs:670
 msgid "Open folder"
 msgstr "開啟資料夾"
 
-#: src/ui/settings.rs:638
+#: src/ui/settings.rs:672
 msgid "Message archive"
 msgstr "訊息存檔"
 
-#: src/ui/settings.rs:654
+#: src/ui/settings.rs:688
 msgid "Downloads"
 msgstr "下載項目"
 
-#: src/ui/settings.rs:667
+#: src/ui/settings.rs:701
 msgid "Change…"
 msgstr "變更…"
 
-#: src/ui/settings.rs:679
+#: src/ui/settings.rs:713
 msgid "Use default"
 msgstr "使用預設值"
 
-#: src/ui/settings.rs:690
+#: src/ui/settings.rs:724
 msgid "Log"
 msgstr "日誌"
 
-#: src/ui/settings.rs:697
+#: src/ui/settings.rs:731
 msgid "Open"
 msgstr "開啟"
 
-#: src/ui/settings.rs:711 src/ui/settings.rs:1324
+#: src/ui/settings.rs:745 src/ui/settings.rs:1438
 msgid "Keyboard shortcuts"
 msgstr "鍵盤快捷鍵"
 
-#: src/ui/settings.rs:712 src/ui/settings.rs:1346
+#: src/ui/settings.rs:746 src/ui/settings.rs:1460
 msgid "Source code"
 msgstr "原始碼"
 
-#: src/ui/settings.rs:815
+#: src/ui/settings.rs:849
 msgid "How to make a theme"
 msgstr "如何製作主題"
 
-#: src/ui/settings.rs:834 src/ui/settings.rs:843
+#: src/ui/settings.rs:868 src/ui/settings.rs:877
 msgid "Auto"
 msgstr "自動"
 
-#: src/ui/settings.rs:908
+#: src/ui/settings.rs:942
 msgid "Set chat wallpaper"
 msgstr "設定聊天背景"
 
-#: src/ui/settings.rs:935
+#: src/ui/settings.rs:969
 msgid "Add doodles"
 msgstr "加入塗鴉"
 
-#: src/ui/settings.rs:939
+#: src/ui/settings.rs:973
 msgid "Show the default doodles over the selected colour."
 msgstr "在所選的顏色上顯示預設塗鴉。"
 
-#: src/ui/settings.rs:1023
+#: src/ui/settings.rs:1057
 msgid "Choose image…"
 msgstr "選擇圖片…"
 
-#: src/ui/settings.rs:1024
+#: src/ui/settings.rs:1058
 msgid "Remove image"
 msgstr "移除圖片"
 
-#: src/ui/settings.rs:1052
+#: src/ui/settings.rs:1086
 msgctxt "wallpaper colour"
 msgid "Theme"
 msgstr "桌布主題"
 
-#: src/ui/settings.rs:1181
+#: src/ui/settings.rs:1142 src/ui/call.rs:916
+msgid "Default device"
+msgstr "預設裝置"
+
+#: src/ui/settings.rs:1295
 msgid "Linked device"
 msgstr "已連結的裝置"
 
-#: src/ui/settings.rs:1192
+#: src/ui/settings.rs:1306
 msgid "Edit your name and About"
 msgstr "編輯您的姓名與關於"
 
-#: src/ui/settings.rs:1229
+#: src/ui/settings.rs:1343
 msgid "Save"
 msgstr "儲存"
 
-#: src/ui/settings.rs:1303
+#: src/ui/settings.rs:1417
 msgid "A native WhatsApp client built with Rust, egui, and whatsapp-rust."
 msgstr "以 Rust、egui 與 whatsapp-rust 打造的原生 WhatsApp 使用者端。"
 
-#: src/ui/settings.rs:1314
+#: src/ui/settings.rs:1428
 #, rust-format
 msgid "Update to {version}"
 msgstr "更新至 {version}"
 
-#: src/ui/settings.rs:1392
+#: src/ui/settings.rs:1506
 msgid "Mention sound"
 msgstr "提及提示音"
 
-#: src/ui/settings.rs:1393
+#: src/ui/settings.rs:1507
 msgid "When a group mentions you or replies to you."
 msgstr "群組提及您或回覆您時播放。"
 
-#: src/ui/settings.rs:1396
+#: src/ui/settings.rs:1510
 msgid "Message sound"
 msgstr "訊息提示音"
 
-#: src/ui/settings.rs:1413
+#: src/ui/settings.rs:1527
 msgid "Pidgin alert"
 msgstr "Pidgin 提示音"
 
-#: src/ui/settings.rs:1414
+#: src/ui/settings.rs:1528
 msgid "System default"
 msgstr "系統預設"
 
 #. Translators: no notification sound.
-#: src/ui/settings.rs:1416
+#: src/ui/settings.rs:1530
 msgctxt "sound"
 msgid "None"
 msgstr "無"
 
-#: src/ui/settings.rs:1453
+#: src/ui/settings.rs:1567
 msgid "Choose a file…"
 msgstr "選擇檔案…"
 
@@ -1051,22 +1091,6 @@ msgstr ""
 #: src/ui/call.rs:821
 msgid "Speaker and devices"
 msgstr "喇叭與裝置"
-
-#: src/ui/call.rs:916
-msgid "Default device"
-msgstr "預設裝置"
-
-#: src/ui/call.rs:944
-msgid "Microphone"
-msgstr "麥克風"
-
-#: src/ui/call.rs:954
-msgid "Speaker"
-msgstr "喇叭"
-
-#: src/ui/call.rs:965
-msgid "Camera"
-msgstr "鏡頭"
 
 #: src/ui/call.rs:1101 src/ui/calls.rs:287 src/app.rs:3555
 msgid "Incoming video call"
@@ -1250,56 +1274,56 @@ msgstr ""
 msgid "Open a chat first"
 msgstr "請先開啟一個聊天"
 
-#: src/app.rs:4123
+#: src/app.rs:4129
 #, rust-format
 msgid "Could not open the attachment: {error}"
 msgstr "無法開啟附件：{error}"
 
-#: src/app.rs:4143
+#: src/app.rs:4149
 #, rust-format
 msgid "Could not open the folder: {error}"
 msgstr "無法開啟資料夾：{error}"
 
-#: src/app.rs:4150
+#: src/app.rs:4156
 msgid "The folder is unavailable"
 msgstr "資料夾無法使用"
 
-#: src/app.rs:4167
+#: src/app.rs:4173
 msgid "This link type cannot be opened from ZapFast"
 msgstr "無法從 ZapFast 開啟此類型的連結"
 
-#: src/app.rs:4537
+#: src/app.rs:4543
 msgid "Added to favorites"
 msgstr "已加入最愛"
 
-#: src/app.rs:4612
+#: src/app.rs:4618
 msgid "Sending the sticker pack…"
 msgstr "正在傳送貼圖集…"
 
-#: src/app.rs:4902 src/ui/labels.rs:237
+#: src/app.rs:4908 src/ui/labels.rs:237
 #, rust-format
 msgid "You have {limit} labels, the most ZapFast keeps."
 msgstr "您已有 {limit} 個標籤，已達 ZapFast 的上限。"
 
-#: src/app.rs:5225
+#: src/app.rs:5231
 #, rust-format
 msgid "Could not change the login item: {error}"
 msgstr "無法變更登入項目：{error}"
 
-#: src/app.rs:5450 src/app.rs:5647
+#: src/app.rs:5456 src/app.rs:5653
 #, rust-format
 msgid "Could not record: {error}"
 msgstr "無法錄音：{error}"
 
-#: src/app.rs:5475
+#: src/app.rs:5481
 msgid "This video opens in your system player"
 msgstr "此影片會在您的系統播放器中開啟"
 
-#: src/app.rs:5969
+#: src/app.rs:5975
 msgid "Copied image"
 msgstr "已複製圖片"
 
-#: src/app.rs:5972 src/app.rs:5977
+#: src/app.rs:5978 src/app.rs:5983
 msgid "Failed to copy image"
 msgstr "複製圖片失敗"
 
@@ -1684,17 +1708,17 @@ msgstr "更新 ZapFast"
 msgid "Ready to install"
 msgstr "可以安裝"
 
-#: src/backend/worker.rs:1889 src/backend/worker.rs:4779
-#: src/backend/worker.rs:4829 src/backend/worker.rs:5918
-#: src/backend/worker.rs:5925 src/backend/worker.rs:6884
-#: src/backend/worker.rs:6915 src/backend/worker.rs:7268
-#: src/backend/worker.rs:7298 src/backend/worker.rs:8815
-#: src/backend/worker.rs:8819 src/backend/worker/stickers.rs:998
+#: src/backend/worker.rs:1889 src/backend/worker.rs:4789
+#: src/backend/worker.rs:4839 src/backend/worker.rs:5928
+#: src/backend/worker.rs:5935 src/backend/worker.rs:6894
+#: src/backend/worker.rs:6925 src/backend/worker.rs:7278
+#: src/backend/worker.rs:7308 src/backend/worker.rs:8825
+#: src/backend/worker.rs:8829 src/backend/worker/stickers.rs:998
 #: src/backend/worker/interactive/replies.rs:233
 msgid "Not connected to WhatsApp"
 msgstr "未連線到 WhatsApp"
 
-#: src/backend/worker.rs:2248 src/backend/worker.rs:5402
+#: src/backend/worker.rs:2248 src/backend/worker.rs:5412
 #, rust-format
 msgid "Could not link by phone number: {error}"
 msgstr "無法透過電話號碼連結：{error}"
@@ -1730,156 +1754,156 @@ msgstr "無法讀取部分聊天記錄：{error}"
 msgid "Your phone did not send older messages. Check that it is online"
 msgstr "您的手機未傳送較舊的訊息。請確認其是否在線上"
 
-#: src/backend/worker.rs:4526 src/backend/worker.rs:4591
+#: src/backend/worker.rs:4536 src/backend/worker.rs:4601
 #, rust-format
 msgid "Could not use this picture: {error}"
 msgstr "無法使用此圖片：{error}"
 
-#: src/backend/worker.rs:4538
+#: src/backend/worker.rs:4548
 msgid "Connect to WhatsApp to change your profile picture."
 msgstr "連線 WhatsApp 以變更您的大頭貼。"
 
-#: src/backend/worker.rs:4557
+#: src/backend/worker.rs:4567
 #, rust-format
 msgid "Could not change your profile picture: {error}"
 msgstr "無法變更您的大頭貼：{error}"
 
-#: src/backend/worker.rs:4663
+#: src/backend/worker.rs:4673
 #, rust-format
 msgid "Could not save the attachment: {error}"
 msgstr "無法儲存附件：{error}"
 
-#: src/backend/worker.rs:4750
+#: src/backend/worker.rs:4760
 #, rust-format
 msgid "Could not make the sticker: {error}"
 msgstr "無法製作貼圖：{error}"
 
-#: src/backend/worker.rs:4801 src/backend/worker.rs:8825
+#: src/backend/worker.rs:4811 src/backend/worker.rs:8835
 #, rust-format
 msgid "Could not save contact: {error}"
 msgstr "無法儲存聯絡人：{error}"
 
-#: src/backend/worker.rs:4862
+#: src/backend/worker.rs:4872
 #, rust-format
 msgid "{} is not on WhatsApp"
 msgstr "{} 不在 WhatsApp 上"
 
-#: src/backend/worker.rs:4888 src/backend/worker/stickers.rs:987
+#: src/backend/worker.rs:4898 src/backend/worker/stickers.rs:987
 #, rust-format
 msgid "Could not add sticker pack: {error}"
 msgstr "無法新增貼圖包：{error}"
 
-#: src/backend/worker.rs:4944
+#: src/backend/worker.rs:4954
 msgid "Could not update privacy settings."
 msgstr "無法更新隱私設定。"
 
-#: src/backend/worker.rs:5091
+#: src/backend/worker.rs:5101
 #, rust-format
 msgid "Could not create the pack: {error}"
 msgstr "無法建立貼圖包：{error}"
 
-#: src/backend/worker.rs:5170
+#: src/backend/worker.rs:5180
 msgid "Connect to WhatsApp to delete this chat"
 msgstr "連線 WhatsApp 以刪除此聊天"
 
-#: src/backend/worker.rs:5209
+#: src/backend/worker.rs:5219
 msgid "The phone did not delete this chat. Try again when connected"
 msgstr "手機未刪除此聊天。請在連線後重試"
 
-#: src/backend/worker.rs:5221
+#: src/backend/worker.rs:5231
 msgid "Connect to WhatsApp to clear this chat"
 msgstr "連線 WhatsApp 以清空此聊天"
 
-#: src/backend/worker.rs:5233
+#: src/backend/worker.rs:5243
 msgid "Could not read this chat's messages. Try again"
 msgstr "無法讀取此聊天的訊息。請重試"
 
-#: src/backend/worker.rs:5267
+#: src/backend/worker.rs:5277
 msgid "The phone cleared this chat, but ZapFast could not clear it here"
 msgstr "手機已清空此聊天，但 ZapFast 無法在此清空"
 
-#: src/backend/worker.rs:5274
+#: src/backend/worker.rs:5284
 msgid "The phone did not clear this chat. Try again when connected"
 msgstr "手機未清空此聊天。請在連線後重試"
 
-#: src/backend/worker.rs:5373
+#: src/backend/worker.rs:5383
 msgid "Not connected to WhatsApp yet"
 msgstr "尚未連線到 WhatsApp"
 
-#: src/backend/worker.rs:5466
+#: src/backend/worker.rs:5476
 #, rust-format
 msgid "Message not sent: {error}"
 msgstr "訊息未傳送：{error}"
 
-#: src/backend/worker.rs:5557 src/backend/worker.rs:5675
+#: src/backend/worker.rs:5567 src/backend/worker.rs:5685
 msgid "Only admins can change this group's name and photo."
 msgstr "只有管理員可以變更此群組的名稱和大頭貼。"
 
-#: src/backend/worker.rs:5584
+#: src/backend/worker.rs:5594
 #, rust-format
 msgid "A group name can have at most {} characters."
 msgstr "群組名稱最多可以有 {} 個字元。"
 
-#: src/backend/worker.rs:5592
+#: src/backend/worker.rs:5602
 msgid "Connect to WhatsApp to change the group's name."
 msgstr "連線 WhatsApp 以變更群組名稱。"
 
-#: src/backend/worker.rs:5625
+#: src/backend/worker.rs:5635
 msgid "Connect to WhatsApp to change the group's photo."
 msgstr "連線 WhatsApp 以變更群組大頭貼。"
 
-#: src/backend/worker.rs:5679
+#: src/backend/worker.rs:5689
 msgid "Could not rename the group."
 msgstr "無法重新命名群組。"
 
-#: src/backend/worker.rs:5681
+#: src/backend/worker.rs:5691
 msgid "Could not change the group's photo."
 msgstr "無法變更群組大頭貼。"
 
-#: src/backend/worker.rs:5684
+#: src/backend/worker.rs:5694
 msgid "Could not remove the group's photo."
 msgstr "無法移除群組大頭貼。"
 
-#: src/backend/worker.rs:5712 src/backend/worker.rs:5739
+#: src/backend/worker.rs:5722 src/backend/worker.rs:5749
 msgid "Could not leave the channel."
 msgstr "無法退出頻道。"
 
-#: src/backend/worker.rs:5714 src/backend/worker.rs:5741
+#: src/backend/worker.rs:5724 src/backend/worker.rs:5751
 msgid "Could not leave the group."
 msgstr "無法退出群組。"
 
-#: src/backend/worker.rs:6039
+#: src/backend/worker.rs:6049
 msgid ""
 "Not connected to WhatsApp: the rest of the forwarded messages were not sent"
 msgstr "未連線到 WhatsApp：其餘轉寄的訊息未傳送"
 
-#: src/backend/worker.rs:6054 src/backend/worker.rs:6854
+#: src/backend/worker.rs:6064 src/backend/worker.rs:6864
 msgid "This message is not stored on this computer"
 msgstr "此訊息未儲存在此電腦上"
 
-#: src/backend/worker.rs:6068
+#: src/backend/worker.rs:6078
 msgid "This message cannot be forwarded"
 msgstr "無法轉寄此訊息"
 
-#: src/backend/worker.rs:6075
+#: src/backend/worker.rs:6085
 msgid "The original message data is not available to forward"
 msgstr "原始訊息資料無法用於轉寄"
 
-#: src/backend/worker.rs:6082
+#: src/backend/worker.rs:6092
 msgid "The original message data could not be read"
 msgstr "無法讀取原始訊息資料"
 
-#: src/backend/worker.rs:6769 src/backend/worker.rs:6785
+#: src/backend/worker.rs:6779 src/backend/worker.rs:6795
 #, rust-format
 msgid "Could not search: {error}"
 msgstr "無法搜尋：{error}"
 
-#: src/backend/worker.rs:6817 src/backend/worker.rs:6874
+#: src/backend/worker.rs:6827 src/backend/worker.rs:6884
 #, rust-format
 msgid "Could not read the chat: {error}"
 msgstr "無法讀取聊天：{error}"
 
-#: src/backend/worker.rs:7275
+#: src/backend/worker.rs:7285
 msgid "Could not encode the attachment"
 msgstr "無法編碼附件"
 

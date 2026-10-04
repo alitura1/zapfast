@@ -3809,6 +3809,9 @@ impl App {
                 // announces it: read it again whenever Settings opens.
                 if page == Page::Settings && self.page != Page::Settings && self.is_connected() {
                     self.backend.send(Command::FetchAccountPrivacy);
+                    // The call pickers show the machine's devices, which change while the app runs:
+                    // a headset plugged in after start is only seen if the list is read again.
+                    self.backend.send(Command::RefreshCallDevices);
                 }
                 self.page = page;
                 self.dialog = None;
@@ -3948,6 +3951,9 @@ impl App {
                 self.mark_settings_dirty();
                 self.backend.send(Command::SetCallCameraDevice(device));
             }
+            Action::TestCallSpeaker => self.backend.send(Command::PlayCallTestTone {
+                speaker: self.settings.call_speaker.clone(),
+            }),
             Action::CloseChat => {
                 if let Some(chat) = self.open_chat.take() {
                     self.stop_composing(&chat);

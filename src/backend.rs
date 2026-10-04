@@ -335,6 +335,10 @@ pub enum Command {
     SetCallSpeaker(Option<String>),
     /// Switches the current call's camera node.
     SetCallCameraDevice(Option<String>),
+    /// Plays a short tone through a speaker, so Settings can prove one works.
+    PlayCallTestTone {
+        speaker: Option<String>,
+    },
     /// Lists the microphones, speakers and cameras the call screen offers.
     RefreshCallDevices,
     /// The devices a call should open with: the ones last picked, as the settings hold them.

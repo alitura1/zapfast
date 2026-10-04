@@ -499,6 +499,40 @@ fn sections(app: &App) -> Vec<Section> {
     }
 
     let mut calls = Section::new(translated(locale, "Calls"));
+    calls.row(
+        translated(locale, "Microphone"),
+        translated(
+            locale,
+            "The microphone every call opens with. Default follows the system.",
+        ),
+        |ui, app| call_device_picker(app, ui, crate::calls::DeviceKind::Microphone),
+    );
+    calls.row(
+        translated(locale, "Speaker"),
+        translated(
+            locale,
+            "The speaker every call opens with. Default follows the system.",
+        ),
+        |ui, app| call_device_picker(app, ui, crate::calls::DeviceKind::Speaker),
+    );
+    calls.row(
+        translated(locale, "Test speaker"),
+        translated(locale, "Plays a short tone through the chosen speaker."),
+        |ui, app| {
+            let label = crate::i18n::gettext(app.locale, "Play a test tone");
+            if theme::soft_button(ui, &app.palette, Some(Icon::Volume2), &label, false).clicked() {
+                app.actions.push(Action::TestCallSpeaker);
+            }
+        },
+    );
+    calls.row(
+        translated(locale, "Camera"),
+        translated(
+            locale,
+            "The camera every video call opens with. Default uses the first camera.",
+        ),
+        |ui, app| call_device_picker(app, ui, crate::calls::DeviceKind::Camera),
+    );
     calls.toggle(
         translated(locale, "Call animations"),
         translated(
@@ -1096,6 +1130,86 @@ fn wallpaper_color_button(
     response.clicked()
 }
 
+/// The call device a call opens with, chosen before any call exists.
+///
+/// The same three choices the call screen offers while a call runs, but written as the standing
+/// preference: the next 1:1 or group call, voice or video, starts on the device picked here. `None`
+/// is the system default, spelled out rather than left blank so "follow the system" is a visible
+/// choice. Picking writes the settings and the worker's defaults through the same action the call
+/// screen uses, so a device the machine no longer has falls back exactly as it does mid-call.
+fn call_device_picker(app: &mut App, ui: &mut egui::Ui, kind: crate::calls::DeviceKind) {
+    use crate::calls::DeviceKind;
+    let default_label = crate::i18n::gettext(app.locale, "Default device").into_owned();
+    let (current, devices, salt) = match kind {
+        DeviceKind::Microphone => (
+            app.settings.call_microphone.clone(),
+            app.call_devices
+                .microphones
+                .iter()
+                .map(|device| (device.id.clone(), device.label.clone()))
+                .collect::<Vec<_>>(),
+            "settings-call-microphone",
+        ),
+        DeviceKind::Speaker => (
+            app.settings.call_speaker.clone(),
+            app.call_devices
+                .speakers
+                .iter()
+                .map(|device| (device.id.clone(), device.label.clone()))
+                .collect::<Vec<_>>(),
+            "settings-call-speaker",
+        ),
+        DeviceKind::Camera => (
+            app.settings.call_camera.clone(),
+            app.call_devices
+                .cameras
+                .iter()
+                .map(|device| (device.id.clone(), device.label.clone()))
+                .collect::<Vec<_>>(),
+            "settings-call-camera",
+        ),
+    };
+    // What the closed combo shows: the device's own label when the machine still reports it, the
+    // raw id when it does not, and the word for the system default when nothing is chosen.
+    let shown = current
+        .as_ref()
+        .and_then(|id| {
+            devices
+                .iter()
+                .find(|(known, _)| known == id)
+                .map(|(_, label)| label.clone())
+        })
+        .or_else(|| current.clone())
+        .unwrap_or_else(|| default_label.clone());
+    let mut picked: Option<Option<String>> = None;
+    egui::ComboBox::from_id_salt(salt)
+        .selected_text(shown)
+        .width(220.0)
+        .show_ui(ui, |ui| {
+            if ui
+                .selectable_label(current.is_none(), &default_label)
+                .clicked()
+            {
+                picked = Some(None);
+            }
+            for (id, label) in &devices {
+                if ui
+                    .selectable_label(current.as_deref() == Some(id.as_str()), label)
+                    .clicked()
+                {
+                    picked = Some(Some(id.clone()));
+                }
+            }
+        });
+    if let Some(device) = picked {
+        app.actions.push(match kind {
+            DeviceKind::Microphone => Action::SetCallMicrophone(device),
+            DeviceKind::Speaker => Action::SetCallSpeaker(device),
+            DeviceKind::Camera => Action::SetCallCameraDevice(device),
+        });
+    }
+}
+
 /// A titled group of settings on a rounded card.
 fn section(
     ui: &mut egui::Ui,
@@ -1611,6 +1725,28 @@ mod tests {
         assert_eq!(rows.len(), 3);
         let rows = titles(window(Locale::Turkish), &Filter::new("bildirimler"));
         assert_eq!(rows.len(), 3);
+    }
+
+    /// The Calls section offers the three devices a call opens with, plus the test tone, so the
+    /// settings really can pick a microphone, speaker and camera before any call exists.
+    #[test]
+    fn the_calls_section_offers_the_devices_a_call_opens_with() {
+        use crate::paths::AppDirs;
+        let directory = tempfile::tempdir().unwrap();
+        let (mut app, _events) =
+            App::headless(AppDirs::under(directory.path()), Settings::default());
+        app.locale = Locale::English;
+        let calls = sections(&app)
+            .into_iter()
+            .find(|section| section.title.source == "Calls")
+            .expect("a Calls section");
+        let shown = titles(calls, &Filter::new(""));
+        for expected in ["Microphone", "Speaker", "Test speaker", "Camera"] {
+            assert!(
+                shown.iter().any(|title| title == expected),
+                "the Calls section is missing a {expected} row"
+            );
+        }
     }
 
     #[test]

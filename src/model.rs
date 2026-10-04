@@ -1305,6 +1305,8 @@ pub enum Action {
     SetCallSpeaker(Option<String>),
     /// Switches the current call's camera node.
     SetCallCameraDevice(Option<String>),
+    /// Plays a short tone through the speaker calls open with, from Settings.
+    TestCallSpeaker,
     /// Opens the call log.
     ShowCalls,
     /// Calls a chat again from the log: voice or video.

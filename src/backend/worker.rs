@@ -4194,6 +4194,16 @@ impl Worker {
             Command::SetCallMicrophone(device) => self.set_call_microphone(device),
             Command::SetCallSpeaker(device) => self.set_call_speaker(device),
             Command::SetCallCameraDevice(device) => self.set_call_camera_device(device).await,
+            Command::PlayCallTestTone { speaker } => {
+                // Opening a device and waiting out the tone is a blocking driver, so it runs off
+                // the loop; nothing about a running call is touched, and a failure is only logged,
+                // since the tone is a check the reader asked for rather than a call's lifeline.
+                tokio::task::spawn_blocking(move || {
+                    if let Err(error) = crate::call_audio::play_test_tone(speaker.as_deref()) {
+                        log::warn!("[CALL] the test tone could not be played: {error}");
+                    }
+                });
+            }
             Command::RefreshCallDevices => {
                 self.emit_call_devices();
             }

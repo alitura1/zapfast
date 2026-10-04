@@ -6,7 +6,7 @@ use std::collections::HashMap;
 
 use crate::app::{App, Conversation, Presence};
 use crate::backend::LinkStatus;
-use crate::calls::{CallPhase, CallUpdate};
+use crate::calls::{CallParticipant, CallPhase, CallUpdate};
 use crate::model::CallDirection;
 use crate::model::{
     Chat, Contact, Content, Delivery, Dialog, LinkPreview, Media, MentionRef, Message, Page,
@@ -579,6 +579,34 @@ pub fn populate(app: &mut App) {
     // transcript tests measure a chat no call happened in. A flag puts them in one chat instead.
     app.call_log = demo_calls();
     app.call_log_loaded = true;
+    // The devices the call pickers offer, so Call settings have something to choose from. Synthetic
+    // node names, matching the shape of real ones without describing this machine.
+    app.call_devices = crate::calls::DeviceList {
+        microphones: vec![
+            crate::calls::AudioDevice {
+                id: "alsa_input.usb-Generic_USB_Headset-00.analog-mono".into(),
+                label: "USB Headset".into(),
+            },
+            crate::calls::AudioDevice {
+                id: "alsa_input.pci-0000_00_1f.3.analog-stereo".into(),
+                label: "Built-in Microphone".into(),
+            },
+        ],
+        speakers: vec![
+            crate::calls::AudioDevice {
+                id: "alsa_output.pci-0000_00_1f.3.analog-stereo".into(),
+                label: "Built-in Speakers".into(),
+            },
+            crate::calls::AudioDevice {
+                id: "bluez_output.AC_12_34_56.1".into(),
+                label: "Bluetooth Headphones".into(),
+            },
+        ],
+        cameras: vec![crate::calls::CameraDevice {
+            id: "/dev/video0".into(),
+            label: "Integrated Camera".into(),
+        }],
+    };
 
     plant_avatars(app);
     // Cover every supported bubble type in the first chat.
@@ -1891,6 +1919,12 @@ pub fn apply_flags(app: &mut App, page: Option<&str>) {
             "call-outgoing" => outgoing_call_sample(app),
             "call-active" => call_sample(app, false, false),
             "call-video" => call_sample(app, false, true),
+            // Group calls at the sizes the grid has to survive, and a room with cameras off.
+            "call-group-1" => group_call_sample(app, 1, 0),
+            "call-group-2" => group_call_sample(app, 2, 0),
+            "call-group-4" => group_call_sample(app, 4, 0),
+            "call-group-6" => group_call_sample(app, 6, 0),
+            "call-group-camera-off" => group_call_sample(app, 4, 2),
             "call-entries" => {
                 // Every call in the log, in the one chat the sample opens. Synthetic, and the only
                 // place the transcript carries call entries at all.
@@ -2642,6 +2676,61 @@ pub fn call_sample(app: &mut App, incoming: bool, video: bool) {
         app.call_remote_frame = Some(std::sync::Arc::new(test_pattern(1280, 720, false)));
         app.call_local_frame = Some(std::sync::Arc::new(test_pattern(640, 360, true)));
     }
+}
+
+/// Puts a synthetic group call on screen, for the group-grid previews and their layout test.
+///
+/// Demo mode has no engine and no peer, so the room is filled in by hand: invented member ids that
+/// are plainly synthetic rather than anybody's number, the one sample group, and test-pattern
+/// frames for the participants who are sending video. `video_off` of them (the first ones) are left
+/// without a frame, which is exactly what a camera that is off looks like, so the avatar tiles show
+/// beside the pictures the way they do on a real call.
+pub fn group_call_sample(app: &mut App, members: usize, video_off: usize) {
+    const NAMES: [&str; 8] = ["Jonas", "Mira", "Tom", "Ada", "Ravi", "Lena", "Noor", "Sam"];
+    let group = SAMPLES[1].id.to_owned();
+    let mut participants = Vec::new();
+    app.call_participant_frames.clear();
+    app.call_participant_textures.clear();
+    for (index, name) in NAMES.iter().take(members).enumerate() {
+        // A synthetic number, held in the address book so the tile shows a name rather than an id.
+        let id = format!("4917000{:05}@s.whatsapp.net", index);
+        app.contacts.entry(id.clone()).or_insert_with(|| Contact {
+            id: id.clone(),
+            full_name: Some((*name).to_owned()),
+            push_name: None,
+        });
+        let video = index >= video_off;
+        participants.push(CallParticipant {
+            chat: id.clone(),
+            video,
+        });
+        if video {
+            app.call_participant_frames
+                .insert(id, std::sync::Arc::new(test_pattern(640, 360, false)));
+        }
+    }
+    app.call = Some(CallUpdate {
+        generation: 1,
+        chat: group.clone(),
+        direction: CallDirection::Outgoing,
+        video: true,
+        phase: CallPhase::Active,
+        // A call up for three minutes and forty-one seconds, as the one-to-one preview is.
+        started: Some(std::time::Instant::now() - std::time::Duration::from_secs(221)),
+        muted: false,
+        camera_on: true,
+        remote_video: true,
+        outcome: None,
+        peer_audio: None,
+        lost_devices: Vec::new(),
+        microphone: None,
+        speaker: None,
+        camera: None,
+        group: Some(group),
+        participants,
+    });
+    app.call_remote_frame = None;
+    app.call_local_frame = Some(std::sync::Arc::new(test_pattern(640, 360, true)));
 }
 
 /// Puts a call this side placed, still ringing, on screen.
@@ -4163,6 +4252,12 @@ mod tests {
             "call-active",
             "call-video",
             "call-video,light",
+            "call-group-1",
+            "call-group-2",
+            "call-group-4",
+            "call-group-6",
+            "call-group-camera-off",
+            "settings-search=Calls",
         ] {
             let mut app = self::app();
             apply_flags(&mut app, Some(page));

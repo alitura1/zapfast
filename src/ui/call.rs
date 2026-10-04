@@ -430,37 +430,44 @@ fn call_texture(
     }
 }
 
-/// The participants whose newest picture the grid can draw, in roster order.
+/// One tile per participant the roster names, in roster order.
 ///
-/// Only the participants the interface still holds a frame for are returned: the roster prunes a
-/// frame when its participant leaves or turns their camera off, so an empty list is the honest
-/// "nobody is sending video right now" the surface falls back to the room's own name for.
-fn group_tiles(app: &App, call: &CallUpdate) -> Vec<(String, std::sync::Arc<egui::ColorImage>)> {
+/// Every participant gets a tile, whether or not they are sending video: the roster prunes a frame
+/// when its participant leaves or turns their camera off, so a missing frame is a camera that is
+/// off, not someone who went away.
+fn group_tiles(app: &App, call: &CallUpdate) -> Vec<Tile> {
     call.participants
         .iter()
-        .filter_map(|participant| {
-            app.call_participant_frames
+        .map(|participant| Tile {
+            chat: participant.chat.clone(),
+            frame: app
+                .call_participant_frames
                 .get(&participant.chat)
-                .map(|image| (participant.chat.clone(), std::sync::Arc::clone(image)))
+                .map(std::sync::Arc::clone),
         })
         .collect()
 }
 
-/// Draws the participants' pictures in a responsive grid.
+/// One participant's tile: their newest picture, or none until they send video.
+///
+/// A participant whose camera is off is still on the call, so the roster decides the tiles and a
+/// picture only fills one in. Dropping everyone not sending video made the grid disagree with who
+/// was actually in the room, quietly shrinking it as cameras were turned off.
+struct Tile {
+    chat: String,
+    frame: Option<std::sync::Arc<egui::ColorImage>>,
+}
+
+/// Draws the participants in a responsive grid.
 ///
 /// The layout follows the count: one remote fills the surface, two share it side by side, three or
 /// four sit in a square, and beyond that the grid grows in columns and rows while each tile shrinks.
-/// Only frames already in hand are drawn, each through one kept texture per sender rather than a
-/// fresh upload per frame, and the tile count is capped so a large room does not paint dozens of
-/// thumbnails. A participant's name rides each tile, redacted the same way the caller is, so an
-/// unknown participant is never named by a phone number.
-fn draw_grid(
-    ui: &mut egui::Ui,
-    app: &mut App,
-    tiles: &[(String, std::sync::Arc<egui::ColorImage>)],
-    palette: &Palette,
-    area: Rect,
-) {
+/// A participant sending video is drawn from the frame already in hand, through one kept texture
+/// per sender rather than a fresh upload per frame; one whose camera is off gets an avatar tile so
+/// the room still names everyone on it. The tile count is capped so a large room does not paint
+/// dozens of thumbnails. A participant's name rides each tile, redacted the same way the caller is,
+/// so an unknown participant is never named by a phone number.
+fn draw_grid(ui: &mut egui::Ui, app: &mut App, tiles: &[Tile], palette: &Palette, area: Rect) {
     /// The most tiles drawn at once; the rest are summarised as `+N`.
     const MAX_TILES: usize = 16;
     const GAP: f32 = 8.0;
@@ -475,7 +482,7 @@ fn draw_grid(
     let rows = shown.div_ceil(columns.max(1));
     let tile_w = (grid_area.width() - GAP * (columns as f32 - 1.0)) / columns as f32;
     let tile_h = (grid_area.height() - GAP * (rows as f32 - 1.0)) / rows as f32;
-    for (index, (chat, image)) in tiles.iter().take(MAX_TILES).enumerate() {
+    for (index, tile) in tiles.iter().take(MAX_TILES).enumerate() {
         let (col, row) = (index % columns, index / columns);
         let at = Rect::from_min_size(
             pos2(
@@ -484,37 +491,66 @@ fn draw_grid(
             ),
             vec2(tile_w.max(1.0), tile_h.max(1.0)),
         );
-        let fitted = fit_inside(at, vec2(image.width() as f32, image.height() as f32));
         ui.painter()
             .rect_filled(at.expand(2.0), CornerRadius::same(10), palette.outline);
-        let texture = {
-            let texture = app
-                .call_participant_textures
-                .entry(chat.clone())
-                .or_insert_with(|| {
-                    ui.ctx().load_texture(
-                        format!("zapfast-call-tile-{chat}"),
-                        image.as_ref().clone(),
-                        TextureOptions::LINEAR,
-                    )
-                });
-            texture.set(image.as_ref().clone(), TextureOptions::LINEAR);
-            texture.id()
-        };
-        ui.painter().image(
-            texture,
-            fitted,
-            Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
-            Color32::WHITE,
-        );
-        let name = app.call_name(chat);
-        ui.painter().text(
-            pos2(at.left() + 8.0, at.bottom() - 8.0),
-            egui::Align2::LEFT_BOTTOM,
-            name,
-            theme::medium(12.0),
-            Color32::WHITE,
-        );
+        let name = app.call_name(&tile.chat);
+        match &tile.frame {
+            Some(image) => {
+                let fitted = fit_inside(at, vec2(image.width() as f32, image.height() as f32));
+                let texture = {
+                    let texture = app
+                        .call_participant_textures
+                        .entry(tile.chat.clone())
+                        .or_insert_with(|| {
+                            ui.ctx().load_texture(
+                                format!("zapfast-call-tile-{}", tile.chat),
+                                image.as_ref().clone(),
+                                TextureOptions::LINEAR,
+                            )
+                        });
+                    texture.set(image.as_ref().clone(), TextureOptions::LINEAR);
+                    texture.id()
+                };
+                ui.painter().image(
+                    texture,
+                    fitted,
+                    Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
+                    Color32::WHITE,
+                );
+                ui.painter().text(
+                    pos2(at.left() + 8.0, at.bottom() - 8.0),
+                    egui::Align2::LEFT_BOTTOM,
+                    name,
+                    theme::medium(12.0),
+                    Color32::WHITE,
+                );
+            }
+            // No picture: the camera is off, so the tile says who this is and why there is no
+            // video rather than showing a blank rectangle where a face should be.
+            None => {
+                ui.painter()
+                    .rect_filled(at, CornerRadius::same(10), palette.surface_active);
+                ui.painter().text(
+                    pos2(at.center().x, at.center().y - 12.0),
+                    egui::Align2::CENTER_CENTER,
+                    crate::util::initials(&name),
+                    theme::bold(26.0),
+                    palette.text,
+                );
+                ui.painter().text(
+                    pos2(at.center().x, at.center().y + 14.0),
+                    egui::Align2::CENTER_CENTER,
+                    &name,
+                    theme::medium(12.0),
+                    palette.text,
+                );
+                let mark = Rect::from_center_size(
+                    pos2(at.right() - 18.0, at.top() + 18.0),
+                    Vec2::splat(16.0),
+                );
+                theme::paint_icon(ui, Icon::VideoOff, mark, 16.0, palette.secondary);
+            }
+        }
     }
     if tiles.len() > MAX_TILES {
         ui.painter().text(
@@ -1245,6 +1281,55 @@ fn fit_inside(area: Rect, size: Vec2) -> Rect {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Every participant the roster names gets a tile, whether or not a picture has arrived: a
+    /// camera that is off must leave a named avatar tile rather than making the room look smaller.
+    #[test]
+    fn a_participant_without_a_picture_still_gets_a_tile() {
+        use crate::calls::CallParticipant;
+        use crate::model::CallDirection;
+        let directory = tempfile::tempdir().unwrap();
+        let (mut app, _events) = crate::app::App::headless(
+            crate::paths::AppDirs::under(directory.path()),
+            crate::settings::Settings::default(),
+        );
+        app.call_participant_frames.insert(
+            "with-video".to_owned(),
+            std::sync::Arc::new(egui::ColorImage::example()),
+        );
+        let call = CallUpdate {
+            generation: 1,
+            chat: "room".to_owned(),
+            direction: CallDirection::Outgoing,
+            video: true,
+            phase: CallPhase::Active,
+            started: None,
+            muted: false,
+            camera_on: true,
+            remote_video: true,
+            outcome: None,
+            peer_audio: None,
+            lost_devices: Vec::new(),
+            microphone: None,
+            speaker: None,
+            camera: None,
+            group: Some("room".to_owned()),
+            participants: vec![
+                CallParticipant {
+                    chat: "with-video".to_owned(),
+                    video: true,
+                },
+                CallParticipant {
+                    chat: "camera-off".to_owned(),
+                    video: false,
+                },
+            ],
+        };
+        let tiles = group_tiles(&app, &call);
+        assert_eq!(tiles.len(), 2, "both participants get a tile");
+        assert!(tiles[0].frame.is_some(), "the video tile keeps its picture");
+        assert!(tiles[1].frame.is_none(), "the camera-off tile has none");
+    }
 
     /// The breath must start and end at rest, or the glyph would jump between cycles, and it must
     /// have a still tail so the call reads as calm rather than as a flashing light.

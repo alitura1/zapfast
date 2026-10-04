@@ -40,6 +40,18 @@ pub(super) fn is_call_control(node: &NodeRef<'_>) -> bool {
     node.tag == "call" || carries(node, "group_info", 0)
 }
 
+/// One attribute rendered for the trace: an `error` code when it is safe to show, otherwise just
+/// the name. Every other attribute stays a name, so a JID or a call id can never be written.
+fn render_attr(name: &str, value: &whatsapp_rust::wacore_binary::node::ValueRef<'_>) -> String {
+    if name == "error" {
+        let value = value.as_str();
+        if safe_token(&value) {
+            return format!("error={value}");
+        }
+    }
+    format!("{name}=?")
+}
+
 fn carries(node: &NodeRef<'_>, tag: &str, depth: usize) -> bool {
     if depth > MAX_DEPTH {
         return false;
@@ -91,7 +103,9 @@ fn safe_token(value: &str) -> bool {
 }
 
 /// The node's structure as text: tag, attribute names, child tags with their own names, and the
-/// size of any content. A value is never rendered.
+/// size of any content. No value is rendered except an `error` attribute that is a short opaque
+/// code — the one value needed to tell a server refusal apart from a malformed stanza, and one that
+/// cannot carry a JID, a name or a call id.
 pub(super) fn describe(node: &NodeRef<'_>, depth: usize) -> String {
     let mut out = String::new();
     let mut budget = MAX_NODES;
@@ -106,11 +120,14 @@ fn write_node(node: &NodeRef<'_>, depth: usize, budget: &mut usize, out: &mut St
     }
     *budget -= 1;
     let _ = write!(out, "{}<{}", "  ".repeat(depth), node.tag);
-    let mut names: Vec<&str> = node.attrs_iter().map(|(name, _)| &**name).collect();
+    let mut names: Vec<(&str, String)> = node
+        .attrs_iter()
+        .map(|(name, value)| (&**name, render_attr(&**name, &value)))
+        .collect();
     // Sorted, so two stanzas compare by reading rather than by remembering the wire order.
-    names.sort_unstable();
-    for name in names {
-        let _ = write!(out, " {name}=?");
+    names.sort_unstable_by_key(|(name, _)| *name);
+    for (_, rendered) in &names {
+        let _ = write!(out, " {rendered}");
     }
     out.push('>');
     match &node.content {
@@ -233,13 +250,35 @@ mod tests {
         let jid_error = NodeBuilder::new("ack")
             .attr("error", "100001@s.whatsapp.net")
             .build();
-        assert_eq!(ack_metadata(&jid_error.as_node_ref()), None);
-
-        // Not an ack envelope: no metadata at all.
-        let group_info = NodeBuilder::new("group_info")
-            .attr("media", "audio")
-            .build();
+        assert_eq!(ack_metadata(&jid_error.as_node_ref()), None);        // Not an ack envelope: no metadata at all.
+        let group_info = NodeBuilder::new("group_info").attr("media", "audio").build();
         assert_eq!(ack_metadata(&group_info.as_node_ref()), None);
+    }
+
+    /// A server error code is the one value the trace renders, on any node, and only when it is a
+    /// short opaque token: a free-text or JID-shaped error stays masked.
+    #[test]
+    fn only_a_safe_error_code_is_rendered() {
+        let ack = NodeBuilder::new("ack")
+            .attr("type", "offer")
+            .attr("error", "427")
+            .children([NodeBuilder::new("group_info")
+                .attr("media", "audio")
+                .children([NodeBuilder::new("user")
+                    .attr("error", "427")
+                    .attr("jid", "x")
+                    .build()])
+                .build()])
+            .build();
+        let text = describe(&ack.as_node_ref(), 0);
+        assert!(text.contains("error=427"), "{text}");
+        assert!(text.contains("type=?"), "{text}");
+        assert!(text.contains("jid=?"), "{text}");
+        // The code appears on both the envelope and the participant the server named.
+        assert_eq!(text.matches("error=427").count(), 2, "{text}");
+
+        let text_error = NodeBuilder::new("ack").attr("error", "Bad Reason").build();
+        assert!(describe(&text_error.as_node_ref(), 0).contains("error=?"));
     }
 
     /// A wide stanza is collapsed once the node budget is spent, so a hostile or merely large

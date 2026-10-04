@@ -7,12 +7,13 @@
 //! observation point for every decoded stanza, so this module subscribes to it and writes the
 //! stanza's *shape*: tags, attribute names, child counts and byte lengths.
 //!
-//! It never writes a value. No JID, no call id, no key material, no message content — an attribute
-//! is printed by name and a value only by whether it is present, its byte length, its string
-//! length, or, for an `error`, the code itself. A `jid` is printed only as its address family and
-//! whether it names a specific device, so a `self` entry that lost its device can be told apart
-//! from one that never had it. A roster `<user>` is additionally marked `self` when its jid is one
-//! of this account's own identities, which names the rejected participant without printing the jid.
+//! It writes no identifying value. No JID user, no call id, no key material, no message content —
+//! an attribute is printed by name, and a value only when it is a protocol enum or a small integer
+//! (`error`, `media`, `rate`, `medium`, `ver`, …), by byte or string length otherwise. A `jid` is
+//! printed only as its address family and device number, so a `self` entry that the server stripped
+//! a device from can be told apart from one that never had it. A roster `<user>` is additionally
+//! marked `self` when its jid is one of this account's own identities, which names the rejected
+//! participant without printing the jid.
 //!
 //! Both directions are read: `Event::RawNode` for what the server sends, and `Event::SentFrame`
 //! for the offer this app builds. A rejection names a request whose shape is only observable on
@@ -47,34 +48,61 @@ pub(super) fn is_call_control(node: &NodeRef<'_>) -> bool {
     node.tag == "call" || carries(node, "group_info", 0)
 }
 
-/// One attribute rendered for the trace: an `error` code when it is safe to show, a `jid`'s family
-/// and device presence, otherwise just the name. Every other attribute stays a name, so a JID user,
-/// a call id, or free text can never be written.
+/// The protocol attributes whose value is an enum or a small integer — never a name, a JID or free
+/// text — so their exact value can be shown. Everything else stays a name only. This is what lets a
+/// rate pair, a media mode or a capability version be compared against the captured offer rather
+/// than guessed from presence.
+/// The attributes whose value is a JID and nothing else, so they are safe to render by address
+/// family and device number. Named explicitly rather than "anything that parses": a call id or a
+/// message id can parse as a bare user, and rendering it would put opaque identifiers in the log.
+const JID_ATTRS: &[&str] = &["jid", "call-creator", "from", "to", "user_pn"];
+
+const PROTOCOL_ATTRS: &[&str] = &[
+    "class",
+    "type",
+    "error",
+    "media",
+    "rate",
+    "medium",
+    "ver",
+    "keygen",
+    "orientation",
+    "device_orientation",
+    "protocol",
+    "mute-state",
+    "reason",
+    "priority",
+];
+
+/// One attribute rendered for the trace: the exact value for the protocol enums and integers above
+/// and for an `error`/`jid`, otherwise just the name. Every other attribute stays a name, so a JID
+/// user, a call id, or free text can never be written.
 fn render_attr(name: &str, value: &whatsapp_rust::wacore_binary::node::ValueRef<'_>) -> String {
-    if name == "error" {
+    if JID_ATTRS.contains(&name) {
+        return render_jid(name, value);
+    }
+    if name == "error" || PROTOCOL_ATTRS.contains(&name) {
         let value = value.as_str();
         if safe_token(&value) {
-            return format!("error={value}");
+            return format!("{name}={value}");
         }
-    }
-    if name == "jid" {
-        return render_jid(value);
     }
     format!("{name}=?")
 }
 
-/// A `jid` rendered by address family and device presence only: `jid=?@lid` for a bare user jid and
-/// `jid=?@lid:dev` for one that names a specific device. The family comes from the parsed enum, so
-/// nothing the server controls reaches the log, and the user is never written — but a creator or
-/// roster device that the server expects to be device-specific is now visible as such.
-fn render_jid(value: &whatsapp_rust::wacore_binary::node::ValueRef<'_>) -> String {
+/// A `jid` rendered by address family and device number only: `jid=?@lid` for a bare user jid and
+/// `jid=?@lid:14` for one that names a specific device. The family comes from the parsed enum and
+/// the device is a small index, so nothing the server controls reaches the log and the user is
+/// never written — but a creator or roster device that the server expects to be device-specific,
+/// and at which number, becomes visible.
+fn render_jid(name: &str, value: &whatsapp_rust::wacore_binary::node::ValueRef<'_>) -> String {
     let Some(jid) = value.to_jid() else {
-        return "jid=?".to_string();
+        return format!("{name}=?");
     };
     if jid.device == 0 {
-        format!("jid=?@{}", jid.server.as_str())
+        format!("{name}=?@{}", jid.server.as_str())
     } else {
-        format!("jid=?@{}:dev", jid.server.as_str())
+        format!("{name}=?@{}:{}", jid.server.as_str(), jid.device)
     }
 }
 
@@ -124,7 +152,7 @@ pub(super) fn ack_metadata(node: &NodeRef<'_>) -> Option<String> {
 /// creator entry depends on and no other log states. The user is not written.
 pub(super) fn identity_shape(jid: Option<&whatsapp_rust::Jid>) -> String {
     match jid {
-        Some(jid) if jid.device != 0 => format!("@{}:dev", jid.server.as_str()),
+        Some(jid) if jid.device != 0 => format!("@{}:{}", jid.server.as_str(), jid.device),
         Some(jid) => format!("@{}", jid.server.as_str()),
         None => "none".to_string(),
     }
@@ -173,11 +201,11 @@ pub(super) fn describe_sent_frame(plaintext: &[u8], own: Option<&OwnIdentities>)
     is_call_control(&node).then(|| describe(&node, 0, own))
 }
 
-/// The node's structure as text: tag, attribute names, child tags with their own names, and the
-/// size of any content. No value is rendered except an `error` attribute that is a short opaque
-/// code — the one value needed to tell a server refusal apart from a malformed stanza, and one that
-/// cannot carry a JID, a name or a call id — and a `jid`, which is rendered as family and device
-/// presence only. A `<user>` whose jid is the account's own is marked `self`.
+/// The node's structure as text: tag, attribute names and child tags with their own names. A value
+/// is rendered only when it is a protocol enum or a small integer (an `error` code, a `media` mode,
+/// a `rate`, a `medium`, a `ver`, …) or a `jid`, which is rendered as address family and device
+/// number only. No JID user, call id, name or free text is ever written. A `<user>` whose jid is the
+/// account's own is marked `self`.
 pub(super) fn describe(node: &NodeRef<'_>, depth: usize, own: Option<&OwnIdentities>) -> String {
     let mut out = String::new();
     let mut budget = MAX_NODES;
@@ -271,27 +299,24 @@ mod tests {
         assert!(is_call_control(&call.as_node_ref()));
     }
 
-    /// The description names every attribute the parser looks at and never a value, so the missing
-    /// integer is visible as an absent name while the call id and media stay out of the log.
+    /// The description names every attribute the parser looks at: a protocol enum or integer shows
+    /// its value, and everything else (the call id) is a name only, so the missing integer is
+    /// visible as an absent name while the call id stays out of the log.
     #[test]
-    fn the_description_names_attributes_and_never_a_value() {
+    fn the_description_names_attributes_and_renders_only_protocol_values() {
         let ack = group_ack(false);
         let text = describe(&ack.as_node_ref(), 0, None);
         assert!(text.contains("<ack"), "{text}");
         assert!(text.contains("<group_info"), "{text}");
-        for name in ["call-id", "media", "transaction-id"] {
-            assert!(text.contains(name), "{name} missing from {text}");
-        }
+        // The media mode is a protocol token and is rendered exactly.
+        assert!(text.contains("media=audio"), "{text}");
+        // The call id is not: its value never appears and it stays a name.
+        assert!(text.contains("call-id=?"), "{text}");
+        assert!(!text.contains("x"), "the call id leaked: {text}");
         assert!(
             !text.contains("connected-limit"),
             "the missing integer must be absent by name: {text}"
         );
-        // Every attribute is rendered as `name=?`, so the three of them account for the only
-        // attribute `=` signs in the text and no value can have slipped through beside one.
-        assert_eq!(text.matches("=?").count(), 3, "a value leaked: {text}");
-        for value in ["audio", "\"x\""] {
-            assert!(!text.contains(value), "a value leaked: {text}");
-        }
 
         let with_limit = group_ack(true);
         let text = describe(&with_limit.as_node_ref(), 0, None);
@@ -357,7 +382,8 @@ mod tests {
             .build();
         let text = describe(&ack.as_node_ref(), 0, None);
         assert!(text.contains("error=427"), "{text}");
-        assert!(text.contains("type=?"), "{text}");
+        // `type` is a protocol enum and is rendered; a jid never is beyond family/device.
+        assert!(text.contains("type=offer"), "{text}");
         assert!(text.contains("jid=?"), "{text}");
         // The code appears on both the envelope and the participant the server named.
         assert_eq!(text.matches("error=427").count(), 2, "{text}");
@@ -420,12 +446,34 @@ mod tests {
             ])
             .build();
         let text = describe(&ack.as_node_ref(), 0, None);
-        assert!(text.contains("jid=?@lid:dev"), "{text}");
+        assert!(text.contains("jid=?@lid:3"), "{text}");
         assert_eq!(text.matches("jid=?@lid>").count(), 1, "{text}");
         assert!(text.contains("jid=?@s.whatsapp.net"), "{text}");
         assert!(text.contains("jid=?@g.us"), "{text}");
         for user in ["555", "15550000001", "1234"] {
             assert!(!text.contains(user), "a jid user leaked: {text}");
+        }
+    }
+
+    /// A JID-valued protocol attribute (`call-creator`, `from`, `to`) is rendered by family and
+    /// device number, while a call id that could parse as a bare user is not rendered at all.
+    #[test]
+    fn a_jid_valued_attribute_is_rendered_and_a_call_id_is_not() {
+        let offer = NodeBuilder::new("call")
+            .attr("to", "00DD63A26643DC3496FCBD161E6E2AB1@call")
+            .attr("id", "20350.27209-809")
+            .children([NodeBuilder::new("offer")
+                .attr("call-id", "00DD63A26643DC3496FCBD161E6E2AB1")
+                .attr("call-creator", "156535032389744:14@lid")
+                .build()])
+            .build();
+        let text = describe(&offer.as_node_ref(), 0, None);
+        assert!(text.contains("call-creator=?@lid:14"), "{text}");
+        assert!(text.contains("to=?@call"), "{text}");
+        assert!(text.contains("call-id=?"), "{text}");
+        assert!(text.contains("id=?"), "{text}");
+        for opaque in ["00DD63A26643DC3496FCBD161E6E2AB1", "20350.27209-809"] {
+            assert!(!text.contains(opaque), "an identifier leaked: {text}");
         }
     }
 
@@ -470,7 +518,7 @@ mod tests {
             "@lid",
             "a bare LID must be visible as such"
         );
-        assert_eq!(identity_shape(Some(&Jid::lid_device("555", 3))), "@lid:dev");
+        assert_eq!(identity_shape(Some(&Jid::lid_device("555", 3))), "@lid:3");
         assert_eq!(
             identity_shape(Some(&Jid::pn("15550000001"))),
             "@s.whatsapp.net"

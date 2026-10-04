@@ -141,11 +141,7 @@ fn row(app: &mut App, ui: &mut egui::Ui, record: &CallRecord, actions: &mut Vec<
                             ui,
                             state_icon(record),
                             18.0,
-                            if bad {
-                                palette.danger
-                            } else {
-                                palette.accent
-                            },
+                            if bad { palette.danger } else { palette.accent },
                         );
                         ui.add_space(6.0);
                         theme::text(

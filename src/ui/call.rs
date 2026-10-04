@@ -195,9 +195,7 @@ fn live(
                     let (rect, _) = ui.allocate_exact_size(Vec2::splat(15.0), Sense::hover());
                     if ui.is_rect_visible(rect) {
                         let scale = breath.map_or(1.0, |share| {
-                            1.0
-                                + OUTGOING_ICON_AMPLITUDE
-                                    * (share * std::f32::consts::PI).sin()
+                            1.0 + OUTGOING_ICON_AMPLITUDE * (share * std::f32::consts::PI).sin()
                         });
                         theme::paint_icon(
                             ui,
@@ -1021,8 +1019,7 @@ fn sway_angle(ui: &egui::Ui, on: bool, period: f64) -> Option<f32> {
     if !on {
         return None;
     }
-    ui.ctx()
-        .request_repaint_after(Duration::from_millis(33));
+    ui.ctx().request_repaint_after(Duration::from_millis(33));
     Some(sway_at(ui.input(|input| input.time), period))
 }
 
@@ -1036,9 +1033,7 @@ fn sway_at(time: f64, period: f64) -> f32 {
     let progress = (share / SWAY_WINDOW_SHARE) as f32;
     // The damping leaves the icon upright at both ends of the window, and makes the first swing
     // the widest, the way a handset being shaken settles down.
-    SWAY_MAX_ANGLE
-        * (1.0 - progress)
-        * (progress * std::f32::consts::TAU * SWAY_SWINGS).sin()
+    SWAY_MAX_ANGLE * (1.0 - progress) * (progress * std::f32::consts::TAU * SWAY_SWINGS).sin()
 }
 
 /// Paints an icon leaning by `angle` radians about its own centre, without allocating space.
@@ -1056,11 +1051,7 @@ fn paint_icon_sway(ui: &egui::Ui, icon: Icon, rect: Rect, size: f32, angle: f32,
         Ok(egui::load::TexturePoll::Ready { texture }) => {
             let at = Rect::from_center_size(rect.center(), Vec2::splat(size));
             let mut mesh = egui::Mesh::with_texture(texture.id);
-            mesh.add_rect_with_uv(
-                at,
-                Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
-                tint,
-            );
+            mesh.add_rect_with_uv(at, Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), tint);
             mesh.rotate(egui::emath::Rot2::from_angle(angle), at.center());
             ui.painter().add(egui::Shape::mesh(mesh));
         }
@@ -1098,8 +1089,7 @@ fn pulse_phase(ui: &egui::Ui, on: bool, period: f64) -> Option<f32> {
     }
     // A third of the display's rate is plenty for a slow breath, and the request is what keeps
     // the window drawing while the call is on screen.
-    ui.ctx()
-        .request_repaint_after(Duration::from_millis(33));
+    ui.ctx().request_repaint_after(Duration::from_millis(33));
     Some(pulse_at(ui.input(|input| input.time), period))
 }
 
@@ -1228,6 +1218,9 @@ mod tests {
         // A second in, the quicker breath has already settled while the slower one is still
         // moving: the outgoing call never works as hard.
         assert_eq!(pulse_at(1.0, RING_PERIOD), 1.0, "the ring has paused");
-        assert!(pulse_at(1.0, OUTGOING_PERIOD) < 1.0, "the dial is still waiting");
+        assert!(
+            pulse_at(1.0, OUTGOING_PERIOD) < 1.0,
+            "the dial is still waiting"
+        );
     }
 }

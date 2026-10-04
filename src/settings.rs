@@ -668,7 +668,10 @@ mod tests {
         };
         let text = serde_json::to_string(&off).expect("settings serialize");
         let loaded: Settings = serde_json::from_str(&text).expect("settings load");
-        assert!(!loaded.call_animations, "the choice survives a save and load");
+        assert!(
+            !loaded.call_animations,
+            "the choice survives a save and load"
+        );
         // A file written before the switch existed keeps the call screen moving.
         let old: Settings = serde_json::from_str("{}").expect("settings load");
         assert!(old.call_animations);

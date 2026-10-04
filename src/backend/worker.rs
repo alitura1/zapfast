@@ -36,6 +36,7 @@ use whatsapp_rust::wacore_binary::jid::JidExt;
 use whatsapp_rust::waproto::buffa::Message as _;
 use whatsapp_rust::{MediaRetryResult, MediaReuploadRequest};
 
+mod call_trace;
 mod calls;
 mod device_store;
 mod favorite_chats;
@@ -488,6 +489,7 @@ pub async fn run(
         call_generation: 0,
         call_devices: crate::calls::DeviceList::default(),
         call_defaults: crate::calls::CallDevices::default(),
+        call_trace: None,
         wa_sender,
         me_pn: None,
         me_lid: None,
@@ -834,6 +836,9 @@ struct Worker {
     call_devices: crate::calls::DeviceList,
     /// The devices a call opens with: the selections the settings persist.
     call_defaults: crate::calls::CallDevices,
+    /// Holds `Event::RawNode` forwarding open while the call trace is on. `None` when it is not,
+    /// which is also what keeps the library from dispatching a single raw stanza.
+    call_trace: Option<whatsapp_rust::RawNodeLease>,
 }
 
 /// A queued forward: where it goes, the protobuf, and its disappearing timer.
@@ -1536,6 +1541,14 @@ impl Worker {
             Ok(bot) => {
                 let handle = bot.spawn();
                 self.client = Some(handle.client());
+                // The lease has to outlive every stanza the trace is meant to see, so it is held
+                // for as long as the client is: dropping it silences `Event::RawNode` again.
+                self.call_trace = call_trace::enabled().then(|| {
+                    log::warn!(
+                        "[CALL-TRACE] on: group-call control stanzas are logged by structure only"
+                    );
+                    handle.client().acquire_raw_node_forwarding()
+                });
                 self.handle = Some(handle);
                 self.set_status(LinkStatus::Connecting);
             }
@@ -2196,6 +2209,17 @@ impl Worker {
             // that decide the call this worker already owns: the peer's answer is the only thing
             // that moves a call out of dialing, never the fact that dialing started.
             E::IncomingCall(call) => self.call_signaling(call).await,
+            // Only dispatched while the trace's lease is held, and only a stanza carrying a group
+            // snapshot is written: the library parses that one internally, so this is the only
+            // place its shape can be read.
+            E::RawNode(node) => {
+                if call_trace::enabled() {
+                    let node = node.get();
+                    if call_trace::is_call_control(node) {
+                        log::warn!("[CALL-TRACE]\n{}", call_trace::describe(node, 0));
+                    }
+                }
+            }
             // A missed call that a live runtime owns is resolved; one replayed from the offline
             // queue never rang here, so it is written straight to the log instead of being dropped.
             E::MissedCall(call) => {
@@ -11165,6 +11189,7 @@ mod receipt_tests {
             call_generation: 0,
             call_devices: crate::calls::DeviceList::default(),
             call_defaults: crate::calls::CallDevices::default(),
+            call_trace: None,
             wa_sender,
             me_pn: Some(ME.to_owned()),
             me_lid: None,

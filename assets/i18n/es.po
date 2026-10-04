@@ -6,7 +6,7 @@ msgstr ""
 "Project-Id-Version: ZapFast\n"
 "Report-Msgid-Bugs-To: https://github.com/crmne/zapfast/issues/new?"
 "template=translation.yml\n"
-"POT-Creation-Date: 2026-10-04 16:52+0300\n"
+"POT-Creation-Date: 2026-10-04 17:31+0300\n"
 "PO-Revision-Date: 2026-09-22 00:00-0300\n"
 "Last-Translator: ZapFast contributors\n"
 "Language-Team: Spanish\n"
@@ -957,6 +957,7 @@ msgid "Choose a file…"
 msgstr "Elegir un archivo…"
 
 #: src/ui/call.rs:213 src/ui/calls.rs:320
+#, rust-format
 msgid "{} other on the call"
 msgid_plural "{} others on the call"
 msgstr[0] "{} persona más en la llamada"
@@ -1755,206 +1756,206 @@ msgstr "Actualizar ZapFast"
 msgid "Ready to install"
 msgstr "Listo para instalar"
 
-#: src/backend/worker.rs:1889 src/backend/worker.rs:4789
-#: src/backend/worker.rs:4839 src/backend/worker.rs:5928
-#: src/backend/worker.rs:5935 src/backend/worker.rs:6894
-#: src/backend/worker.rs:6925 src/backend/worker.rs:7278
-#: src/backend/worker.rs:7308 src/backend/worker.rs:8825
-#: src/backend/worker.rs:8829 src/backend/worker/stickers.rs:998
+#: src/backend/worker.rs:1902 src/backend/worker.rs:4813
+#: src/backend/worker.rs:4863 src/backend/worker.rs:5952
+#: src/backend/worker.rs:5959 src/backend/worker.rs:6918
+#: src/backend/worker.rs:6949 src/backend/worker.rs:7302
+#: src/backend/worker.rs:7332 src/backend/worker.rs:8849
+#: src/backend/worker.rs:8853 src/backend/worker/stickers.rs:998
 #: src/backend/worker/interactive/replies.rs:233
 msgid "Not connected to WhatsApp"
 msgstr "No conectado a WhatsApp"
 
-#: src/backend/worker.rs:2248 src/backend/worker.rs:5412
+#: src/backend/worker.rs:2272 src/backend/worker.rs:5436
 #, rust-format
 msgid "Could not link by phone number: {error}"
 msgstr "No se pudo vincular por número de teléfono: {error}"
 
-#: src/backend/worker.rs:2352
+#: src/backend/worker.rs:2376
 msgid "WhatsApp connection failed"
 msgstr "Falló la conexión con WhatsApp"
 
-#: src/backend/worker.rs:2360
+#: src/backend/worker.rs:2384
 msgid "Another WhatsApp Web session replaced this one"
 msgstr "Otra sesión de WhatsApp Web reemplazó esta"
 
-#: src/backend/worker.rs:2585
+#: src/backend/worker.rs:2609
 msgid "Connect to WhatsApp to change your profile."
 msgstr "Conéctate a WhatsApp para cambiar tu perfil."
 
-#: src/backend/worker.rs:2601
+#: src/backend/worker.rs:2625
 #, rust-format
 msgid "Could not change your name: {error}"
 msgstr "No se pudo cambiar tu nombre: {error}"
 
-#: src/backend/worker.rs:2613
+#: src/backend/worker.rs:2637
 #, rust-format
 msgid "Could not change your About: {error}"
 msgstr "No se pudo cambiar tu información: {error}"
 
-#: src/backend/worker.rs:3751
+#: src/backend/worker.rs:3775
 #, rust-format
 msgid "Could not read part of the chat history: {error}"
 msgstr "No se pudo leer parte del historial del chat: {error}"
 
-#: src/backend/worker.rs:4113
+#: src/backend/worker.rs:4137
 msgid "Your phone did not send older messages. Check that it is online"
 msgstr "Tu teléfono no envió mensajes anteriores. Comprueba que esté en línea"
 
-#: src/backend/worker.rs:4536 src/backend/worker.rs:4601
+#: src/backend/worker.rs:4560 src/backend/worker.rs:4625
 #, rust-format
 msgid "Could not use this picture: {error}"
 msgstr "No se pudo usar esta imagen: {error}"
 
-#: src/backend/worker.rs:4548
+#: src/backend/worker.rs:4572
 msgid "Connect to WhatsApp to change your profile picture."
 msgstr "Conéctate a WhatsApp para cambiar tu foto de perfil."
 
-#: src/backend/worker.rs:4567
+#: src/backend/worker.rs:4591
 #, rust-format
 msgid "Could not change your profile picture: {error}"
 msgstr "No se pudo cambiar tu foto de perfil: {error}"
 
-#: src/backend/worker.rs:4673
+#: src/backend/worker.rs:4697
 #, rust-format
 msgid "Could not save the attachment: {error}"
 msgstr "No se pudo guardar el adjunto: {error}"
 
-#: src/backend/worker.rs:4760
+#: src/backend/worker.rs:4784
 #, rust-format
 msgid "Could not make the sticker: {error}"
 msgstr "No se pudo crear el sticker: {error}"
 
-#: src/backend/worker.rs:4811 src/backend/worker.rs:8835
+#: src/backend/worker.rs:4835 src/backend/worker.rs:8859
 #, rust-format
 msgid "Could not save contact: {error}"
 msgstr "No se pudo guardar el contacto: {error}"
 
-#: src/backend/worker.rs:4872
+#: src/backend/worker.rs:4896
 #, rust-format
 msgid "{} is not on WhatsApp"
 msgstr "{} no está en WhatsApp"
 
-#: src/backend/worker.rs:4898 src/backend/worker/stickers.rs:987
+#: src/backend/worker.rs:4922 src/backend/worker/stickers.rs:987
 #, rust-format
 msgid "Could not add sticker pack: {error}"
 msgstr "No se pudo añadir el paquete de stickers: {error}"
 
-#: src/backend/worker.rs:4954
+#: src/backend/worker.rs:4978
 msgid "Could not update privacy settings."
 msgstr "No se pudo actualizar la configuración de privacidad."
 
-#: src/backend/worker.rs:5101
+#: src/backend/worker.rs:5125
 #, rust-format
 msgid "Could not create the pack: {error}"
 msgstr "No se pudo crear el paquete: {error}"
 
-#: src/backend/worker.rs:5180
+#: src/backend/worker.rs:5204
 msgid "Connect to WhatsApp to delete this chat"
 msgstr "Conéctate a WhatsApp para eliminar este chat"
 
-#: src/backend/worker.rs:5219
+#: src/backend/worker.rs:5243
 msgid "The phone did not delete this chat. Try again when connected"
 msgstr ""
 "El teléfono no eliminó este chat. Inténtalo de nuevo cuando estés conectado"
 
-#: src/backend/worker.rs:5231
+#: src/backend/worker.rs:5255
 msgid "Connect to WhatsApp to clear this chat"
 msgstr "Conéctate a WhatsApp para vaciar este chat"
 
-#: src/backend/worker.rs:5243
+#: src/backend/worker.rs:5267
 msgid "Could not read this chat's messages. Try again"
 msgstr "No se pudieron leer los mensajes de este chat. Inténtalo de nuevo"
 
-#: src/backend/worker.rs:5277
+#: src/backend/worker.rs:5301
 msgid "The phone cleared this chat, but ZapFast could not clear it here"
 msgstr "El teléfono vació este chat, pero ZapFast no pudo vaciarlo aquí"
 
-#: src/backend/worker.rs:5284
+#: src/backend/worker.rs:5308
 msgid "The phone did not clear this chat. Try again when connected"
 msgstr ""
 "El teléfono no vació este chat. Inténtalo de nuevo cuando estés conectado"
 
-#: src/backend/worker.rs:5383
+#: src/backend/worker.rs:5407
 msgid "Not connected to WhatsApp yet"
 msgstr "Aún no conectado a WhatsApp"
 
-#: src/backend/worker.rs:5476
+#: src/backend/worker.rs:5500
 #, rust-format
 msgid "Message not sent: {error}"
 msgstr "Mensaje no enviado: {error}"
 
-#: src/backend/worker.rs:5567 src/backend/worker.rs:5685
+#: src/backend/worker.rs:5591 src/backend/worker.rs:5709
 msgid "Only admins can change this group's name and photo."
 msgstr ""
 "Solo los administradores pueden cambiar el nombre y la foto de este grupo."
 
-#: src/backend/worker.rs:5594
+#: src/backend/worker.rs:5618
 #, rust-format
 msgid "A group name can have at most {} characters."
 msgstr "El nombre de un grupo puede tener como máximo {} caracteres."
 
-#: src/backend/worker.rs:5602
+#: src/backend/worker.rs:5626
 msgid "Connect to WhatsApp to change the group's name."
 msgstr "Conéctate a WhatsApp para cambiar el nombre del grupo."
 
-#: src/backend/worker.rs:5635
+#: src/backend/worker.rs:5659
 msgid "Connect to WhatsApp to change the group's photo."
 msgstr "Conéctate a WhatsApp para cambiar la foto del grupo."
 
-#: src/backend/worker.rs:5689
+#: src/backend/worker.rs:5713
 msgid "Could not rename the group."
 msgstr "No se pudo cambiar el nombre del grupo."
 
-#: src/backend/worker.rs:5691
+#: src/backend/worker.rs:5715
 msgid "Could not change the group's photo."
 msgstr "No se pudo cambiar la foto del grupo."
 
-#: src/backend/worker.rs:5694
+#: src/backend/worker.rs:5718
 msgid "Could not remove the group's photo."
 msgstr "No se pudo quitar la foto del grupo."
 
-#: src/backend/worker.rs:5722 src/backend/worker.rs:5749
+#: src/backend/worker.rs:5746 src/backend/worker.rs:5773
 msgid "Could not leave the channel."
 msgstr "No se pudo salir del canal."
 
-#: src/backend/worker.rs:5724 src/backend/worker.rs:5751
+#: src/backend/worker.rs:5748 src/backend/worker.rs:5775
 msgid "Could not leave the group."
 msgstr "No se pudo salir del grupo."
 
-#: src/backend/worker.rs:6049
+#: src/backend/worker.rs:6073
 msgid ""
 "Not connected to WhatsApp: the rest of the forwarded messages were not sent"
 msgstr ""
 "No conectado a WhatsApp: el resto de los mensajes reenviados no se envió"
 
-#: src/backend/worker.rs:6064 src/backend/worker.rs:6864
+#: src/backend/worker.rs:6088 src/backend/worker.rs:6888
 msgid "This message is not stored on this computer"
 msgstr "Este mensaje no está guardado en este equipo"
 
-#: src/backend/worker.rs:6078
+#: src/backend/worker.rs:6102
 msgid "This message cannot be forwarded"
 msgstr "Este mensaje no se puede reenviar"
 
-#: src/backend/worker.rs:6085
+#: src/backend/worker.rs:6109
 msgid "The original message data is not available to forward"
 msgstr "Los datos del mensaje original no están disponibles para reenviar"
 
-#: src/backend/worker.rs:6092
+#: src/backend/worker.rs:6116
 msgid "The original message data could not be read"
 msgstr "No se pudieron leer los datos del mensaje original"
 
-#: src/backend/worker.rs:6779 src/backend/worker.rs:6795
+#: src/backend/worker.rs:6803 src/backend/worker.rs:6819
 #, rust-format
 msgid "Could not search: {error}"
 msgstr "No se pudo buscar: {error}"
 
-#: src/backend/worker.rs:6827 src/backend/worker.rs:6884
+#: src/backend/worker.rs:6851 src/backend/worker.rs:6908
 #, rust-format
 msgid "Could not read the chat: {error}"
 msgstr "No se pudo leer el chat: {error}"
 
-#: src/backend/worker.rs:7285
+#: src/backend/worker.rs:7309
 msgid "Could not encode the attachment"
 msgstr "No se pudo codificar el adjunto"
 
@@ -1980,4 +1981,3 @@ msgid ""
 msgstr ""
 "Esta opción no está disponible en ZapFast. Abre el mensaje en WhatsApp Web o "
 "en tu teléfono."
-

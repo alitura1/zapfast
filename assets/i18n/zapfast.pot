@@ -9,7 +9,7 @@ msgstr ""
 "Project-Id-Version: ZapFast\n"
 "Report-Msgid-Bugs-To: https://github.com/crmne/zapfast/issues/new?"
 "template=translation.yml\n"
-"POT-Creation-Date: 2026-10-04 11:36+0300\n"
+"POT-Creation-Date: 2026-10-04 13:00+0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -167,7 +167,7 @@ msgstr ""
 msgid "No favorites yet"
 msgstr ""
 
-#: src/ui/chats.rs:806 src/app.rs:1480
+#: src/ui/chats.rs:806 src/app.rs:1498
 msgid "Message yourself"
 msgstr ""
 
@@ -693,7 +693,7 @@ msgstr ""
 msgid "For GIF search. Get a free key at developers.giphy.com."
 msgstr ""
 
-#: src/ui/settings.rs:623 src/ui/settings.rs:1611 src/ui/settings.rs:1617
+#: src/ui/settings.rs:623 src/ui/settings.rs:1613 src/ui/settings.rs:1619
 msgid "Account"
 msgstr ""
 
@@ -710,7 +710,7 @@ msgstr ""
 msgid "Change profile picture"
 msgstr ""
 
-#: src/ui/settings.rs:629 src/ui/settings.rs:1204 src/ui/settings.rs:1613
+#: src/ui/settings.rs:629 src/ui/settings.rs:1204 src/ui/settings.rs:1615
 msgid "Unlink this computer"
 msgstr ""
 
@@ -1007,11 +1007,11 @@ msgstr ""
 msgid "Camera"
 msgstr ""
 
-#: src/ui/call.rs:1101 src/ui/calls.rs:287 src/app.rs:3532
+#: src/ui/call.rs:1101 src/ui/calls.rs:287 src/app.rs:3550
 msgid "Incoming video call"
 msgstr ""
 
-#: src/ui/call.rs:1103 src/ui/calls.rs:281 src/app.rs:3534
+#: src/ui/call.rs:1103 src/ui/calls.rs:281 src/app.rs:3552
 msgid "Incoming voice call"
 msgstr ""
 
@@ -1137,64 +1137,72 @@ msgstr[1] ""
 msgid "No one yet"
 msgstr ""
 
-#: src/app.rs:1401
+#: src/app.rs:71
+msgid "ZapFast is not connected to WhatsApp"
+msgstr ""
+
+#: src/app.rs:74
+msgid "Calls are one to one or group only"
+msgstr ""
+
+#: src/app.rs:1419
 #, rust-format
 msgid "A label named “{name}” already exists."
 msgstr ""
 
-#: src/app.rs:1461
+#: src/app.rs:1479
 #, rust-format
 msgid "{name} (You)"
 msgstr ""
 
-#: src/app.rs:1462 src/app.rs:1481
+#: src/app.rs:1480 src/app.rs:1499
 msgid "You"
 msgstr ""
 
-#: src/app.rs:1541
+#: src/app.rs:1559
 msgid "Locked chat"
 msgstr ""
 
-#: src/app.rs:1544
+#: src/app.rs:1562
 msgid "Unknown caller"
 msgstr ""
 
-#: src/app.rs:2386
+#: src/app.rs:2404
 msgid "Could not use this image"
 msgstr ""
 
-#: src/app.rs:2885
+#: src/app.rs:2903
 msgid "Not sent: ZapFast is not connected to WhatsApp."
 msgstr ""
 
-#: src/app.rs:2889
+#: src/app.rs:2907
 msgid ""
 "Not sent: the message you’re replying to isn’t available on this computer. "
 "Cancel the reply to send without a quote."
 msgstr ""
 
-#: src/app.rs:4499
+#: src/app.rs:4517
 msgid "Added to favorites"
 msgstr ""
 
-#: src/app.rs:4574
+#: src/app.rs:4592
 msgid "Sending the sticker pack…"
 msgstr ""
 
-#: src/app.rs:4864 src/ui/labels.rs:237
+#: src/app.rs:4882 src/ui/labels.rs:237
 #, rust-format
 msgid "You have {limit} labels, the most ZapFast keeps."
 msgstr ""
 
-#: src/app.rs:5429
+#: src/app.rs:5447
 msgid "This video opens in your system player"
 msgstr ""
 
-#: src/app.rs:5920
+#: src/app.rs:5938
 msgid "Copied image"
 msgstr ""
 
-#: src/app.rs:5923 src/app.rs:5928
+#: src/app.rs:5941 src/app.rs:5946
 msgid "Failed to copy image"
 msgstr ""
 

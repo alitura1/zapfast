@@ -6,7 +6,7 @@ msgstr ""
 "Project-Id-Version: ZapFast\n"
 "Report-Msgid-Bugs-To: https://github.com/crmne/zapfast/issues/new?"
 "template=translation.yml\n"
-"POT-Creation-Date: 2026-10-04 11:36+0300\n"
+"POT-Creation-Date: 2026-10-04 13:00+0300\n"
 "PO-Revision-Date: 2026-09-22 00:00-0300\n"
 "Last-Translator: ZapFast contributors\n"
 "Language-Team: Russian\n"
@@ -146,7 +146,6 @@ msgstr "Чаты"
 
 #: src/ui/chats.rs:153 src/ui/chats.rs:280 src/ui/settings.rs:501
 #: src/ui/calls.rs:92
-#, fuzzy
 msgid "Calls"
 msgstr "Звонки"
 
@@ -166,7 +165,7 @@ msgstr "Заблокированные"
 msgid "No favorites yet"
 msgstr "Пока нет избранных"
 
-#: src/ui/chats.rs:806 src/app.rs:1480
+#: src/ui/chats.rs:806 src/app.rs:1498
 msgid "Message yourself"
 msgstr "Написать себе"
 
@@ -199,15 +198,15 @@ msgstr "Ctrl+K для поиска · ? для сочетаний клавиш"
 
 #: src/ui/conversation.rs:337 src/ui/call.rs:848
 msgid "Hang up"
-msgstr ""
+msgstr "Завершить"
 
 #: src/ui/conversation.rs:346
 msgid "Voice call"
-msgstr ""
+msgstr "Голосовой вызов"
 
 #: src/ui/conversation.rs:365
 msgid "Video call"
-msgstr ""
+msgstr "Видеовызов"
 
 #: src/ui/conversation.rs:383 src/ui/pane.rs:133
 msgid "Search messages"
@@ -295,7 +294,6 @@ msgid "Message info"
 msgstr "Данные сообщения"
 
 #: src/ui/conversation.rs:4404
-#, fuzzy
 msgid "Location"
 msgstr "Геоданные в реальном времени"
 
@@ -313,13 +311,12 @@ msgid "Updated {time}"
 msgstr "Обновлено в {time}"
 
 #: src/ui/conversation.rs:4492
-#, fuzzy
 msgid "Chat"
-msgstr "Чаты"
+msgstr "Чат"
 
 #: src/ui/conversation.rs:4506
 msgid "Add"
-msgstr ""
+msgstr "Добавить"
 
 #: src/ui/conversation.rs:4551
 #, rust-format
@@ -640,11 +637,13 @@ msgstr "Кого исключить, меняется на телефоне."
 
 #: src/ui/settings.rs:503
 msgid "Call animations"
-msgstr ""
+msgstr "Анимации вызова"
 
 #: src/ui/settings.rs:506
 msgid "A gentle pulse when a call rings. Off, the call screen stays still."
 msgstr ""
+"Мягкая пульсация при входящем вызове. Выключено — экран вызова остаётся "
+"неподвижным."
 
 #: src/ui/settings.rs:511
 msgid "System"
@@ -714,7 +713,7 @@ msgid "For GIF search. Get a free key at developers.giphy.com."
 msgstr ""
 "Для поиска GIF. Бесплатный ключ можно получить на developers.giphy.com."
 
-#: src/ui/settings.rs:623 src/ui/settings.rs:1611 src/ui/settings.rs:1617
+#: src/ui/settings.rs:623 src/ui/settings.rs:1613 src/ui/settings.rs:1619
 msgid "Account"
 msgstr "Аккаунт"
 
@@ -731,7 +730,7 @@ msgstr "О программе"
 msgid "Change profile picture"
 msgstr "Изменить фото профиля"
 
-#: src/ui/settings.rs:629 src/ui/settings.rs:1204 src/ui/settings.rs:1613
+#: src/ui/settings.rs:629 src/ui/settings.rs:1204 src/ui/settings.rs:1615
 msgid "Unlink this computer"
 msgstr "Отвязать этот компьютер"
 
@@ -857,207 +856,203 @@ msgstr "Выбрать файл…"
 
 #: src/ui/call.rs:209 src/ui/calls.rs:317
 msgid "1 other on the call"
-msgstr ""
+msgstr "ещё 1 участник в вызове"
 
 #: src/ui/call.rs:213 src/ui/calls.rs:322
 msgid "others on the call"
-msgstr ""
+msgstr "других участников в вызове"
 
 #: src/ui/call.rs:279
 msgid "Hide the call screen"
-msgstr ""
+msgstr "Скрыть экран вызова"
 
 #: src/ui/call.rs:297
 msgid "Exit full screen"
-msgstr ""
+msgstr "Выйти из полноэкранного режима"
 
 #: src/ui/call.rs:302
 msgid "Full screen"
-msgstr ""
+msgstr "Во весь экран"
 
 #: src/ui/call.rs:396 src/ui/call.rs:397
 msgid "Return to the call"
-msgstr ""
+msgstr "Вернуться к вызову"
 
 #: src/ui/call.rs:534
-#, fuzzy
 msgid "Calling…"
-msgstr "Сохранение…"
+msgstr "Вызов…"
 
 #: src/ui/call.rs:536
-#, fuzzy
 msgid "Ringing…"
-msgstr "Сохранение…"
+msgstr "Идёт вызов…"
 
 #: src/ui/call.rs:539 src/ui/call.rs:547
 msgid "Connected"
-msgstr ""
+msgstr "Подключено"
 
 #: src/ui/call.rs:541
-#, fuzzy
 msgid "Connecting…"
-msgstr "Загрузка…"
+msgstr "Подключение…"
 
 #: src/ui/call.rs:553 src/ui/call.rs:564
 msgid "Call ended"
-msgstr ""
+msgstr "Вызов завершён"
 
 #: src/ui/call.rs:554
 msgid "Incoming call"
-msgstr ""
+msgstr "Входящий вызов"
 
 #: src/ui/call.rs:565
 msgid "Missed call"
-msgstr ""
+msgstr "Пропущенный вызов"
 
 #: src/ui/call.rs:566 src/ui/calls.rs:301
 msgid "Declined"
-msgstr ""
+msgstr "Отклонён"
 
 #: src/ui/call.rs:567 src/ui/calls.rs:303
 msgid "Busy"
-msgstr ""
+msgstr "Занято"
 
 #: src/ui/call.rs:568 src/ui/calls.rs:304
 msgid "Could not connect"
-msgstr ""
+msgstr "Не удалось подключиться"
 
 #: src/ui/call.rs:569 src/ui/calls.rs:305
 msgid "No answer"
-msgstr ""
+msgstr "Нет ответа"
 
 #: src/ui/call.rs:572 src/ui/calls.rs:306
 msgid "Connection lost"
-msgstr ""
+msgstr "Связь потеряна"
 
 #: src/ui/call.rs:574
 msgid "The call could not be established"
-msgstr ""
+msgstr "Не удалось установить вызов"
 
 #: src/ui/call.rs:578
 msgid "Answered on another device"
-msgstr ""
+msgstr "Принято на другом устройстве"
 
 #: src/ui/call.rs:581
 msgid "Declined on another device"
-msgstr ""
+msgstr "Отклонено на другом устройстве"
 
 #: src/ui/call.rs:614
 msgid "Waiting for video…"
-msgstr ""
+msgstr "Ожидание видео…"
 
 #: src/ui/call.rs:651
 msgid "No audio is arriving from this call"
-msgstr ""
+msgstr "Из этого вызова не поступает звук"
 
 #: src/ui/call.rs:653
 msgid "This call's audio cannot be decoded"
-msgstr ""
+msgstr "Звук этого вызова не декодируется"
 
 #: src/ui/call.rs:656
 msgid "This call's audio is not authenticating"
-msgstr ""
+msgstr "Звук этого вызова не проходит проверку подлинности"
 
 #: src/ui/call.rs:660
 msgid "This call's audio is arriving in an unexpected format"
-msgstr ""
+msgstr "Звук этого вызова поступает в неожиданном формате"
 
 #: src/ui/call.rs:664
 msgid "This call's audio is being rejected by the decoder"
-msgstr ""
+msgstr "Декодер отклоняет звук этого вызова"
 
 #: src/ui/call.rs:667
 msgid "This call's audio format keeps changing"
-msgstr ""
+msgstr "Формат звука этого вызова постоянно меняется"
 
 #: src/ui/call.rs:670
 msgid "The peer's audio stopped"
-msgstr ""
+msgstr "Звук собеседника прекратился"
 
 #: src/ui/call.rs:683
 #, rust-format
 msgid "Microphone “{name}” is not available; using the system default"
-msgstr ""
+msgstr "Микрофон «{name}» недоступен; используется системный по умолчанию"
 
 #: src/ui/call.rs:687
 #, rust-format
 msgid "Speaker “{name}” is not available; using the system default"
-msgstr ""
+msgstr "Динамик «{name}» недоступен; используется системный по умолчанию"
 
 #: src/ui/call.rs:689
 #, rust-format
 msgid "Camera “{name}” is not available"
-msgstr ""
+msgstr "Камера «{name}» недоступна"
 
 #: src/ui/call.rs:760
 msgid "Start video"
-msgstr ""
+msgstr "Включить видео"
 
 #: src/ui/call.rs:762
 msgid "Turn the camera off"
-msgstr ""
+msgstr "Выключить камеру"
 
 #: src/ui/call.rs:764
 msgid "Turn the camera on"
-msgstr ""
+msgstr "Включить камеру"
 
 #: src/ui/call.rs:798
-#, fuzzy
 msgid "Share your screen"
-msgstr "Создайте свои"
+msgstr "Поделиться экраном"
 
 #: src/ui/call.rs:805
 msgid ""
 "1:1 screen sharing is not available in the whatsapp-rust revision this app "
 "uses; an OBS virtual camera can be selected as a camera instead"
 msgstr ""
+"Демонстрация экрана один на один недоступна в используемой этим приложением "
+"версии whatsapp-rust; вместо камеры можно выбрать виртуальную камеру OBS"
 
 #: src/ui/call.rs:821
-#, fuzzy
 msgid "Speaker and devices"
-msgstr "Связанное устройство"
+msgstr "Динамик и устройства"
 
 #: src/ui/call.rs:916
 msgid "Default device"
-msgstr ""
+msgstr "Устройство по умолчанию"
 
 #: src/ui/call.rs:944
 msgid "Microphone"
-msgstr ""
+msgstr "Микрофон"
 
 #: src/ui/call.rs:954
 msgid "Speaker"
-msgstr ""
+msgstr "Динамик"
 
 #: src/ui/call.rs:965
 msgid "Camera"
-msgstr ""
+msgstr "Камера"
 
-#: src/ui/call.rs:1101 src/ui/calls.rs:287 src/app.rs:3532
+#: src/ui/call.rs:1101 src/ui/calls.rs:287 src/app.rs:3550
 msgid "Incoming video call"
-msgstr ""
+msgstr "Входящий видеовызов"
 
-#: src/ui/call.rs:1103 src/ui/calls.rs:281 src/app.rs:3534
+#: src/ui/call.rs:1103 src/ui/calls.rs:281 src/app.rs:3552
 msgid "Incoming voice call"
-msgstr ""
+msgstr "Входящий голосовой вызов"
 
 #: src/ui/call.rs:1117
 msgid "Accept"
-msgstr ""
+msgstr "Принять"
 
 #: src/ui/call.rs:1132
-#, fuzzy
 msgid "Decline"
-msgstr "В сети"
+msgstr "Отклонить"
 
 #: src/ui/calls.rs:38
-#, fuzzy
 msgid "No calls yet"
-msgstr "Пока нет избранных"
+msgstr "Пока нет вызовов"
 
 #: src/ui/calls.rs:41
 msgid "Calls you make and take with ZapFast are listed here."
 msgstr ""
+"Здесь перечислены вызовы, которые вы совершаете и принимаете в ZapFast."
 
 #: src/ui/calls.rs:46 src/ui/message_info.rs:73
 msgid "Loading…"
@@ -1065,44 +1060,44 @@ msgstr "Загрузка…"
 
 #: src/ui/calls.rs:47
 msgid "Reading this account's call history."
-msgstr ""
+msgstr "Чтение истории вызовов этого аккаунта."
 
 #: src/ui/calls.rs:83
 msgid "Back to chats"
-msgstr ""
+msgstr "Назад к чатам"
 
 #: src/ui/calls.rs:174
 msgid "Call back"
-msgstr ""
+msgstr "Перезвонить"
 
 #: src/ui/calls.rs:194
 msgid "Call back with video"
-msgstr ""
+msgstr "Перезвонить с видео"
 
 #: src/ui/calls.rs:216
 #, rust-format
 msgid "Open the chat with {name}"
-msgstr ""
+msgstr "Открыть чат с {name}"
 
 #: src/ui/calls.rs:278
 msgid "Outgoing voice call"
-msgstr ""
+msgstr "Исходящий голосовой вызов"
 
 #: src/ui/calls.rs:284
 msgid "Outgoing video call"
-msgstr ""
+msgstr "Исходящий видеовызов"
 
 #: src/ui/calls.rs:299
 msgid "Answered elsewhere"
-msgstr ""
+msgstr "Принято на другом устройстве"
 
 #: src/ui/calls.rs:300
 msgid "Missed"
-msgstr ""
+msgstr "Пропущен"
 
 #: src/ui/calls.rs:302
 msgid "Declined elsewhere"
-msgstr ""
+msgstr "Отклонено на другом устройстве"
 
 #. Translators: {name} is replaced by the author's name, shown as a link.
 #: src/ui/widgets.rs:717
@@ -1170,39 +1165,45 @@ msgstr[2] "ещё {}"
 msgid "No one yet"
 msgstr "Пока никто"
 
-#: src/app.rs:1401
+#: src/app.rs:71
+msgid "ZapFast is not connected to WhatsApp"
+msgstr "ZapFast не подключён к WhatsApp"
+
+#: src/app.rs:74
+msgid "Calls are one to one or group only"
+msgstr "Вызовы возможны только в личных чатах и группах"
+
+#: src/app.rs:1419
 #, rust-format
 msgid "A label named “{name}” already exists."
 msgstr "Метка «{name}» уже есть."
 
-#: src/app.rs:1461
+#: src/app.rs:1479
 #, rust-format
 msgid "{name} (You)"
 msgstr "{name} (Вы)"
 
-#: src/app.rs:1462 src/app.rs:1481
+#: src/app.rs:1480 src/app.rs:1499
 msgid "You"
 msgstr "Вы"
 
-#: src/app.rs:1541
-#, fuzzy
+#: src/app.rs:1559
 msgid "Locked chat"
-msgstr "Код для заблокированных чатов"
+msgstr "Заблокированный чат"
 
-#: src/app.rs:1544
-#, fuzzy
+#: src/app.rs:1562
 msgid "Unknown caller"
-msgstr "Заглушать неизвестных абонентов"
+msgstr "Неизвестный абонент"
 
-#: src/app.rs:2386
+#: src/app.rs:2404
 msgid "Could not use this image"
 msgstr "Не удалось использовать это изображение"
 
-#: src/app.rs:2885
+#: src/app.rs:2903
 msgid "Not sent: ZapFast is not connected to WhatsApp."
 msgstr "Не отправлено: ZapFast не подключён к WhatsApp."
 
-#: src/app.rs:2889
+#: src/app.rs:2907
 msgid ""
 "Not sent: the message you’re replying to isn’t available on this computer. "
 "Cancel the reply to send without a quote."
@@ -1210,28 +1211,28 @@ msgstr ""
 "Не отправлено: сообщение, на которое вы отвечаете, недоступно на этом "
 "компьютере. Отмените ответ, чтобы отправить без цитаты."
 
-#: src/app.rs:4499
+#: src/app.rs:4517
 msgid "Added to favorites"
 msgstr "Добавлено в избранное"
 
-#: src/app.rs:4574
+#: src/app.rs:4592
 msgid "Sending the sticker pack…"
 msgstr "Отправка набора стикеров…"
 
-#: src/app.rs:4864 src/ui/labels.rs:237
+#: src/app.rs:4882 src/ui/labels.rs:237
 #, rust-format
 msgid "You have {limit} labels, the most ZapFast keeps."
 msgstr "У вас {limit} меток — больше ZapFast не хранит."
 
-#: src/app.rs:5429
+#: src/app.rs:5447
 msgid "This video opens in your system player"
 msgstr "Это видео откроется в системном плеере"
 
-#: src/app.rs:5920
+#: src/app.rs:5938
 msgid "Copied image"
 msgstr "Изображение скопировано"
 
-#: src/app.rs:5923 src/app.rs:5928
+#: src/app.rs:5941 src/app.rs:5946
 msgid "Failed to copy image"
 msgstr "Не удалось скопировать изображение"
 
@@ -1380,7 +1381,7 @@ msgstr ""
 
 #: src/ui/picker.rs:1261
 msgid "Stickers people send you appear here."
-msgstr "Здесь появляются стикеры, которые вам отправляют."
+msgstr "Стикеры, которые вам присылают, появятся здесь."
 
 #: src/ui/picker.rs:1276
 msgid "Remove this pack"
@@ -1578,7 +1579,3 @@ msgstr "Сохранить как…"
 #: src/ui/image_preview.rs:175
 msgid "Open in another app"
 msgstr "Открыть в другом приложении"
-
-#, fuzzy
-#~ msgid "Back to the chat"
-#~ msgstr "Отправить этот набор в чат"

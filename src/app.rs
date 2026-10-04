@@ -59,6 +59,24 @@ const VOICE_FETCH_HOLD: Duration = Duration::from_secs(10);
 const CALL_FAREWELL: Duration = Duration::from_secs(4);
 
 /// Orders a call log newest first, with the call id breaking a tie so the order is stable.
+/// The words the worker uses for a fault it names rather than describes.
+///
+/// The worker runs beside the window, not in it, so it has no interface language of its own and
+/// reports in English. A fault it names with fixed words is translated here, where the language is
+/// known; a message it built from runtime detail is shown as it arrived, since only the worker
+/// knows what went into it.
+fn localized_error(locale: crate::i18n::Locale, message: &str) -> String {
+    match message {
+        "ZapFast is not connected to WhatsApp" => {
+            crate::i18n::gettext(locale, "ZapFast is not connected to WhatsApp").into_owned()
+        }
+        "Calls are one to one or group only" => {
+            crate::i18n::gettext(locale, "Calls are one to one or group only").into_owned()
+        }
+        other => other.to_owned(),
+    }
+}
+
 fn sort_calls(calls: &mut [crate::model::CallRecord]) {
     calls.sort_by(|a, b| {
         b.started_at
@@ -2521,7 +2539,7 @@ impl App {
                 Event::Error(message) => {
                     self.sticker_import_pending = false;
                     self.new_contact_pending = false;
-                    self.toast_error(message);
+                    self.toast_error(localized_error(self.locale, &message));
                 }
             }
         }

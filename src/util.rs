@@ -809,6 +809,27 @@ mod tests {
     }
 
     #[test]
+    fn turkish_stamps_are_translated() {
+        let when = Timestamp::from_second(1_700_000_000)
+            .expect("valid")
+            .to_zoned(jiff::tz::TimeZone::UTC);
+        let date = when.date();
+        assert_eq!(
+            stamp_relative_to(Locale::Turkish, date, date.tomorrow().expect("date"), &when),
+            "Dün"
+        );
+        assert_eq!(
+            stamp_relative_to(
+                Locale::Turkish,
+                date,
+                date.checked_add(jiff::Span::new().days(3)).expect("date"),
+                &when
+            ),
+            "Salı"
+        );
+    }
+
+    #[test]
     fn sizes_and_durations_read_naturally() {
         assert_eq!(bytes(512), "512 B");
         assert_eq!(bytes(2_048), "2.0 KB");

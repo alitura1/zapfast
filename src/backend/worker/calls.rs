@@ -1111,11 +1111,21 @@ impl Worker {
         // call we started, and a call that only rang here must not put us on it.
         let participants = call.group_people().and_then(|people| {
             let me = self.me();
-            let others = people
+            // The archive's canonical id is what tells one person from another: a participant
+            // named once by privacy id and once by phone number is counted once.
+            let mut others: Vec<String> = people
                 .iter()
-                .filter(|id| self.canonical_str(id.as_str()) != me)
-                .count() as u32;
-            let count = others + u32::from(account_was_on_call(status));
+                .map(|id| self.canonical_str(id.as_str()))
+                .filter(|id| *id != me)
+                .collect();
+            others.sort_unstable();
+            others.dedup();
+            // A call cut off before it was up never put this account on it, whatever the
+            // service calls the outcome.
+            let was_up = update.started.is_some();
+            let on_call = account_was_on_call(status)
+                && (status != calls::CallOutcome::ConnectionLost || was_up);
+            let count = others.len() as u32 + u32::from(on_call);
             (count > 0).then_some(count)
         });
         self.file_call_entry(CallEntry {
@@ -1868,14 +1878,18 @@ mod tests {
     }
 
     /// A group call this device handled is filed with how many people were on it. One answered
-    /// here counts this account with the members the roster named; one that only rang counts the
-    /// members and not us.
+    /// here counts this account with the members the roster named; one that only rang, and one
+    /// cut off before it came up, count the members and not us.
     #[tokio::test]
     async fn a_group_call_entry_says_how_many_people_were_on_it() {
         use crate::calls::test_offers::{CALL_ID, GROUP, group_offer, member};
         use calls::CallOutcome as Status;
         let _on = calls::override_group_calls(true);
-        for (outcome, expected) in [(Some(Status::Answered), 2), (None, 1)] {
+        for (outcome, expected) in [
+            (Some(Status::Answered), 2),
+            (None, 1),
+            (Some(Status::ConnectionLost), 1),
+        ] {
             let (mut worker, _events, _, _) = super::super::receipt_tests::worker();
             worker.archive.ensure_chat(GROUP, "Book club").unwrap();
             worker.me_lid = Some("200000000000009@lid".to_owned());
